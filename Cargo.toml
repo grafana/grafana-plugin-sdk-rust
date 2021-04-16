@@ -1,5 +1,5 @@
 [package]
-name = "grafana-plugin-sdk-rust"
+name = "grafana-plugin-sdk"
 version = "0.1.0"
 authors = ["Ben Sully <ben@bsull.io>"]
 edition = "2018"
