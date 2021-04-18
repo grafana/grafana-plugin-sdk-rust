@@ -2,4 +2,5 @@ pub mod pluginv2 {
     tonic::include_proto!("pluginv2");
 }
 
-mod data;
+pub mod backend;
+pub mod data;
