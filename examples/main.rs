@@ -63,7 +63,7 @@ impl backend::DataService for MyPluginService {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let addr = "[::1]:10000".parse()?;
-    println!("Plugin server listening on {}", addr);
+    println!("1|2|tcp|{}|grpc", addr);
 
     let plugin = MyPluginService {};
 
