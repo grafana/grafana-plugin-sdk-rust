@@ -105,10 +105,8 @@ pub trait DataQueryError: std::error::Error {
 #[tonic::async_trait]
 pub trait DataService {
     type QueryError: DataQueryError;
-    async fn query_data(
-        &self,
-        queries: Vec<DataQuery>,
-    ) -> Vec<Result<DataResponse, Self::QueryError>>;
+    type Iter: Iterator<Item = Result<DataResponse, Self::QueryError>>;
+    async fn query_data(&self, queries: Vec<DataQuery>) -> Self::Iter;
 }
 
 #[tonic::async_trait]
@@ -129,7 +127,6 @@ where
             .map_err(|e| tonic::Status::invalid_argument(e.to_string()))?;
         let responses = DataService::query_data(self, queries)
             .await
-            .into_iter()
             .map(|resp| match resp {
                 Ok(x) => (
                     x.ref_id.clone(),
