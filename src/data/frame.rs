@@ -21,16 +21,9 @@ impl Frame {
         }
     }
 
-    fn to_arrow(self, ref_id: String) -> Vec<u8> {
+    pub(crate) fn to_arrow(self, ref_id: String) -> Vec<u8> {
         vec![]
     }
-}
-
-pub fn to_arrow(frames: Vec<Frame>, ref_id: String) -> Vec<Vec<u8>> {
-    frames
-        .into_iter()
-        .map(|x| x.to_arrow(ref_id.clone()))
-        .collect()
 }
 
 #[skip_serializing_none]

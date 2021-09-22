@@ -26,21 +26,21 @@ pub struct DataQuery {
     /// An identifier for the type of query.
     ///
     /// This can be used to distinguish different types of queries.
-    query_type: String,
+    pub query_type: String,
 
     /// The maximum number of datapoints that should be returned from a time series query.
-    max_data_points: i64,
+    pub max_data_points: i64,
 
     /// The suggested duration between time points in a time series query.
-    interval: Duration,
+    pub interval: Duration,
 
     /// The start and end of the query requested by the frontend.
-    time_range: TimeRange,
+    pub time_range: TimeRange,
 
     /// The raw JSON query.
     ///
     /// This contains all of the other properties, as well as custom properties.
-    json: Value,
+    pub json: Value,
 }
 
 impl TryFrom<pluginv2::DataQuery> for DataQuery {
