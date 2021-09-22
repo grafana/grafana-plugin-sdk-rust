@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize, Serializer};
 use serde_json::{Map, Value};
+use serde_repr::{Deserialize_repr, Serialize_repr};
 use serde_with::skip_serializing_none;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -24,6 +25,15 @@ impl Frame {
     pub(crate) fn to_arrow(self, ref_id: String) -> Vec<u8> {
         vec![]
     }
+}
+
+#[derive(Clone, Debug, Serialize_repr, Deserialize_repr)]
+#[serde(rename_all = "camelCase")]
+#[repr(u8)]
+pub enum FrameInclude {
+    All = 0,
+    DataOnly = 1,
+    SchemaOnly = 2,
 }
 
 #[skip_serializing_none]
