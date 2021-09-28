@@ -1,9 +1,13 @@
 Grafana Plugin SDK for Rust
 ===========================
 
-This is a very WIP experiment at writing a Grafana Plugin SDK for Rust, similar to the [Grafana Plugin SDK for Go][go].
+This is a Rust implementation of the Grafana Plugin SDK for Rust, similar to the [Grafana Plugin SDK for Go][go].
 
-Currently not much is implemented on top of the protobuf definitions, but this could serve as an example of how to implement a backend datasource or app using Rust; see `examples/main.rs` for a basic example.
+## Status
+
+Many of the pieces are now at least partially implemented, including useful idiomatic wrappers around the main datatypes (`data::Frame`s and `data::Field`s) and services (`backend::DataService` and `backend::StreamService`), which handle serialization of data before it is sent back to Grafana.
+
+See `examples/main.rs` for an example of how to write a basic datasource + streaming plugin.
 
 Related projects
 ----------------
