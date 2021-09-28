@@ -5,7 +5,7 @@ use std::{
     sync::Arc,
 };
 
-use futures_util::{FutureExt, TryStreamExt};
+use futures_util::{FutureExt, StreamExt, TryStreamExt};
 use serde::Serialize;
 use tokio::sync::RwLock;
 
@@ -164,21 +164,15 @@ impl<T> StreamPacket<T>
 where
     T: Serialize,
 {
-    async fn into_plugin_packet(self) -> pluginv2::StreamPacket {
-        // async fn into_plugin_packet(self) -> Result<pluginv2::StreamPacket, serde_json::Error> {
-        pluginv2::StreamPacket {
+    // async fn into_plugin_packet(self) -> pluginv2::StreamPacket {
+    async fn into_plugin_packet(self) -> Result<pluginv2::StreamPacket, serde_json::Error> {
+        Ok(pluginv2::StreamPacket {
             data: match self {
-                Self::Frame(f) => f
-                    .to_json(data::FrameInclude::All)
-                    .expect("couldn't serialize frame as JSON"),
-                Self::MutableFrame(f) => f
-                    .read()
-                    .await
-                    .to_json(data::FrameInclude::All)
-                    .expect("couldn't serialize frame as JSON"),
-                Self::Json(j) => serde_json::to_vec(&j).expect("couldn't serialize packet as JSON"),
+                Self::Frame(f) => f.to_json(data::FrameInclude::All)?,
+                Self::MutableFrame(f) => f.read().await.to_json(data::FrameInclude::All)?,
+                Self::Json(j) => serde_json::to_vec(&j)?,
             },
-        }
+        })
     }
 }
 
@@ -294,7 +288,11 @@ where
         let stream = StreamService::run_stream(self, request)
             .await
             .and_then(|packet: StreamPacket<T::JsonValue>| packet.into_plugin_packet().map(Ok))
-            .map_err(|e| tonic::Status::internal(e.to_string()));
+            .map(|res| match res {
+                Ok(Ok(x)) => Ok(x),
+                Ok(Err(e)) => Err(tonic::Status::internal(e.to_string())),
+                Err(e) => Err(tonic::Status::internal(e.to_string())),
+            });
         Ok(tonic::Response::new(Box::pin(stream)))
     }
 
