@@ -1,11 +1,14 @@
 use std::{
     collections::HashMap,
     convert::{TryFrom, TryInto},
+    io,
+    net::SocketAddr,
 };
 
 use chrono::prelude::*;
 use serde_json::Value;
 use thiserror::Error;
+use tokio::net::TcpListener;
 
 use crate::pluginv2;
 
@@ -24,6 +27,23 @@ pub use stream::{
     PublishStreamRequest, PublishStreamResponse, RunStreamRequest, StreamPacket, StreamService,
     SubscribeStreamRequest, SubscribeStreamResponse, SubscribeStreamStatus,
 };
+
+/// Initialize the plugin, returning the address that the gRPC service should serve on.
+///
+/// The compiled plugin executable is run by Grafana's backend and is expected
+/// to behave as a [go-plugin]. This function initializes the plugin by binding to
+/// an available IPv6 address and printing the address and protocol to stdout,
+/// which the [go-plugin] infrastructure requires.
+///
+/// See [the guide on non-Go languages][guide] more details.
+///
+/// [go-plugin]: https://github.com/hashicorp/go-plugin
+/// [guide]: https://github.com/hashicorp/go-plugin/blob/master/docs/guide-plugin-write-non-go.md
+pub async fn initialize() -> Result<SocketAddr, io::Error> {
+    let address = TcpListener::bind("[::1]:0").await?.local_addr()?;
+    println!("1|2|tcp|{}|grpc", address);
+    Ok(address)
+}
 
 #[derive(Debug, Error)]
 pub enum ConversionError {

@@ -25,7 +25,7 @@ impl Resource for MyPluginService {
 
     async fn call_resource(
         &self,
-        request: Request<CallResourceRequest>,
+        _request: Request<CallResourceRequest>,
     ) -> Result<Response<Self::CallResourceStream>, Status> {
         todo!()
     }
@@ -77,8 +77,15 @@ impl backend::DataService for MyPluginService {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let addr = "[::1]:10000".parse()?;
-    println!("1|2|tcp|{}|grpc", addr);
+    // The compiled executable is run by Grafana's backend and is expected
+    // to behave as a [go-plugin]. The first thing we need to do upon startup
+    // is output the eventual address of our gRPC service to stdout, in a
+    // format understood by go-plugin. See [this guide on non-Go languages][guide]
+    // for more details.
+    //
+    // [go-plugin]: https://github.com/hashicorp/go-plugin
+    // [guide]: https://github.com/hashicorp/go-plugin/blob/master/docs/guide-plugin-write-non-go.md
+    let addr = backend::initialize().await?;
 
     let plugin = MyPluginService {};
 
