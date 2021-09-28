@@ -66,30 +66,54 @@ impl Field {
         })
     }
 
-    pub fn set_values<T, U>(&mut self, values: T) -> Result<(), crate::data::error::Error>
+    pub fn set_values<T, U, V>(&mut self, values: T) -> Result<(), crate::data::error::Error>
     where
         T: IntoIterator<Item = U>,
-        U: FieldType,
-        U::Array: Array + FromIterator<Option<U>> + 'static,
+        U: IntoFieldType<ElementType = V>,
+        V: FieldType,
+        V::Array: Array + FromIterator<Option<V>> + 'static,
     {
-        if &U::ARROW_DATA_TYPE != self.values.data_type() {
-            return Err(crate::data::error::Error::DataTypeMismatch);
+        let new_data_type: DataType = U::TYPE_INFO_TYPE.into();
+        if self.values.data_type() != &new_data_type {
+            return Err(crate::data::error::Error::DataTypeMismatch {
+                existing: self.values.data_type().clone(),
+                new: new_data_type,
+                field: self.name.clone(),
+            });
         }
-        self.values = Arc::new(values.into_iter().map(Some).collect::<U::Array>());
+        self.values = Arc::new(V::convert_arrow_array(
+            values
+                .into_iter()
+                .map(U::into_field_type)
+                .collect::<V::Array>(),
+            new_data_type,
+        ));
         self.type_info.nullable = Some(false);
         Ok(())
     }
 
-    pub fn set_values_opt<T, U>(&mut self, values: T) -> Result<(), crate::data::error::Error>
+    pub fn set_values_opt<T, U, V>(&mut self, values: T) -> Result<(), crate::data::error::Error>
     where
         T: IntoIterator<Item = Option<U>>,
-        U: FieldType,
-        U::Array: Array + FromIterator<Option<U>> + 'static,
+        U: IntoFieldType<ElementType = V>,
+        V: FieldType,
+        V::Array: Array + FromIterator<Option<V>> + 'static,
     {
-        if &U::ARROW_DATA_TYPE != self.values.data_type() {
-            return Err(crate::data::error::Error::DataTypeMismatch);
+        let new_data_type: DataType = U::TYPE_INFO_TYPE.into();
+        if self.values.data_type() != &new_data_type {
+            return Err(crate::data::error::Error::DataTypeMismatch {
+                existing: self.values.data_type().clone(),
+                new: new_data_type,
+                field: self.name.clone(),
+            });
         }
-        self.values = Arc::new(values.into_iter().collect::<U::Array>());
+        self.values = Arc::new(V::convert_arrow_array(
+            values
+                .into_iter()
+                .map(|x| x.and_then(U::into_field_type))
+                .collect::<V::Array>(),
+            new_data_type,
+        ));
         self.type_info.nullable = Some(true);
         Ok(())
     }

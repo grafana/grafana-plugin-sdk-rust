@@ -163,7 +163,12 @@ impl<'a> Serialize for SerializableArray<'a> {
             DataType::Int16 => serializer.collect_seq(primitive_array_iter::<i16>(array)),
             DataType::Int32 => serializer.collect_seq(primitive_array_iter::<i32>(array)),
             DataType::Int64 => serializer.collect_seq(primitive_array_iter::<i64>(array)),
-            DataType::Timestamp(..) => serializer.collect_seq(primitive_array_iter::<i64>(array)),
+            DataType::Timestamp(..) => {
+                // Timestamps should be serialized to JSON as milliseconds.
+                serializer.collect_seq(
+                    primitive_array_iter::<i64>(array).map(|opt| opt.map(|x| x / 1000 / 1000)),
+                )
+            }
             DataType::UInt8 => serializer.collect_seq(primitive_array_iter::<u8>(array)),
             DataType::UInt16 => serializer.collect_seq(primitive_array_iter::<u16>(array)),
             DataType::UInt32 => serializer.collect_seq(primitive_array_iter::<u32>(array)),

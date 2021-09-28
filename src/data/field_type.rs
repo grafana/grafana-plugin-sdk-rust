@@ -1,6 +1,6 @@
 use arrow2::{
     array::{PrimitiveArray, Utf8Array},
-    datatypes::DataType,
+    datatypes::{DataType, TimeUnit},
 };
 use chrono::{DateTime, Offset, TimeZone};
 
@@ -69,6 +69,19 @@ impl_fieldtype_for_primitive!(f32, DataType::Float32, TypeInfoType::Float32);
 impl_fieldtype_for_primitive!(f64, DataType::Float64, TypeInfoType::Float64);
 
 // DateTime impls.
+
+impl<T> FieldType for DateTime<T>
+where
+    T: Offset + TimeZone,
+{
+    type Array = PrimitiveArray<i64>;
+    const ARROW_DATA_TYPE: DataType = DataType::Timestamp(TimeUnit::Nanosecond, None);
+
+    /// Convert the logical type of `Self::Array` to `DataType::Timestamp`.
+    fn convert_arrow_array(array: Self::Array, data_type: DataType) -> Self::Array {
+        array.to(data_type)
+    }
+}
 
 impl<T> IntoFieldType for DateTime<T>
 where
