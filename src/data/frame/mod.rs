@@ -169,7 +169,7 @@ pub struct Metadata {
     pub channel: Option<String>,
 
     /// The preferred visualisation option when used in Grafana's Explore mode.
-    #[serde(default)]
+    #[serde(rename = "preferredVisualisationType", default)]
     pub preferred_visualisation: Option<VisType>,
 
     /// The raw query sent to the underlying system after all macros and templating have been applied.
@@ -180,7 +180,7 @@ pub struct Metadata {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(untagged, rename_all = "camelCase")]
+#[serde(rename_all = "camelCase")]
 /// Visualiation type options understood by Grafana.
 pub enum VisType {
     /// Graph visualisation.
