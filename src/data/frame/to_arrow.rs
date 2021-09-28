@@ -10,7 +10,7 @@ use crate::data::{field::Field, frame::Frame};
 pub enum Error {
     #[error("Error serializing metadata")]
     Json(#[from] serde_json::Error),
-    #[error("Error creating record batch")]
+    #[error("Error creating record batch: {0}")]
     CreateRecordBatch(arrow2::error::ArrowError),
     #[error("Error writing data to Arrow buffer")]
     WriteBuffer(arrow2::error::ArrowError),
