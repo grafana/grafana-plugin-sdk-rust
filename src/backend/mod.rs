@@ -23,6 +23,10 @@ pub use diagnostics::{
     CheckHealthRequest, CheckHealthResponse, CollectMetricsRequest, CollectMetricsResponse,
     DiagnosticsService, HealthStatus,
 };
+pub use pluginv2::{
+    data_server::DataServer, diagnostics_server::DiagnosticsServer,
+    resource_server::ResourceServer, stream_server::StreamServer,
+};
 pub use stream::{
     PublishStreamRequest, PublishStreamResponse, RunStreamRequest, StreamPacket, StreamService,
     SubscribeStreamRequest, SubscribeStreamResponse, SubscribeStreamStatus,

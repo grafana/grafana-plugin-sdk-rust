@@ -1,43 +1,27 @@
-use std::pin::Pin;
+use std::{pin::Pin, sync::Arc, time::Duration};
 
 use chrono::prelude::*;
 use futures::Stream;
 use thiserror::Error;
-use tonic::{transport::Server, Request, Response, Status};
+use tokio::sync::RwLock;
+use tokio_stream::StreamExt;
+use tonic::transport::Server;
 
 use grafana_plugin_sdk::{
     backend,
-    data::prelude::*,
-    pluginv2::{
-        data_server::DataServer,
-        resource_server::{Resource, ResourceServer},
-        CallResourceRequest, CallResourceResponse,
-    },
+    data::{self, prelude::*},
 };
 
 #[derive(Clone, Debug, Default)]
 pub struct MyPluginService {}
 
-#[tonic::async_trait]
-impl Resource for MyPluginService {
-    type CallResourceStream =
-        Pin<Box<dyn Stream<Item = Result<CallResourceResponse, Status>> + Send + Sync + 'static>>;
-
-    async fn call_resource(
-        &self,
-        _request: Request<CallResourceRequest>,
-    ) -> Result<Response<Self::CallResourceStream>, Status> {
-        todo!()
-    }
-}
-
 #[derive(Debug, Error)]
 #[error("Error querying backend for {}", .ref_id)]
-pub struct Error {
+pub struct QueryError {
     ref_id: String,
 }
 
-impl backend::DataQueryError for Error {
+impl backend::DataQueryError for QueryError {
     fn ref_id(self) -> String {
         self.ref_id
     }
@@ -45,7 +29,7 @@ impl backend::DataQueryError for Error {
 
 #[tonic::async_trait]
 impl backend::DataService for MyPluginService {
-    type QueryError = Error;
+    type QueryError = QueryError;
     type Iter = std::iter::Map<
         std::vec::IntoIter<backend::DataQuery>,
         fn(backend::DataQuery) -> Result<backend::DataResponse, Self::QueryError>,
@@ -75,6 +59,75 @@ impl backend::DataService for MyPluginService {
     }
 }
 
+#[derive(Debug, Error)]
+#[error("Error streaming data")]
+pub struct StreamError;
+
+#[tonic::async_trait]
+impl backend::StreamService for MyPluginService {
+    type JsonValue = ();
+    async fn subscribe_stream(
+        &self,
+        request: backend::SubscribeStreamRequest,
+    ) -> backend::SubscribeStreamResponse {
+        eprintln!("Subscribing to stream");
+        let status = if request.path == "stream" {
+            backend::SubscribeStreamStatus::Ok
+        } else {
+            backend::SubscribeStreamStatus::NotFound
+        };
+        backend::SubscribeStreamResponse {
+            status,
+            initial_data: None,
+        }
+    }
+
+    type StreamError = StreamError;
+    type Stream = Pin<
+        Box<
+            dyn Stream<Item = Result<backend::StreamPacket, Self::StreamError>>
+                + Send
+                + Sync
+                + 'static,
+        >,
+    >;
+    async fn run_stream(&self, _request: backend::RunStreamRequest) -> Self::Stream {
+        eprintln!("Running stream");
+        let mut frame = data::Frame::new("foo".to_string());
+        let initial_data: [u32; 0] = [];
+        frame.add_field(initial_data.into_field().name("x".to_string()));
+        let mut x = 0u32;
+        let n = 3;
+        let frame = Arc::new(RwLock::new(frame));
+        Box::pin(
+            async_stream::stream! {
+                loop {
+                    let frame = Arc::clone(&frame);
+                    if frame.write().await.fields[0]
+                        .set_values(x..(x + n))
+                        .is_ok()
+                    {
+                        eprintln!("Yielding frame from {} to {}", x, x+n);
+                        x = x + n;
+                        yield Ok(backend::StreamPacket::MutableFrame(frame))
+                    } else {
+                        yield Err(StreamError)
+                    }
+                }
+            }
+            .throttle(Duration::from_secs(1)),
+        )
+    }
+
+    async fn publish_stream(
+        &self,
+        _request: backend::PublishStreamRequest,
+    ) -> backend::PublishStreamResponse {
+        eprintln!("Publishing to stream");
+        todo!()
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // The compiled executable is run by Grafana's backend and is expected
@@ -89,21 +142,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let plugin = MyPluginService {};
 
-    let resource_svc = ResourceServer::new(plugin.clone());
-    let data_svc = DataServer::new(plugin.clone());
+    let data_svc = backend::DataServer::new(plugin.clone());
+    let stream_svc = backend::StreamServer::new(plugin.clone());
 
     let (mut health_reporter, health_service) = tonic_health::server::health_reporter();
     health_reporter
-        .set_serving::<ResourceServer<MyPluginService>>()
+        .set_serving::<backend::DataServer<MyPluginService>>()
         .await;
     health_reporter
-        .set_serving::<DataServer<MyPluginService>>()
+        .set_serving::<backend::StreamServer<MyPluginService>>()
         .await;
 
     Server::builder()
         .add_service(health_service)
-        .add_service(resource_svc)
         .add_service(data_svc)
+        .add_service(stream_svc)
         .serve(addr)
         .await?;
 
