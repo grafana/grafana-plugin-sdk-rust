@@ -16,7 +16,6 @@ num-traits = "0.2.14"
 prost = "0.7.0"
 serde = { version = "1.0.125", features = ["derive"] }
 serde_json = { version = "1.0.64", features = ["raw_value"] }
-serde_repr = "0.1.7"
 serde_with = "1.7.0"
 thiserror = "1.0.24"
 tonic = "0.4.2"
