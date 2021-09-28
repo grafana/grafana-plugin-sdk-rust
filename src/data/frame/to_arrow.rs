@@ -54,9 +54,11 @@ impl Frame {
         .map_err(Error::CreateRecordBatch)?;
 
         let mut buf = Vec::new();
-        let mut writer = FileWriter::try_new(&mut buf, &schema).map_err(Error::WriteBuffer)?;
-        writer.write(&records).map_err(Error::WriteBuffer)?;
-        writer.finish().map_err(Error::WriteBuffer)?;
+        {
+            let mut writer = FileWriter::try_new(&mut buf, &schema).map_err(Error::WriteBuffer)?;
+            writer.write(&records).map_err(Error::WriteBuffer)?;
+            writer.finish().map_err(Error::WriteBuffer)?;
+        }
         Ok(buf)
     }
 }
