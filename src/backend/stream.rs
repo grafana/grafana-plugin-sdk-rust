@@ -59,7 +59,7 @@ impl From<SubscribeStreamStatus> for pluginv2::subscribe_stream_response::Status
 ///
 /// This can be:
 ///
-/// - a [`Frame`], in which case it MUST have the same schema as the data returned in subsequent request to run a stream,
+/// - a [`data::Frame`], in which case it MUST have the same schema as the data returned in subsequent request to run a stream,
 /// - arbitrary JSON
 #[derive(Debug)]
 pub enum InitialData {
@@ -85,7 +85,7 @@ impl TryInto<Vec<u8>> for InitialData {
 ///
 /// This includes a status and some optional initial data for the stream.
 ///
-/// If [`initial_data`] is provided then the requirements in the [`InitialData`] documentation
+/// If `initial_data` is provided then the requirements in the [`InitialData`] documentation
 /// MUST be upheld.
 #[derive(Debug)]
 pub struct SubscribeStreamResponse {
@@ -112,7 +112,7 @@ impl TryInto<pluginv2::SubscribeStreamResponse> for SubscribeStreamResponse {
 /// A request to 'run' a stream, i.e. begin streaming data.
 ///
 /// This is made by Grafana _after_ a stream subscription request has been accepted,
-/// and will include the same [`path`] as the subscription request.
+/// and will include the same `path` as the subscription request.
 #[derive(Debug)]
 pub struct RunStreamRequest {
     /// Metadata about the plugin from which the request originated.
@@ -137,7 +137,7 @@ impl TryFrom<pluginv2::RunStreamRequest> for RunStreamRequest {
 /// A packet of data to be streamed back to the subscribed client.
 ///
 /// Such data can be:
-/// - a [`Frame`], which will be serialized to JSON before being sent back to the client
+/// - a [`data::Frame`], which will be serialized to JSON before being sent back to the client
 /// - arbitrary JSON
 /// - arbitrary bytes.
 ///
@@ -148,13 +148,13 @@ pub enum StreamPacket<T = ()>
 where
     T: Serialize,
 {
-    /// An owned [`Frame`].
+    /// An owned [`data::Frame`].
     ///
     /// This provides the simplest API, but when streaming lots of data
     /// it may be preferable to use the `MutableFrame` variant which allows
-    /// the same `Frame` to be reused.
+    /// the same `data::Frame` to be reused.
     Frame(data::Frame),
-    /// A shared, mutable [`Frame`].
+    /// A shared, mutable [`data::Frame`].
     MutableFrame(Arc<RwLock<data::Frame>>),
     /// JSON data of type `T`.
     Json(T),

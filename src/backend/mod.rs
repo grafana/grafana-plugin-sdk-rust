@@ -28,8 +28,8 @@ pub use pluginv2::{
     resource_server::ResourceServer, stream_server::StreamServer,
 };
 pub use stream::{
-    PublishStreamRequest, PublishStreamResponse, RunStreamRequest, StreamPacket, StreamService,
-    SubscribeStreamRequest, SubscribeStreamResponse, SubscribeStreamStatus,
+    InitialData, PublishStreamRequest, PublishStreamResponse, RunStreamRequest, StreamPacket,
+    StreamService, SubscribeStreamRequest, SubscribeStreamResponse, SubscribeStreamStatus,
 };
 
 /// Initialize the plugin, returning the address that the gRPC service should serve on.

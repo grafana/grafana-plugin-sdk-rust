@@ -14,8 +14,8 @@ use crate::{
 
 /// A request for data made by Grafana.
 ///
-/// Details of the request source can be found in [`plugin_context`],
-/// while the actual plugins themselves are in [`queries`].
+/// Details of the request source can be found in `plugin_context`,
+/// while the actual plugins themselves are in `queries`.
 #[derive(Debug)]
 pub struct QueryDataRequest {
     pub plugin_context: backend::PluginContext,
@@ -43,7 +43,7 @@ impl TryFrom<pluginv2::QueryDataRequest> for QueryDataRequest {
 
 /// A query made by Grafana to the plugin as part of a [`QueryDataRequest`].
 ///
-/// The [`json`] field contains any fields set by the plugin's UI.
+/// The `json` field contains any fields set by the plugin's UI.
 #[derive(Debug)]
 pub struct DataQuery {
     /// The unique identifier of the query, set by the frontend call.
@@ -129,7 +129,7 @@ pub trait DataService {
     /// align queries up with any failed requests.
     type QueryError: DataQueryError;
 
-    /// The type of iterator returned by the [`query_data`] method.
+    /// The type of iterator returned by the `query_data` method.
     ///
     /// This will generally be impossible to name directly, so returning the
     /// [`BoxQueryDataResponse`] type alias will probably be more convenient.
