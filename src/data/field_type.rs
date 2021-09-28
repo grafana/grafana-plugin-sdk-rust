@@ -1,6 +1,6 @@
 use arrow2::{
     array::{PrimitiveArray, Utf8Array},
-    datatypes::{DataType, TimeUnit},
+    datatypes::DataType,
 };
 use chrono::{DateTime, Offset, TimeZone};
 
@@ -9,17 +9,29 @@ use crate::data::TypeInfoType;
 pub trait FieldType {
     type Array;
     const ARROW_DATA_TYPE: DataType;
-    const TYPE_INFO_TYPE: TypeInfoType;
+
+    /// Convert the logical type of `Self::Array`, if needed.
+    ///
+    /// The default implementation is a no-op, but some field types
+    /// may need to implement this.
+    fn convert_arrow_array(array: Self::Array, _data_type: DataType) -> Self::Array {
+        array
+    }
 }
 
 pub trait IntoFieldType {
     type ElementType;
+    const TYPE_INFO_TYPE: TypeInfoType;
     fn into_field_type(self) -> Option<Self::ElementType>;
 }
 
 // Optional impl - a no-op.
-impl<T> IntoFieldType for Option<T> {
+impl<T> IntoFieldType for Option<T>
+where
+    T: IntoFieldType,
+{
     type ElementType = T;
+    const TYPE_INFO_TYPE: TypeInfoType = T::TYPE_INFO_TYPE;
     fn into_field_type(self) -> Option<Self::ElementType> {
         self
     }
@@ -30,11 +42,14 @@ macro_rules! impl_fieldtype_for_primitive {
         impl FieldType for $ty {
             type Array = PrimitiveArray<$ty>;
             const ARROW_DATA_TYPE: DataType = $arrow_ty;
-            const TYPE_INFO_TYPE: TypeInfoType = $type_info;
+            fn convert_arrow_array(array: Self::Array, data_type: DataType) -> Self::Array {
+                array.to(data_type)
+            }
         }
 
         impl IntoFieldType for $ty {
             type ElementType = $ty;
+            const TYPE_INFO_TYPE: TypeInfoType = $type_info;
             fn into_field_type(self) -> Option<Self::ElementType> {
                 Some(self)
             }
@@ -55,20 +70,12 @@ impl_fieldtype_for_primitive!(f64, DataType::Float64, TypeInfoType::Float64);
 
 // DateTime impls.
 
-impl<T> FieldType for DateTime<T>
-where
-    T: Offset + TimeZone,
-{
-    type Array = PrimitiveArray<i64>;
-    const ARROW_DATA_TYPE: DataType = DataType::Timestamp(TimeUnit::Nanosecond, None);
-    const TYPE_INFO_TYPE: TypeInfoType = TypeInfoType::Time;
-}
-
 impl<T> IntoFieldType for DateTime<T>
 where
     T: Offset + TimeZone,
 {
     type ElementType = i64;
+    const TYPE_INFO_TYPE: TypeInfoType = TypeInfoType::Time;
     fn into_field_type(self) -> Option<Self::ElementType> {
         Some(self.timestamp_nanos())
     }
@@ -78,11 +85,11 @@ where
 impl FieldType for &str {
     type Array = Utf8Array<i32>;
     const ARROW_DATA_TYPE: DataType = DataType::Utf8;
-    const TYPE_INFO_TYPE: TypeInfoType = TypeInfoType::String;
 }
 
 impl<'a> IntoFieldType for &'a str {
     type ElementType = &'a str;
+    const TYPE_INFO_TYPE: TypeInfoType = TypeInfoType::String;
     fn into_field_type(self) -> Option<Self::ElementType> {
         Some(self)
     }
@@ -91,11 +98,11 @@ impl<'a> IntoFieldType for &'a str {
 impl FieldType for String {
     type Array = Utf8Array<i32>;
     const ARROW_DATA_TYPE: DataType = DataType::Utf8;
-    const TYPE_INFO_TYPE: TypeInfoType = TypeInfoType::String;
 }
 
 impl IntoFieldType for String {
     type ElementType = String;
+    const TYPE_INFO_TYPE: TypeInfoType = TypeInfoType::String;
     fn into_field_type(self) -> Option<Self::ElementType> {
         Some(self)
     }

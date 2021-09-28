@@ -1,5 +1,5 @@
 /// Serialization of [`Frame`]s to the JSON format.
-use std::{cell::RefCell, collections::HashMap, convert::TryFrom};
+use std::{cell::RefCell, collections::HashMap};
 
 use arrow2::{
     array::{Array, BooleanArray, PrimitiveArray, Utf8Array},
@@ -14,7 +14,7 @@ use serde::{
 use serde_with::skip_serializing_none;
 
 use crate::data::{
-    field::{Field, FieldConfig, SimpleType, TypeInfo, TypeInfoType},
+    field::{Field, FieldConfig, SimpleType, TypeInfo},
     frame::{Frame, Metadata},
 };
 
@@ -225,29 +225,6 @@ pub(crate) struct Entities {
     pub(crate) inf: Vec<usize>,
     #[serde(default, rename = "NegInf", skip_serializing_if = "Vec::is_empty")]
     pub(crate) neg_inf: Vec<usize>,
-}
-
-impl TryFrom<&DataType> for TypeInfoType {
-    type Error = ();
-    fn try_from(other: &DataType) -> Result<Self, Self::Error> {
-        Ok(match other {
-            DataType::Int8 => Self::Int8,
-            DataType::Int16 => Self::Int16,
-            DataType::Int32 => Self::Int32,
-            DataType::Int64 => Self::Int64,
-            DataType::UInt8 => Self::UInt8,
-            DataType::UInt16 => Self::UInt16,
-            DataType::UInt32 => Self::UInt32,
-            DataType::UInt64 => Self::UInt64,
-            DataType::Float32 => Self::Float32,
-            DataType::Float64 => Self::Float64,
-            DataType::Utf8 => Self::String,
-            DataType::Boolean => Self::Bool,
-            DataType::Timestamp(..) => Self::Time,
-            // TODO - handle time correctly.
-            _ => return Err(()),
-        })
-    }
 }
 
 #[cfg(test)]

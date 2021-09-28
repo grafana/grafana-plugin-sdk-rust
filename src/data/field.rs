@@ -1,14 +1,20 @@
-use std::{collections::HashMap, iter::FromIterator, sync::Arc};
+use std::{
+    collections::HashMap,
+    convert::{TryFrom, TryInto},
+    iter::FromIterator,
+    sync::Arc,
+};
 
 use arrow2::{
     array::Array,
-    datatypes::{DataType, Field as ArrowField},
+    datatypes::{DataType, Field as ArrowField, TimeUnit},
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use serde_with::skip_serializing_none;
 
 use crate::data::{
+    error,
     field_type::{FieldType, IntoFieldType},
     ConfFloat64,
 };
@@ -52,7 +58,7 @@ impl Field {
         };
         Ok(ArrowField {
             name: self.name.clone().unwrap_or_default(),
-            data_type: self.values.data_type().clone(),
+            data_type: self.type_info.frame.into(),
             nullable: self.type_info.nullable.unwrap_or_default(),
             dict_id: 0,
             dict_is_ordered: false,
@@ -119,37 +125,38 @@ where
             labels: None,
             config: None,
             type_info: TypeInfo {
-                frame: V::TYPE_INFO_TYPE,
+                frame: U::TYPE_INFO_TYPE,
                 nullable: Some(false),
             },
-            values: Arc::new(
+            values: Arc::new(V::convert_arrow_array(
                 self.into_iter()
                     .map(U::into_field_type)
                     .collect::<V::Array>(),
-            ),
+                U::TYPE_INFO_TYPE.into(),
+            )),
         }
     }
 }
 
 pub trait ArrayIntoField {
-    fn into_field(self) -> Field;
+    fn try_into_field(self) -> Result<Field, error::Error>;
 }
 
 impl<T> ArrayIntoField for T
 where
     T: Array + 'static,
 {
-    fn into_field(self) -> Field {
-        Field {
+    fn try_into_field(self) -> Result<Field, error::Error> {
+        Ok(Field {
             name: None,
             labels: None,
             config: None,
             type_info: TypeInfo {
-                frame: TypeInfoType::from_datatype(self.data_type()),
+                frame: self.data_type().try_into()?,
                 nullable: Some(true),
             },
             values: Arc::new(self),
-        }
+        })
     }
 }
 
@@ -170,25 +177,18 @@ where
             labels: None,
             config: None,
             type_info: TypeInfo {
-                frame: V::TYPE_INFO_TYPE,
+                frame: U::TYPE_INFO_TYPE,
                 nullable: Some(true),
             },
-            values: Arc::new(
+            values: Arc::new(V::convert_arrow_array(
                 self.into_iter()
                     .map(|x| x.and_then(U::into_field_type))
                     .collect::<V::Array>(),
-            ),
+                U::TYPE_INFO_TYPE.into(),
+            )),
         }
     }
 }
-
-// pub trait IntoTimestampField {
-//     fn into_field(self) -> Field;
-// }
-
-// impl<T> IntoTimestampField for T
-// where T: IntoIterator<Item = U>,
-//     U
 
 #[skip_serializing_none]
 #[derive(Debug, Deserialize, Serialize)]
@@ -206,7 +206,7 @@ impl TypeInfo {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum TypeInfoType {
     Int8,
@@ -225,9 +225,10 @@ pub enum TypeInfoType {
     Time,
 }
 
-impl TypeInfoType {
-    fn from_datatype(other: &DataType) -> Self {
-        match other {
+impl TryFrom<&DataType> for TypeInfoType {
+    type Error = error::Error;
+    fn try_from(other: &DataType) -> Result<Self, Self::Error> {
+        Ok(match other {
             DataType::Int8 => Self::Int8,
             DataType::Int16 => Self::Int16,
             DataType::Int32 => Self::Int32,
@@ -238,30 +239,31 @@ impl TypeInfoType {
             DataType::UInt64 => Self::UInt64,
             DataType::Float32 => Self::Float32,
             DataType::Float64 => Self::Float64,
-            DataType::Utf8 | DataType::LargeUtf8 => Self::String,
+            DataType::Utf8 => Self::String,
             DataType::Boolean => Self::Bool,
             DataType::Timestamp(..) => Self::Time,
-            DataType::Null
-            | DataType::Float16
-            | DataType::Binary
-            | DataType::FixedSizeBinary(..)
-            | DataType::LargeBinary
-            | DataType::List(..)
-            | DataType::FixedSizeList(..)
-            | DataType::LargeList(..)
-            | DataType::Struct(..)
-            | DataType::Union(..)
-            | DataType::Dictionary(..)
-            | DataType::Decimal(..)
-            | DataType::Extension(..)
-            | DataType::Date32
-            | DataType::Date64
-            | DataType::Time32(..)
-            | DataType::Time64(..)
-            | DataType::Duration(..)
-            | DataType::Interval(..) => {
-                panic!()
-            }
+            // TODO - handle time correctly.
+            other => return Err(error::Error::UnsupportedArrowDataType(other.clone())),
+        })
+    }
+}
+
+impl From<TypeInfoType> for DataType {
+    fn from(other: TypeInfoType) -> Self {
+        match other {
+            TypeInfoType::Int8 => Self::Int8,
+            TypeInfoType::Int16 => Self::Int16,
+            TypeInfoType::Int32 => Self::Int32,
+            TypeInfoType::Int64 => Self::Int64,
+            TypeInfoType::UInt8 => Self::UInt8,
+            TypeInfoType::UInt16 => Self::UInt16,
+            TypeInfoType::UInt32 => Self::UInt32,
+            TypeInfoType::UInt64 => Self::UInt64,
+            TypeInfoType::Float32 => Self::Float32,
+            TypeInfoType::Float64 => Self::Float64,
+            TypeInfoType::String => Self::Utf8,
+            TypeInfoType::Bool => Self::Boolean,
+            TypeInfoType::Time => Self::Timestamp(TimeUnit::Nanosecond, None),
         }
     }
 }
