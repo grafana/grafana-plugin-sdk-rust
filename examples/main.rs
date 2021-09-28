@@ -1,11 +1,13 @@
 use std::pin::Pin;
 
+use chrono::prelude::*;
 use futures::Stream;
 use thiserror::Error;
 use tonic::{transport::Server, Request, Response, Status};
 
 use grafana_plugin_sdk::{
-    backend, data,
+    backend,
+    data::prelude::*,
     pluginv2::{
         data_server::DataServer,
         resource_server::{Resource, ResourceServer},
@@ -48,11 +50,26 @@ impl backend::DataService for MyPluginService {
         std::vec::IntoIter<backend::DataQuery>,
         fn(backend::DataQuery) -> Result<backend::DataResponse, Self::QueryError>,
     >;
-    async fn query_data(&self, queries: Vec<backend::DataQuery>) -> Self::Iter {
-        queries.into_iter().map(|x| {
+    async fn query_data(&self, request: backend::QueryDataRequest) -> Self::Iter {
+        request.queries.into_iter().map(|x| {
+            // Create a single response Frame for each query.
+            // Frames can be created from iterators of fields using [`IntoFrame`].
             Ok(backend::DataResponse::new(
                 x.ref_id,
-                vec![data::Frame::new("foo".to_string())],
+                vec![[
+                    // Fields can be created from iterators of a variety of
+                    // relevant datatypes.
+                    [
+                        Utc.ymd(2021, 1, 1).and_hms(12, 0, 0),
+                        Utc.ymd(2021, 1, 1).and_hms(12, 0, 1),
+                        Utc.ymd(2021, 1, 1).and_hms(12, 0, 2),
+                    ]
+                    .into_field()
+                    .name("time".to_string()),
+                    [1u32, 2, 3].into_field().name("value".to_string()),
+                    ["a", "b", "c"].into_field().name("value".to_string()),
+                ]
+                .into_frame("foo".to_string())],
             ))
         })
     }

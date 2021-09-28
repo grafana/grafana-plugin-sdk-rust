@@ -1,3 +1,4 @@
+#[allow(clippy::all, clippy::nursery, clippy::pedantic)]
 pub mod pluginv2 {
     tonic::include_proto!("pluginv2");
 }
