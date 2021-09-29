@@ -3,7 +3,8 @@ use std::{cell::RefCell, collections::HashMap};
 
 use arrow2::{
     array::{Array, BooleanArray, PrimitiveArray, Utf8Array},
-    datatypes::DataType,
+    datatypes::{DataType, TimeUnit},
+    temporal_conversions::MILLISECONDS_IN_DAY,
     types::NativeType,
 };
 use num_traits::Float;
@@ -163,10 +164,31 @@ impl<'a> Serialize for SerializableArray<'a> {
             DataType::Int16 => serializer.collect_seq(primitive_array_iter::<i16>(array)),
             DataType::Int32 => serializer.collect_seq(primitive_array_iter::<i32>(array)),
             DataType::Int64 => serializer.collect_seq(primitive_array_iter::<i64>(array)),
-            DataType::Timestamp(..) => {
+            DataType::Date32 => serializer.collect_seq(
+                primitive_array_iter::<i32>(array)
+                    .map(|opt| opt.map(|&x| i64::from(x) * MILLISECONDS_IN_DAY)),
+            ),
+            DataType::Date64 => serializer.collect_seq(primitive_array_iter::<i64>(array)),
+            DataType::Timestamp(TimeUnit::Second, _) => {
                 // Timestamps should be serialized to JSON as milliseconds.
                 serializer.collect_seq(
-                    primitive_array_iter::<i64>(array).map(|opt| opt.map(|x| x / 1000 / 1000)),
+                    primitive_array_iter::<i64>(array).map(|opt| opt.map(|x| x * 1_000)),
+                )
+            }
+            DataType::Timestamp(TimeUnit::Millisecond, _) => {
+                // Timestamps should be serialized to JSON as milliseconds.
+                serializer.collect_seq(primitive_array_iter::<i64>(array))
+            }
+            DataType::Timestamp(TimeUnit::Microsecond, _) => {
+                // Timestamps should be serialized to JSON as milliseconds.
+                serializer.collect_seq(
+                    primitive_array_iter::<i64>(array).map(|opt| opt.map(|x| x / 1_000)),
+                )
+            }
+            DataType::Timestamp(TimeUnit::Nanosecond, _) => {
+                // Timestamps should be serialized to JSON as milliseconds.
+                serializer.collect_seq(
+                    primitive_array_iter::<i64>(array).map(|opt| opt.map(|x| x / 1_000_000)),
                 )
             }
             DataType::UInt8 => serializer.collect_seq(primitive_array_iter::<u8>(array)),
@@ -236,7 +258,10 @@ pub(crate) struct Entities {
 mod test {
     use std::sync::Arc;
 
-    use arrow2::array::PrimitiveArray;
+    use arrow2::{
+        array::PrimitiveArray,
+        datatypes::{DataType, TimeUnit},
+    };
     use serde_json::{from_str, json, to_string, to_string_pretty};
 
     use crate::data::{field::*, frame::*};
@@ -265,21 +290,135 @@ mod test {
                 custom: json!({"Hi": "there"}).as_object_mut().map(std::mem::take),
                 ..Default::default()
             }),
-            fields: vec![Field {
-                name: Some("int8_values".to_string()),
-                labels: None,
-                config: None,
-                values: Arc::new(PrimitiveArray::<i8>::from_slice([-128, -128, 0, 127, 127])),
-                type_info: TypeInfo {
-                    frame: TypeInfoType::Int8,
-                    nullable: Some(false),
+            fields: vec![
+                Field {
+                    name: Some("int8_values".to_string()),
+                    labels: None,
+                    config: None,
+                    values: Arc::new(PrimitiveArray::<i8>::from_slice([-128, -128, 0, 127, 127])),
+                    type_info: TypeInfo {
+                        frame: TypeInfoType::Int8,
+                        nullable: Some(false),
+                    },
                 },
-            }],
+                Field {
+                    name: Some("date32_values".to_string()),
+                    labels: None,
+                    config: None,
+                    values: Arc::new(
+                        PrimitiveArray::<i32>::from_slice([18895, 18896, 18897, 18898, 18899])
+                            .to(DataType::Date32),
+                    ),
+                    type_info: TypeInfo {
+                        frame: TypeInfoType::Time,
+                        nullable: Some(false),
+                    },
+                },
+                Field {
+                    name: Some("date64_values".to_string()),
+                    labels: None,
+                    config: None,
+                    values: Arc::new(
+                        PrimitiveArray::<i64>::from_slice([
+                            1632528000000,
+                            1632614400000,
+                            1632700800000,
+                            1632787200000,
+                            1632873600000,
+                        ])
+                        .to(DataType::Date64),
+                    ),
+                    type_info: TypeInfo {
+                        frame: TypeInfoType::Time,
+                        nullable: Some(false),
+                    },
+                },
+                Field {
+                    name: Some("timestamp_s_values".to_string()),
+                    labels: None,
+                    config: None,
+                    values: Arc::new(
+                        PrimitiveArray::<i64>::from_slice([
+                            1632855151, 1632855152, 1632855153, 1632855154, 1632855155,
+                        ])
+                        .to(DataType::Timestamp(TimeUnit::Second, None)),
+                    ),
+                    type_info: TypeInfo {
+                        frame: TypeInfoType::Time,
+                        nullable: Some(false),
+                    },
+                },
+                Field {
+                    name: Some("timestamp_ms_values".to_string()),
+                    labels: None,
+                    config: None,
+                    values: Arc::new(
+                        PrimitiveArray::<i64>::from_slice([
+                            1632855151000,
+                            1632855152000,
+                            1632855153000,
+                            1632855154000,
+                            1632855155000,
+                        ])
+                        .to(DataType::Timestamp(TimeUnit::Millisecond, None)),
+                    ),
+                    type_info: TypeInfo {
+                        frame: TypeInfoType::Time,
+                        nullable: Some(false),
+                    },
+                },
+                Field {
+                    name: Some("timestamp_us_values".to_string()),
+                    labels: None,
+                    config: None,
+                    values: Arc::new(
+                        PrimitiveArray::<i64>::from_slice([
+                            1632855151000000,
+                            1632855152000000,
+                            1632855153000000,
+                            1632855154000000,
+                            1632855155000000,
+                        ])
+                        .to(DataType::Timestamp(TimeUnit::Microsecond, None)),
+                    ),
+                    type_info: TypeInfo {
+                        frame: TypeInfoType::Time,
+                        nullable: Some(false),
+                    },
+                },
+                Field {
+                    name: Some("timestamp_ns_values".to_string()),
+                    labels: None,
+                    config: None,
+                    values: Arc::new(
+                        PrimitiveArray::<i64>::from_slice([
+                            1632855151000000000,
+                            1632855152000000000,
+                            1632855153000000000,
+                            1632855154000000000,
+                            1632855155000000000,
+                        ])
+                        .to(DataType::Timestamp(
+                            TimeUnit::Nanosecond,
+                            Some("+12:00".to_string()),
+                        )),
+                    ),
+                    type_info: TypeInfo {
+                        frame: TypeInfoType::Time,
+                        nullable: Some(false),
+                    },
+                },
+            ],
         };
         let jdoc = to_string_pretty(&f).unwrap();
         println!("{}", &jdoc);
-        let parsed = from_str(&jdoc).unwrap();
-        assert_eq!(f, parsed);
+        let parsed: Frame = from_str(&jdoc).unwrap();
+        let jdoc_again = to_string_pretty(&parsed).unwrap();
+        println!("{}", &jdoc);
+        // Compare the JSON reprs; the internal Arrow datatypes will
+        // be different because the JSON representation is lossy
+        // (we lose timestamp representations and timezones).
+        assert_eq!(jdoc, jdoc_again);
     }
 
     #[test]
@@ -288,6 +427,7 @@ mod test {
         let parsed: Frame = from_str(&jdoc).unwrap();
         let jdoc = to_string(&parsed).unwrap();
         let parsed_again: Frame = from_str(&jdoc).unwrap();
-        assert_eq!(parsed, parsed_again);
+        let jdoc_again = to_string(&parsed_again).unwrap();
+        assert_eq!(jdoc, jdoc_again);
     }
 }

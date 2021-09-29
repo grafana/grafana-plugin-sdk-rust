@@ -121,9 +121,12 @@ impl Field {
 
 #[cfg(test)]
 impl PartialEq for Field {
-    // TODO - actually check values here
     fn eq(&self, other: &Self) -> bool {
-        self.name == other.name && self.labels == other.labels && self.config == other.config
+        self.name == other.name
+            && self.labels == other.labels
+            && self.config == other.config
+            && self.type_info == other.type_info
+            && arrow2::array::equal(&*self.values, &*other.values)
     }
 }
 
@@ -215,7 +218,7 @@ where
 }
 
 #[skip_serializing_none]
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TypeInfo {
     pub(crate) frame: TypeInfoType,
@@ -230,7 +233,7 @@ impl TypeInfo {
     }
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum TypeInfoType {
     Int8,
@@ -475,7 +478,7 @@ mod tests {
     #[test]
     fn create_field_from_array_primitive() {
         let array = PrimitiveArray::<u32>::from_slice([1u32, 2, 3]);
-        let field = array.into_field().name("yhat".to_string());
+        let field = array.try_into_field().unwrap().name("yhat".to_string());
         assert_eq!(field.name.unwrap(), "yhat");
     }
 }
