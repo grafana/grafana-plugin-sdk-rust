@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap,
+    collections::{BTreeMap, HashMap},
     convert::{TryFrom, TryInto},
     iter::FromIterator,
     sync::Arc,
@@ -22,7 +22,7 @@ use crate::data::{
 #[derive(Debug)]
 pub struct Field {
     pub name: Option<String>,
-    pub labels: Option<HashMap<String, String>>,
+    pub labels: Option<BTreeMap<String, String>>,
     pub config: Option<FieldConfig>,
 
     pub(crate) values: Arc<dyn Array>,

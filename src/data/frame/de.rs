@@ -1,6 +1,6 @@
 /// Deserialization of [`Frame`]s from the JSON format.
 use std::{
-    collections::HashMap,
+    collections::BTreeMap,
     convert::{TryFrom, TryInto},
     fmt,
     marker::PhantomData,
@@ -114,7 +114,7 @@ struct Field {
     #[serde(default)]
     name: Option<String>,
     #[serde(default)]
-    labels: Option<HashMap<String, String>>,
+    labels: Option<BTreeMap<String, String>>,
     #[serde(default)]
     config: Option<FieldConfig>,
     #[serde(rename = "type")]

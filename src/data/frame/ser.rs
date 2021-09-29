@@ -1,5 +1,5 @@
 /// Serialization of [`Frame`]s to the JSON format.
-use std::{cell::RefCell, collections::HashMap};
+use std::{cell::RefCell, collections::BTreeMap};
 
 use arrow2::{
     array::{Array, BooleanArray, PrimitiveArray, Utf8Array},
@@ -74,7 +74,7 @@ pub(super) struct SerializableFrameSchema<'a> {
 #[serde(rename_all = "camelCase")]
 pub(super) struct SerializableField<'a> {
     pub name: Option<&'a str>,
-    pub labels: Option<&'a HashMap<String, String>>,
+    pub labels: Option<&'a BTreeMap<String, String>>,
     pub config: Option<&'a FieldConfig>,
     #[serde(rename = "type")]
     pub type_: SimpleType,
@@ -262,6 +262,7 @@ mod test {
         array::PrimitiveArray,
         datatypes::{DataType, TimeUnit},
     };
+    use pretty_assertions::assert_eq;
     use serde_json::{from_str, json, to_string, to_string_pretty};
 
     use crate::data::{field::*, frame::*};
@@ -425,9 +426,10 @@ mod test {
     fn round_trip_full() {
         let jdoc = include_str!("golden.json");
         let parsed: Frame = from_str(&jdoc).unwrap();
-        let jdoc = to_string(&parsed).unwrap();
+        println!("{:?}", parsed);
+        let jdoc = to_string_pretty(&parsed).unwrap();
+        println!("{}", jdoc);
         let parsed_again: Frame = from_str(&jdoc).unwrap();
-        let jdoc_again = to_string(&parsed_again).unwrap();
-        assert_eq!(jdoc, jdoc_again);
+        assert_eq!(parsed, parsed_again);
     }
 }
