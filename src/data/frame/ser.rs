@@ -29,8 +29,8 @@ impl Serialize for Frame {
             .iter()
             .map(|f| {
                 Ok(SerializableField {
-                    name: f.name.as_deref(),
-                    labels: f.labels.as_ref(),
+                    name: f.name.as_str(),
+                    labels: &f.labels,
                     config: f.config.as_ref(),
                     type_: f.type_info.simple_type(),
                     type_info: &f.type_info,
@@ -73,8 +73,8 @@ pub(super) struct SerializableFrameSchema<'a> {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(super) struct SerializableField<'a> {
-    pub name: Option<&'a str>,
-    pub labels: Option<&'a BTreeMap<String, String>>,
+    pub name: &'a str,
+    pub labels: &'a BTreeMap<String, String>,
     pub config: Option<&'a FieldConfig>,
     #[serde(rename = "type")]
     pub type_: SimpleType,
@@ -293,8 +293,8 @@ mod test {
             }),
             fields: vec![
                 Field {
-                    name: Some("int8_values".to_string()),
-                    labels: None,
+                    name: "int8_values".to_string(),
+                    labels: Default::default(),
                     config: None,
                     values: Arc::new(PrimitiveArray::<i8>::from_slice([-128, -128, 0, 127, 127])),
                     type_info: TypeInfo {
@@ -303,8 +303,8 @@ mod test {
                     },
                 },
                 Field {
-                    name: Some("date32_values".to_string()),
-                    labels: None,
+                    name: "date32_values".to_string(),
+                    labels: Default::default(),
                     config: None,
                     values: Arc::new(
                         PrimitiveArray::<i32>::from_slice([18895, 18896, 18897, 18898, 18899])
@@ -316,8 +316,8 @@ mod test {
                     },
                 },
                 Field {
-                    name: Some("date64_values".to_string()),
-                    labels: None,
+                    name: "date64_values".to_string(),
+                    labels: Default::default(),
                     config: None,
                     values: Arc::new(
                         PrimitiveArray::<i64>::from_slice([
@@ -335,8 +335,8 @@ mod test {
                     },
                 },
                 Field {
-                    name: Some("timestamp_s_values".to_string()),
-                    labels: None,
+                    name: "timestamp_s_values".to_string(),
+                    labels: Default::default(),
                     config: None,
                     values: Arc::new(
                         PrimitiveArray::<i64>::from_slice([
@@ -350,8 +350,8 @@ mod test {
                     },
                 },
                 Field {
-                    name: Some("timestamp_ms_values".to_string()),
-                    labels: None,
+                    name: "timestamp_ms_values".to_string(),
+                    labels: Default::default(),
                     config: None,
                     values: Arc::new(
                         PrimitiveArray::<i64>::from_slice([
@@ -369,8 +369,8 @@ mod test {
                     },
                 },
                 Field {
-                    name: Some("timestamp_us_values".to_string()),
-                    labels: None,
+                    name: "timestamp_us_values".to_string(),
+                    labels: Default::default(),
                     config: None,
                     values: Arc::new(
                         PrimitiveArray::<i64>::from_slice([
@@ -388,8 +388,8 @@ mod test {
                     },
                 },
                 Field {
-                    name: Some("timestamp_ns_values".to_string()),
-                    labels: None,
+                    name: "timestamp_ns_values".to_string(),
+                    labels: Default::default(),
                     config: None,
                     values: Arc::new(
                         PrimitiveArray::<i64>::from_slice([

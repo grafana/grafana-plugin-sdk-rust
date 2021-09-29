@@ -1,3 +1,4 @@
+/// Contains the `Field` struct, which holds actual data in the form of Arrow arrays, as well as column-specific metadata.
 use std::{
     collections::{BTreeMap, HashMap},
     convert::{TryFrom, TryInto},
@@ -19,45 +20,62 @@ use crate::data::{
     ConfFloat64,
 };
 
+/// A typed column within a [`Frame`].
+///
+/// The underlying data for this field can be read using the [`Field::values`] method,
+/// and updated using the [`Field::set_values`] and [`Field::set_values_opt`] methods.
 #[derive(Debug)]
 pub struct Field {
-    pub name: Option<String>,
-    pub labels: Option<BTreeMap<String, String>>,
+    /// The name of this field.
+    ///
+    /// Fields within a [`Frame`] are not required to have unique names, but
+    /// the combination of `name` and `labels` should be unique within a `Frame`
+    /// to ensure proper behaviour in all situations.
+    pub name: String,
+    /// An optional set of key-value pairs that, combined with the name, should uniquely identify a field within a [`Frame`].
+    pub labels: BTreeMap<String, String>,
+    /// Optional display configuration used by Grafana.
     pub config: Option<FieldConfig>,
 
+    /// The actual values of this field.
+    ///
+    /// The types of values contained within the `Array` MUST match the
+    /// type information in `type_info` at all times. The various `into_field`-like
+    /// functions and the `set_values` methods should ensure this.
     pub(crate) values: Arc<dyn Array>,
-
+    /// Type information for this field, as understood by Grafana.
     pub(crate) type_info: TypeInfo,
 }
 
 impl Field {
-    #[must_use]
-    pub fn name(mut self, name: String) -> Self {
-        self.name = Some(name);
-        self
+    pub fn with_name(&mut self, name: String) {
+        self.name = name;
     }
 
     pub(crate) fn to_arrow_field(&self) -> Result<ArrowField, serde_json::Error> {
-        let metadata = match (self.labels.as_ref(), self.config.as_ref()) {
-            (None, None) => None,
-            (Some(l), None) => Some(
-                IntoIterator::into_iter([("labels".to_string(), serde_json::to_string(&l)?)])
-                    .collect(),
+        let metadata = match (self.labels.is_empty(), self.config.as_ref()) {
+            (true, None) => None,
+            (false, None) => Some(
+                IntoIterator::into_iter([(
+                    "labels".to_string(),
+                    serde_json::to_string(&self.labels)?,
+                )])
+                .collect(),
             ),
-            (None, Some(c)) => Some(
+            (false, Some(c)) => Some(
                 IntoIterator::into_iter([("config".to_string(), serde_json::to_string(&c)?)])
                     .collect(),
             ),
-            (Some(l), Some(c)) => Some(
+            (true, Some(c)) => Some(
                 IntoIterator::into_iter([
-                    ("labels".to_string(), serde_json::to_string(&l)?),
+                    ("labels".to_string(), serde_json::to_string(&self.labels)?),
                     ("config".to_string(), serde_json::to_string(&c)?),
                 ])
                 .collect(),
             ),
         };
         Ok(ArrowField {
-            name: self.name.clone().unwrap_or_default(),
+            name: self.name.clone(),
             data_type: self.type_info.frame.into(),
             nullable: self.type_info.nullable.unwrap_or_default(),
             dict_id: 0,
@@ -119,7 +137,6 @@ impl Field {
     }
 }
 
-#[cfg(test)]
 impl PartialEq for Field {
     fn eq(&self, other: &Self) -> bool {
         self.name == other.name
@@ -135,8 +152,9 @@ impl PartialEq for Field {
 // These need to be separate traits because otherwise the impls would conflict,
 // as e.g. `Array` implements `IntoIterator`.
 
+/// Indicates that a [`Field`] can be created from this type.
 pub trait IntoField {
-    fn into_field(self) -> Field;
+    fn into_field(self, name: String) -> Field;
 }
 
 impl<T, U, V> IntoField for T
@@ -146,10 +164,10 @@ where
     V: FieldType,
     V::Array: Array + FromIterator<Option<V>> + 'static,
 {
-    fn into_field(self) -> Field {
+    fn into_field(self, name: String) -> Field {
         Field {
-            name: None,
-            labels: None,
+            name,
+            labels: Default::default(),
             config: None,
             type_info: TypeInfo {
                 frame: U::TYPE_INFO_TYPE,
@@ -166,17 +184,17 @@ where
 }
 
 pub trait ArrayIntoField {
-    fn try_into_field(self) -> Result<Field, error::Error>;
+    fn try_into_field(self, name: String) -> Result<Field, error::Error>;
 }
 
 impl<T> ArrayIntoField for T
 where
     T: Array + 'static,
 {
-    fn try_into_field(self) -> Result<Field, error::Error> {
+    fn try_into_field(self, name: String) -> Result<Field, error::Error> {
         Ok(Field {
-            name: None,
-            labels: None,
+            name,
+            labels: Default::default(),
             config: None,
             type_info: TypeInfo {
                 frame: self.data_type().try_into()?,
@@ -188,7 +206,7 @@ where
 }
 
 pub trait IntoOptField {
-    fn into_opt_field(self) -> Field;
+    fn into_opt_field(self, name: String) -> Field;
 }
 
 impl<'a, T, U, V> IntoOptField for T
@@ -198,10 +216,10 @@ where
     V: FieldType,
     V::Array: Array + FromIterator<Option<V>> + 'static,
 {
-    fn into_opt_field(self) -> Field {
+    fn into_opt_field(self, name: String) -> Field {
         Field {
-            name: None,
-            labels: None,
+            name,
+            labels: Default::default(),
             config: None,
             type_info: TypeInfo {
                 frame: U::TYPE_INFO_TYPE,
@@ -449,36 +467,32 @@ mod tests {
 
     #[test]
     fn create_field_from_vec_primitive() {
-        let field = vec![1u32, 2, 3].into_field().name("yhat".to_string());
-        assert_eq!(field.name.unwrap(), "yhat");
+        let field = vec![1u32, 2, 3].into_field("yhat".to_string());
+        assert_eq!(field.name, "yhat");
     }
 
     #[test]
     fn create_field_from_vec_opt_primitive() {
-        let field = vec![Some(1u32), None, None]
-            .into_opt_field()
-            .name("yhat".to_string());
-        assert_eq!(field.name.unwrap(), "yhat");
+        let field = vec![Some(1u32), None, None].into_opt_field("yhat".to_string());
+        assert_eq!(field.name, "yhat");
     }
 
     #[test]
     fn create_field_from_slice_primitive() {
-        let field = [1u32, 2, 3].into_field().name("yhat".to_string());
-        assert_eq!(field.name.unwrap(), "yhat");
+        let field = [1u32, 2, 3].into_field("yhat".to_string());
+        assert_eq!(field.name, "yhat");
     }
 
     #[test]
     fn create_field_from_slice_opt_primitive() {
-        let field = [Some(1u32), None, None]
-            .into_opt_field()
-            .name("yhat".to_string());
-        assert_eq!(field.name.unwrap(), "yhat");
+        let field = [Some(1u32), None, None].into_opt_field("yhat".to_string());
+        assert_eq!(field.name, "yhat");
     }
 
     #[test]
     fn create_field_from_array_primitive() {
         let array = PrimitiveArray::<u32>::from_slice([1u32, 2, 3]);
-        let field = array.try_into_field().unwrap().name("yhat".to_string());
-        assert_eq!(field.name.unwrap(), "yhat");
+        let field = array.try_into_field("yhat".to_string()).unwrap();
+        assert_eq!(field.name, "yhat");
     }
 }

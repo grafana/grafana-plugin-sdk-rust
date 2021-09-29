@@ -6,6 +6,9 @@ use chrono::{DateTime, Offset, TimeZone};
 
 use crate::data::TypeInfoType;
 
+/// Indicates types that are valid to be stored in a `Field`.
+///
+/// TODO: are these logical or physical types?
 pub trait FieldType {
     type Array;
     const ARROW_DATA_TYPE: DataType;

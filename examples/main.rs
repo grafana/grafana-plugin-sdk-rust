@@ -48,10 +48,9 @@ impl backend::DataService for MyPluginService {
                         Utc.ymd(2021, 1, 1).and_hms(12, 0, 1),
                         Utc.ymd(2021, 1, 1).and_hms(12, 0, 2),
                     ]
-                    .into_field()
-                    .name("time".to_string()),
-                    [1u32, 2, 3].into_field().name("value".to_string()),
-                    ["a", "b", "c"].into_field().name("value".to_string()),
+                    .into_field("time".to_string()),
+                    [1_u32, 2, 3].into_field("x".to_string()),
+                    ["a", "b", "c"].into_field("y".to_string()),
                 ]
                 .into_frame("foo".to_string())],
             ))
@@ -95,7 +94,7 @@ impl backend::StreamService for MyPluginService {
         eprintln!("Running stream");
         let mut frame = data::Frame::new("foo".to_string());
         let initial_data: [u32; 0] = [];
-        frame.add_field(initial_data.into_field().name("x".to_string()));
+        frame.add_field(initial_data.into_field("x".to_string()));
         let mut x = 0u32;
         let n = 3;
         let frame = Arc::new(RwLock::new(frame));

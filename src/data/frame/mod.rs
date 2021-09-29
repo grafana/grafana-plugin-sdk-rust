@@ -78,8 +78,8 @@ impl Frame {
             .fields
             .iter()
             .map(|f| SerializableField {
-                name: f.name.as_deref(),
-                labels: f.labels.as_ref(),
+                name: &f.name,
+                labels: &f.labels,
                 config: f.config.as_ref(),
                 type_: f.type_info.simple_type(),
                 type_info: &f.type_info,

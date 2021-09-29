@@ -112,9 +112,9 @@ impl<'de> Deserialize<'de> for Frame {
 #[serde(rename_all = "camelCase")]
 struct Field {
     #[serde(default)]
-    name: Option<String>,
+    name: String,
     #[serde(default)]
-    labels: Option<BTreeMap<String, String>>,
+    labels: BTreeMap<String, String>,
     #[serde(default)]
     config: Option<FieldConfig>,
     #[serde(rename = "type")]
