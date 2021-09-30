@@ -26,7 +26,7 @@ pub mod pluginv2 {
 pub mod backend;
 pub mod data;
 
-/// Contains useful helper traits for constructing [`Field`]s and [`Frame`]s.
+/// Contains useful helper traits for constructing [`Field`][data::Field]s and [`Frame`][data::Frame]s.
 pub mod prelude {
     pub use crate::data::IntoFrame;
     pub use crate::data::{ArrayIntoField, IntoField, IntoOptField};
