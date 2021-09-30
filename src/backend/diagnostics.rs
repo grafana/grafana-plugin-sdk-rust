@@ -85,13 +85,43 @@ pub struct CollectMetricsRequest {
     pub plugin_context: Option<PluginContext>,
 }
 
+impl TryFrom<pluginv2::CollectMetricsRequest> for CollectMetricsRequest {
+    type Error = ConversionError;
+    fn try_from(other: pluginv2::CollectMetricsRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+            plugin_context: other.plugin_context.map(TryInto::try_into).transpose()?,
+        })
+    }
+}
+
+/// Metrics collected from a plugin as part of a collect metrics.
+pub struct Payload {
+    /// The metrics, in Prometheus text exposition format.
+    pub prometheus: Vec<u8>,
+}
+
+impl From<Payload> for pluginv2::collect_metrics_response::Payload {
+    fn from(other: Payload) -> Self {
+        Self {
+            prometheus: other.prometheus,
+        }
+    }
+}
+
 /// A response to a metric collection request.
 ///
 /// This is unimplemented and subject to change.
-// TODO: add proper Prometheus support.
 pub struct CollectMetricsResponse {
-    /// The metrics collected from Prometheus, in text exposition format.
-    pub metrics: String,
+    /// The metrics collected from the plugin.
+    pub metrics: Option<Payload>,
+}
+
+impl From<CollectMetricsResponse> for pluginv2::CollectMetricsResponse {
+    fn from(other: CollectMetricsResponse) -> Self {
+        Self {
+            metrics: other.metrics.map(Into::into),
+        }
+    }
 }
 
 /// Trait for services that provide a health check and/or metric collection endpoint.
@@ -128,7 +158,10 @@ pub trait DiagnosticsService {
     /// Collect metrics for a plugin.
     ///
     /// See `https://grafana.com/docs/grafana/latest/developers/plugins/backend/#collect-metrics`.
-    async fn collect_metrics(&self) -> Result<CollectMetricsResponse, Self::CollectMetricsError>;
+    async fn collect_metrics(
+        &self,
+        request: CollectMetricsRequest,
+    ) -> Result<CollectMetricsResponse, Self::CollectMetricsError>;
 }
 
 #[tonic::async_trait]
@@ -154,10 +187,15 @@ where
 
     async fn collect_metrics(
         &self,
-        _request: tonic::Request<pluginv2::CollectMetricsRequest>,
+        request: tonic::Request<pluginv2::CollectMetricsRequest>,
     ) -> Result<tonic::Response<pluginv2::CollectMetricsResponse>, tonic::Status> {
-        Err(tonic::Status::unimplemented(
-            "Metric collection is not yet implemented in the Rust SDK.",
-        ))
+        let request = request
+            .into_inner()
+            .try_into()
+            .map_err(ConversionError::into_tonic_status)?;
+        let response = DiagnosticsService::collect_metrics(self, request)
+            .await
+            .map_err(|e| tonic::Status::internal(e.to_string()))?;
+        Ok(tonic::Response::new(response.into()))
     }
 }
