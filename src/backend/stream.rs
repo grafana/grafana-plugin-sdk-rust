@@ -309,23 +309,14 @@ where
         &self,
         request: tonic::Request<pluginv2::SubscribeStreamRequest>,
     ) -> Result<tonic::Response<pluginv2::SubscribeStreamResponse>, tonic::Status> {
-        eprintln!("SDK Subscribing to stream; request: {:?}", request);
         let request = request
             .into_inner()
             .try_into()
             .map_err(ConversionError::into_tonic_status)?;
-        eprintln!(
-            "SDK Subscribing to stream; converted request: {:?}",
-            request
-        );
         let response = StreamService::subscribe_stream(self, request)
             .await
             .try_into()
             .map_err(ConversionError::into_tonic_status)?;
-        eprintln!(
-            "SDK Subscribing to stream; converted response: {:?}",
-            response
-        );
         Ok(tonic::Response::new(response))
     }
 
