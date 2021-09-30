@@ -1,4 +1,4 @@
-/// Deserialization of [`Frame`]s from the JSON format.
+//! Deserialization of [`Frame`]s from the JSON format.
 use std::{
     collections::BTreeMap,
     convert::{TryFrom, TryInto},
@@ -388,5 +388,16 @@ impl WithCapacity for MutableBooleanArray {
 impl<T: Offset> WithCapacity for MutableUtf8Array<T> {
     fn with_capacity(capacity: usize) -> Self {
         Self::with_capacity(capacity)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::data::Frame;
+
+    #[test]
+    fn deserialize_golden() {
+        let jdoc = include_str!("golden.json");
+        let _: Frame = serde_json::from_str(&jdoc).unwrap();
     }
 }

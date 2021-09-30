@@ -1,4 +1,4 @@
-/// SDK types and traits relevant to plugins that query data.
+//! SDK types and traits relevant to plugins that query data.
 use std::{
     collections::HashMap,
     convert::{TryFrom, TryInto},
@@ -18,8 +18,19 @@ use crate::{
 /// while the actual plugins themselves are in `queries`.
 #[derive(Debug)]
 pub struct QueryDataRequest {
+    /// Details of the plugin instance from which the request originated.
+    ///
+    /// If the request originates from a datasource instance, this will
+    /// include details about the datasource instance in the
+    /// `data_source_instance_settings` field.
     pub plugin_context: backend::PluginContext,
+    /// Headers included along with the request by Grafana.
     pub headers: HashMap<String, String>,
+    /// The queries requested by a user or alert.
+    ///
+    /// Each [`DataQuery`] contains a unique `ref_id` field which identifies
+    /// the query to the frontend; this should be included in the corresponding
+    /// `DataResponse` for each query.
     pub queries: Vec<DataQuery>,
 }
 
@@ -135,6 +146,10 @@ pub trait DataService {
     /// [`BoxQueryDataResponse`] type alias will probably be more convenient.
     type Iter: Iterator<Item = Result<DataResponse, Self::QueryError>>;
 
+    /// Query data for an input request.
+    ///
+    /// The request will contain zero or more queries, as well as information about the
+    /// origin of the queries (such as the datasource instance) in the `plugin_context` field.
     async fn query_data(&self, request: QueryDataRequest) -> Self::Iter;
 }
 

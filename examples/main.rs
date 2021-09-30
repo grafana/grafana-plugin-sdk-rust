@@ -1,23 +1,19 @@
-use std::{pin::Pin, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 
 use chrono::prelude::*;
-use futures::Stream;
 use thiserror::Error;
 use tokio::sync::RwLock;
 use tokio_stream::StreamExt;
 use tonic::transport::Server;
 
-use grafana_plugin_sdk::{
-    backend,
-    data::{self, prelude::*},
-};
+use grafana_plugin_sdk::{backend, data, prelude::*};
 
 #[derive(Clone, Debug, Default)]
-pub struct MyPluginService {}
+struct MyPluginService {}
 
 #[derive(Debug, Error)]
 #[error("Error querying backend for {}", .ref_id)]
-pub struct QueryError {
+struct QueryError {
     ref_id: String,
 }
 
@@ -36,7 +32,7 @@ impl backend::DataService for MyPluginService {
     >;
     async fn query_data(&self, request: backend::QueryDataRequest) -> Self::Iter {
         request.queries.into_iter().map(|x| {
-            // Create a single response Frame for each query.
+            // Here we create a single response Frame for each query.
             // Frames can be created from iterators of fields using [`IntoFrame`].
             Ok(backend::DataResponse::new(
                 x.ref_id,
@@ -48,11 +44,11 @@ impl backend::DataService for MyPluginService {
                         Utc.ymd(2021, 1, 1).and_hms(12, 0, 1),
                         Utc.ymd(2021, 1, 1).and_hms(12, 0, 2),
                     ]
-                    .into_field("time".to_string()),
-                    [1_u32, 2, 3].into_field("x".to_string()),
-                    ["a", "b", "c"].into_field("y".to_string()),
+                    .into_field("time"),
+                    [1_u32, 2, 3].into_field("x"),
+                    ["a", "b", "c"].into_field("y"),
                 ]
-                .into_frame("foo".to_string())],
+                .into_frame("foo")],
             ))
         })
     }
@@ -60,7 +56,7 @@ impl backend::DataService for MyPluginService {
 
 #[derive(Debug, Error)]
 #[error("Error streaming data")]
-pub struct StreamError;
+struct StreamError;
 
 #[tonic::async_trait]
 impl backend::StreamService for MyPluginService {
@@ -82,19 +78,12 @@ impl backend::StreamService for MyPluginService {
     }
 
     type StreamError = StreamError;
-    type Stream = Pin<
-        Box<
-            dyn Stream<Item = Result<backend::StreamPacket, Self::StreamError>>
-                + Send
-                + Sync
-                + 'static,
-        >,
-    >;
+    type Stream = backend::BoxStream<Self::StreamError>;
     async fn run_stream(&self, _request: backend::RunStreamRequest) -> Self::Stream {
         eprintln!("Running stream");
-        let mut frame = data::Frame::new("foo".to_string());
+        let mut frame = data::Frame::new("foo");
         let initial_data: [u32; 0] = [];
-        frame.add_field(initial_data.into_field("x".to_string()));
+        frame.add_field(initial_data.into_field("x"));
         let mut x = 0u32;
         let n = 3;
         let frame = Arc::new(RwLock::new(frame));

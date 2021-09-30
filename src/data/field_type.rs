@@ -1,3 +1,4 @@
+//! Types of field understood by the Grafana plugin SDK.
 use arrow2::{
     array::{PrimitiveArray, Utf8Array},
     datatypes::{DataType, TimeUnit},
@@ -6,7 +7,7 @@ use chrono::{DateTime, Offset, TimeZone};
 
 use crate::data::TypeInfoType;
 
-/// Indicates types that are valid to be stored in a `Field`.
+/// Indicates that a type is can be stored in an Arrow array.
 ///
 /// TODO: are these logical or physical types?
 pub trait FieldType {
@@ -15,16 +16,26 @@ pub trait FieldType {
 
     /// Convert the logical type of `Self::Array`, if needed.
     ///
-    /// The default implementation is a no-op, but some field types
-    /// may need to implement this.
+    /// The default implementation is a no-op, but some field types may need to
+    /// implement this to ensure the underlying boxed Arrow array can be downcast correctly.
     fn convert_arrow_array(array: Self::Array, _data_type: DataType) -> Self::Array {
         array
     }
 }
 
+/// Indicates that a type can be converted to one that is [`FieldType`], and holds associated metadata.
+///
+/// For example, [`DateTime<T>`]s are valid `Field` values, but must first be converted
+/// to nanoseconds-since-the-epoch in i64 values; the original type and corresponding
+/// [`TypeInfoType`] is stored here.
+///
+/// This trait mainly exists to enable smoother APIs when creating [`Field`]s.
 pub trait IntoFieldType {
+    /// The type to which `Self` will be converted when storing values in a `Field`.
     type ElementType;
+    /// The corresponding [`TypeInfoType`] for this original data type.
     const TYPE_INFO_TYPE: TypeInfoType;
+    /// Convert this type into an (optional) field type.
     fn into_field_type(self) -> Option<Self::ElementType>;
 }
 

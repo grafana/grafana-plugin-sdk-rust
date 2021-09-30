@@ -1,3 +1,4 @@
+//! Data types used throughout the SDK.
 use serde::{ser::Serializer, Deserialize, Serialize};
 
 mod error;
@@ -9,11 +10,7 @@ pub use error::Error;
 pub use field::*;
 pub use frame::*;
 
-pub mod prelude {
-    pub use super::field::{ArrayIntoField, IntoField, IntoOptField};
-    pub use super::frame::IntoFrame;
-}
-
+/// A wrapper around an `Option<f64>` used in various backend data structures, with custom NaN and Infinity serialization.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ConfFloat64(#[serde(serialize_with = "serialize_conf_float64")] Option<f64>);
 

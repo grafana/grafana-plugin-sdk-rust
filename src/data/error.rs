@@ -1,21 +1,34 @@
+//! Error types returned by the SDK.
 use arrow2::datatypes::DataType;
 use thiserror::Error;
 
 use super::frame::to_arrow;
 
+/// Errors that can occur when interacting with the Grafana plugin SDK.
 #[derive(Debug, Error)]
 pub enum Error {
+    /// An error has occurred when serializing to Arrow IPC format.
     #[error("Arrow serialization error: {0}")]
     ArrowSerialization(#[from] to_arrow::Error),
+
+    /// There is a datatype mismatch in a field.
+    ///
+    /// This can happen when calling [`Field::set_values`][crate::data::Field::set_values] with an array whose datatype
+    /// does not match the existing array.
     #[error(
         "Data type mismatch in field {} (existing: {existing}, new: {new})",
         field
     )]
     DataTypeMismatch {
+        /// The existing datatype of the field.
         existing: DataType,
+        /// The datatype of the new data.
         new: DataType,
+        /// The name of the field.
         field: String,
     },
+
+    /// A field was created using an Arrow array with a datatype unsupported by Grafana.
     #[error("Unsupported Arrow data type: {0}")]
     UnsupportedArrowDataType(DataType),
 }

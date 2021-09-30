@@ -1,4 +1,4 @@
-/// Contains the `Field` struct, which holds actual data in the form of Arrow arrays, as well as column-specific metadata.
+//! Contains the `Field` struct, which holds actual data in the form of Arrow arrays, as well as column-specific metadata.
 use std::{
     collections::{BTreeMap, HashMap},
     convert::{TryFrom, TryInto},
@@ -20,7 +20,7 @@ use crate::data::{
     ConfFloat64,
 };
 
-/// A typed column within a [`Frame`].
+/// A typed column within a [`Frame`][crate::data::Frame].
 ///
 /// The underlying data for this field can be read using the [`Field::values`] method,
 /// and updated using the [`Field::set_values`] and [`Field::set_values_opt`] methods.
@@ -28,11 +28,11 @@ use crate::data::{
 pub struct Field {
     /// The name of this field.
     ///
-    /// Fields within a [`Frame`] are not required to have unique names, but
-    /// the combination of `name` and `labels` should be unique within a `Frame`
+    /// Fields within a [`Frame`][crate::data::Frame] are not required to have unique names, but
+    /// the combination of `name` and `labels` should be unique within a frame
     /// to ensure proper behaviour in all situations.
     pub name: String,
-    /// An optional set of key-value pairs that, combined with the name, should uniquely identify a field within a [`Frame`].
+    /// An optional set of key-value pairs that, combined with the name, should uniquely identify a field within a [`Frame`][crate::data::Frame].
     pub labels: BTreeMap<String, String>,
     /// Optional display configuration used by Grafana.
     pub config: Option<FieldConfig>,
@@ -48,10 +48,6 @@ pub struct Field {
 }
 
 impl Field {
-    pub fn with_name(&mut self, name: String) {
-        self.name = name;
-    }
-
     pub(crate) fn to_arrow_field(&self) -> Result<ArrowField, serde_json::Error> {
         let metadata = match (self.labels.is_empty(), self.config.as_ref()) {
             (true, None) => None,
@@ -84,6 +80,17 @@ impl Field {
         })
     }
 
+    /// Get the values of this field as a [`&dyn Array`].
+    pub fn values(&self) -> &dyn Array {
+        &*self.values
+    }
+
+    /// Set the values of this frame using an iterator of values.
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`Error::DataTypeMismatch`][error::Error::DataTypeMismatch] if the types of the new data
+    /// do not match the types of the existing data.
     pub fn set_values<T, U, V>(&mut self, values: T) -> Result<(), crate::data::error::Error>
     where
         T: IntoIterator<Item = U>,
@@ -110,6 +117,12 @@ impl Field {
         Ok(())
     }
 
+    /// Set the values of this frame using an iterator of optional values.
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`Error::DataTypeMismatch`][error::Error::DataTypeMismatch] if the types of the new data
+    /// do not match the types of the existing data.
     pub fn set_values_opt<T, U, V>(&mut self, values: T) -> Result<(), crate::data::error::Error>
     where
         T: IntoIterator<Item = Option<U>>,
@@ -154,7 +167,10 @@ impl PartialEq for Field {
 
 /// Indicates that a [`Field`] can be created from this type.
 pub trait IntoField {
-    fn into_field(self, name: String) -> Field;
+    /// Create a [`Field`] from `self`.
+    ///
+    /// The type of the `Field` will depend on the values in `self`.
+    fn into_field<S: Into<String>>(self, name: S) -> Field;
 }
 
 impl<T, U, V> IntoField for T
@@ -164,9 +180,9 @@ where
     V: FieldType,
     V::Array: Array + FromIterator<Option<V>> + 'static,
 {
-    fn into_field(self, name: String) -> Field {
+    fn into_field<S: Into<String>>(self, name: S) -> Field {
         Field {
-            name,
+            name: name.into(),
             labels: Default::default(),
             config: None,
             type_info: TypeInfo {
@@ -183,30 +199,10 @@ where
     }
 }
 
-pub trait ArrayIntoField {
-    fn try_into_field(self, name: String) -> Result<Field, error::Error>;
-}
-
-impl<T> ArrayIntoField for T
-where
-    T: Array + 'static,
-{
-    fn try_into_field(self, name: String) -> Result<Field, error::Error> {
-        Ok(Field {
-            name,
-            labels: Default::default(),
-            config: None,
-            type_info: TypeInfo {
-                frame: self.data_type().try_into()?,
-                nullable: Some(true),
-            },
-            values: Arc::new(self),
-        })
-    }
-}
-
+/// Indicates that a [`Field`] of optional values can be created from this type.
 pub trait IntoOptField {
-    fn into_opt_field(self, name: String) -> Field;
+    /// Create a [`Field`] from `self`, with `None` values marked as null.
+    fn into_opt_field<S: Into<String>>(self, name: S) -> Field;
 }
 
 impl<'a, T, U, V> IntoOptField for T
@@ -216,9 +212,9 @@ where
     V: FieldType,
     V::Array: Array + FromIterator<Option<V>> + 'static,
 {
-    fn into_opt_field(self, name: String) -> Field {
+    fn into_opt_field<S: Into<String>>(self, name: S) -> Field {
         Field {
-            name,
+            name: name.into(),
             labels: Default::default(),
             config: None,
             type_info: TypeInfo {
@@ -235,37 +231,84 @@ where
     }
 }
 
+/// Helper trait for creating a [`Field`] from an [`Array`][arrow2::array::Array].
+pub trait ArrayIntoField {
+    /// Create a `Field` using `self` as the values.
+    ///
+    /// # Errors
+    ///
+    /// This returns an error if the values are not valid field types.
+    fn try_into_field<S: Into<String>>(self, name: S) -> Result<Field, error::Error>;
+}
+
+impl<T> ArrayIntoField for T
+where
+    T: Array + 'static,
+{
+    fn try_into_field<S: Into<String>>(self, name: S) -> Result<Field, error::Error> {
+        Ok(Field {
+            name: name.into(),
+            labels: Default::default(),
+            config: None,
+            type_info: TypeInfo {
+                frame: self.data_type().try_into()?,
+                nullable: Some(true),
+            },
+            values: Arc::new(self),
+        })
+    }
+}
+
+/// The type information for a [`Frame`][crate::data::Frame] as understood by Grafana.
 #[skip_serializing_none]
 #[derive(Debug, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TypeInfo {
+    /// The type, as understood by Grafana.
     pub(crate) frame: TypeInfoType,
+    /// Is this type nullable?
     #[serde(default)]
     pub(crate) nullable: Option<bool>,
 }
 
 impl TypeInfo {
+    /// Get the corresponding [`SimpleType`].
     #[must_use]
     pub const fn simple_type(&self) -> SimpleType {
         self.frame.simple_type()
     }
 }
 
+/// Valid types understood by Grafana.
 #[derive(Clone, Copy, Debug, PartialEq, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum TypeInfoType {
+    /// An 8 bit signed integer.
     Int8,
+    /// A 16 bit signed integer.
     Int16,
+    /// A 32 bit signed integer.
     Int32,
+    /// A 64 bit signed integer.
     Int64,
+    /// An 8 bit unsigned integer.
     UInt8,
+    /// A 16 bit unsigned integer.
     UInt16,
+    /// A 32 bit unsigned integer.
     UInt32,
+    /// A 64 bit unsigned integer.
     UInt64,
+    /// A 32 bit float.
     Float32,
+    /// A 64 bit float.
     Float64,
+    /// A string.
     String,
+    /// A boolean.
     Bool,
+    /// A timestamp, in UTC.
+    // For compatibility with the Go SDK.
     #[serde(rename = "time.Time")]
     Time,
 }
@@ -334,128 +377,206 @@ impl TypeInfoType {
     }
 }
 
+/// The 'simple' type of this data.
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum SimpleType {
+    /// A number.
     Number,
+    /// A boolean.
     Boolean,
+    /// A string.
     String,
+    /// A timestamp.
     Time,
 }
 
+/// The display properties for a [`Field`].
+///
+/// These are used by the Grafana frontend to modify how the field is displayed.
+// This struct needs to match the frontend component defined in:
+// https://github.com/grafana/grafana/blob/master/packages/grafana-data/src/types/dataFrame.ts#L23
+// All properties are optional should be omitted from JSON when empty or not set.
 #[skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FieldConfig {
+    /// Overrides Grafana default naming.
+    ///
+    /// This should not be used from a datasource.
     #[serde(default)]
     pub display_name: Option<String>,
 
+    /// Overrides Grafana default naming in a better way that allows users to further override it easily.
+    ///
+    /// This should be used instead of `display_name` when used from a datasource.
     #[serde(default, rename = "displayNameFromDS")]
     pub display_name_from_ds: Option<String>,
 
+    /// An explicit path to the field in the datasource.
+    ///
+    /// When the frame meta includes a path, this will default to `${frame.meta.path}/${field.name}.
+    ///
+    /// When defined, this value can be used as an identifier within the datasource scope, and
+    /// may be used as an identifier to update values in a subsequent request.
     #[serde(default)]
     pub path: Option<String>,
 
+    /// Human readable field metadata.
     #[serde(default)]
     pub description: Option<String>,
 
+    /// Indicates that the datasource knows how to update this value.
+    #[serde(default)]
+    pub writeable: Option<bool>,
+
+    /// Indicates if the field's data can be filtered by additional calls.
     #[serde(default)]
     pub filterable: Option<bool>,
 
+    /// The string to display to represent this field's unit, such as "Requests/sec".
     #[serde(default)]
     pub unit: Option<String>,
+    /// The number of decimal places to display.
     #[serde(default)]
     pub decimals: Option<u16>,
+    /// The minimum value of fields in the column.
+    ///
+    /// When present the frontend can skip the calculation.
     #[serde(default)]
     pub min: Option<f64>,
+    /// The maximum value of fields in the column.
+    ///
+    /// When present the frontend can skip the calculation.
     #[serde(default)]
     pub max: Option<f64>,
 
+    /// Mappings from input value to display string.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub mappings: Vec<ValueMapping>,
+    /// Mappings from numeric values to states.
     #[serde(default)]
     pub thresholds: Option<ThresholdsConfig>,
 
+    /// Links to use when clicking on a result.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub links: Vec<DataLink>,
 
+    /// An alternative string to use when no value is present.
+    ///
+    /// The default is an empty string.
     #[serde(default)]
     pub no_value: Option<String>,
 
+    /// Panel-specific values.
     #[serde(default, skip_serializing_if = "HashMap::is_empty")]
     pub custom: HashMap<String, Value>,
 }
 
+/// Special values that can be mapped to new text and colour values.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(untagged, rename_all = "camelCase")]
 pub enum SpecialValueMatch {
+    /// Match `true`.
     True,
+    /// Match `false`.
     False,
+    /// Match `null`.
     Null,
+    /// Match `NaN`.
     NaN,
+    /// Match `null` and `NaN`.
     #[serde(rename = "null+nan")]
     NullAndNaN,
+    /// Match empty values.
     Empty,
 }
 
+/// Allows input values to be mapped to text and colour.
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", content = "options", rename_all = "camelCase")]
 pub enum ValueMapping {
+    /// Map strings to new strings directly.
     ValueMapper(HashMap<String, ValueMappingResult>),
+    /// Map special values to new values.
     SpecialValueMapper {
+        /// The input value to match.
         #[serde(rename = "match")]
         match_: SpecialValueMatch,
+        /// The result to be shown instead of the matched value.
         result: ValueMappingResult,
     },
+    /// Map ranges of floats to new values.
     RangeValueMapper {
+        /// The minimum value to match.
         from: ConfFloat64,
+        /// The maximum value to match.
         to: ConfFloat64,
+        /// The result to be shown instead of the matched values.
         result: ValueMappingResult,
     },
 }
 
+/// A new value to be displayed when a [`ValueMapping`] matches an input value.
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ValueMappingResult {
+    /// The text to display.
     #[serde(default)]
     pub text: Option<String>,
+    /// The colour to use when displaying the value.
     #[serde(default)]
     pub color: Option<String>,
+    /// Used for ordering in the UI.
     #[serde(default)]
     pub index: Option<isize>,
 }
 
+/// Configuration for thresholds for a field.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ThresholdsConfig {
+    /// How thresholds should be evaluated.
     pub mode: ThresholdsMode,
+    /// The threshold steps.
     pub steps: Vec<Threshold>,
 }
 
+/// A single step on the threshold list.
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Threshold {
+    /// The upper bound of this threshold.
     pub value: Option<ConfFloat64>,
+    /// The colour to use for this threshold.
     pub color: Option<String>,
+    /// The state of the alert.
     pub state: Option<String>,
 }
 
+/// How thresholds should be evaluated.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum ThresholdsMode {
+    /// Pick thresholds based on the absolute value.
     Absolute,
+    /// Thresholds should be treated as relative to the min/max.
     Percentage,
 }
 
+/// Links to use when clicking on a result.
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DataLink {
+    /// The title text to display.
     pub title: Option<String>,
+    /// Is the target blank?
     pub target_blank: Option<bool>,
+    /// The URL to link to.
     pub url: Option<String>,
 }
 

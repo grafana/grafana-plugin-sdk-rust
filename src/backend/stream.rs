@@ -1,11 +1,11 @@
-/// SDK types and traits relevant to plugins that stream data.
+//! SDK types and traits relevant to plugins that stream data.
 use std::{
     convert::{TryFrom, TryInto},
     pin::Pin,
     sync::Arc,
 };
 
-use futures_util::{FutureExt, StreamExt, TryStreamExt};
+use futures_util::{FutureExt, Stream, StreamExt, TryStreamExt};
 use serde::Serialize;
 use tokio::sync::RwLock;
 
@@ -17,7 +17,14 @@ use crate::{
 /// A request to subscribe to a stream.
 #[derive(Debug)]
 pub struct SubscribeStreamRequest {
+    /// Details of the plugin instance from which the request originated.
+    ///
+    /// If the request originates from a datasource instance, this will
+    /// include details about the datasource instance in the
+    /// `data_source_instance_settings` field.
     pub plugin_context: PluginContext,
+
+    /// The subscription channel path that the request wishes to subscribe to.
     pub path: String,
 }
 
@@ -56,14 +63,13 @@ impl From<SubscribeStreamStatus> for pluginv2::subscribe_stream_response::Status
 }
 
 /// Data returned from an initial request to subscribe to a stream.
-///
-/// This can be:
-///
-/// - a [`data::Frame`], in which case it MUST have the same schema as the data returned in subsequent request to run a stream,
-/// - arbitrary JSON
 #[derive(Debug)]
 pub enum InitialData {
+    /// Return a [`Frame`][data::Frame] containing initial data.
+    ///
+    /// This MUST have the same schema as the data returned in subsequent requests to run the stream.
     Frame(data::Frame, data::FrameInclude),
+    /// Return some arbitrary JSON on stream subscription.
     Json(serde_json::Value),
 }
 
@@ -137,7 +143,7 @@ impl TryFrom<pluginv2::RunStreamRequest> for RunStreamRequest {
 /// A packet of data to be streamed back to the subscribed client.
 ///
 /// Such data can be:
-/// - a [`data::Frame`], which will be serialized to JSON before being sent back to the client
+/// - a [`Frame`][data::Frame], which will be serialized to JSON before being sent back to the client
 /// - arbitrary JSON
 /// - arbitrary bytes.
 ///
@@ -148,16 +154,17 @@ pub enum StreamPacket<T = ()>
 where
     T: Serialize,
 {
-    /// An owned [`data::Frame`].
+    /// An owned [`Frame`][data::Frame].
     ///
     /// This provides the simplest API, but when streaming lots of data
-    /// it may be preferable to use the `MutableFrame` variant which allows
+    /// it may be preferable to use the [`MutableFrame`][Self::MutableFrame] variant which allows
     /// the same `data::Frame` to be reused.
     Frame(data::Frame),
-    /// A shared, mutable [`data::Frame`].
+    /// A shared, mutable [`Frame`][data::Frame].
     MutableFrame(Arc<RwLock<data::Frame>>),
     /// JSON data of type `T`.
     Json(T),
+    // TODO: add MutableJson.
 }
 
 impl<T> StreamPacket<T>
@@ -176,26 +183,17 @@ where
     }
 }
 
-// impl<T> TryInto<pluginv2::StreamPacket> for StreamPacket<'_, T>
-// where
-//     T: Serialize,
-// {
-//     type Error = ConversionError;
-//     fn try_into(self) -> Result<pluginv2::StreamPacket, Self::Error> {
-//         Ok(pluginv2::StreamPacket {
-//             data: match self {
-//                 Self::Frame(f) => f
-//                     .to_json(data::FrameInclude::All)
-//                     .map_err(|source| ConversionError::InvalidFrame { source })?,
-//                 Self::Json(j) => serde_json::to_vec(j).expect("couldn't serialize packet as JSON"),
-//             },
-//         })
-//     }
-// }
+/// Type alias for a pinned, boxed stream of stream packets with a custom error type.
+pub type BoxStream<E, T = ()> =
+    Pin<Box<dyn Stream<Item = Result<StreamPacket<T>, E>> + Send + Sync + 'static>>;
 
 /// A request to publish data to a stream.
 pub struct PublishStreamRequest {
-    /// Metadata about the plugin from which the request originated.
+    /// Details of the plugin instance from which the request originated.
+    ///
+    /// If the request originates from a datasource instance, this will
+    /// include details about the datasource instance in the
+    /// `data_source_instance_settings` field.
     pub plugin_context: PluginContext,
     /// The subscription path; see module level comments for details.
     pub path: String,
@@ -203,9 +201,13 @@ pub struct PublishStreamRequest {
     pub data: serde_json::Value,
 }
 
+/// The status of a publish stream response.
 pub enum PublishStreamStatus {
+    /// The request to publish was accepted.
     Ok,
+    /// The requested path was not found.
     NotFound,
+    /// The user did not have permission to publish to the requested stream.
     PermissionDenied,
 }
 
@@ -219,23 +221,56 @@ impl From<PublishStreamStatus> for pluginv2::publish_stream_response::Status {
     }
 }
 
+/// The response to a stream publish request.
 pub struct PublishStreamResponse {
+    /// The status of the response.
     pub status: PublishStreamStatus,
+    /// Data returned in response to publishing.
     pub data: serde_json::Value,
 }
 
+/// Trait for services that wish to provide uni- or bi-directional streaming.
 #[tonic::async_trait]
 pub trait StreamService {
+    /// Handle requests to begin a subscription to a plugin or datasource managed channel path.
+    ///
+    /// Implementations should check the subscribe permissions of the incoming request, and can
+    /// choose to return some initial data to prepopulate the stream.
+    ///
+    /// `run_stream` will be called shortly after returning a response with [`SubscribeStreamStatus::Ok`].
     async fn subscribe_stream(&self, request: SubscribeStreamRequest) -> SubscribeStreamResponse;
 
+    /// The type of JSON values returned by this stream service.
+    ///
+    /// Each [`StreamPacket`] can return either a [`data::Frame`] or some arbitary JSON. This
+    /// associated type allows the JSON value to be statically typed, if desired.
+    ///
+    /// If the implementation does not intend to return any [`StreamPacket::Json`] variants, this
+    /// can be set to `()`. If the structure of the returned JSON is not statically known, this
+    /// should be set to [`serde_json::Value`].
     type JsonValue: Serialize + Send + Sync;
+
+    /// The type of error that can occur while fetching a stream packet.
     type StreamError: std::error::Error + Send + Sync;
+
+    /// The type of stream returned by `run_stream`.
     type Stream: futures_core::Stream<Item = Result<StreamPacket<Self::JsonValue>, Self::StreamError>>
         + Send
         + Sync
         + 'static;
+
+    /// Begin sending stream packets to a client.
+    ///
+    /// This will be called by Grafana after a successful subscription to a channel path.
+    ///
+    /// When Grafana detects that there are no longer any subscribers to a channel, the stream
+    /// will be terminated until the next active subscriber appears. Stream termination can
+    /// may be slightly delayed.
     async fn run_stream(&self, request: RunStreamRequest) -> Self::Stream;
 
+    /// Handle requests to publish to a plugin or datasource managed channel path (currently unimplemented).
+    ///
+    /// Implementations should check the publish permissions of the incoming request.
     async fn publish_stream(&self, request: PublishStreamRequest) -> PublishStreamResponse;
 }
 

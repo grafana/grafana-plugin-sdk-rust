@@ -1,3 +1,4 @@
+//! Conversion of [`Frame`]s to the Arrow IPC format.
 use std::{collections::HashMap, sync::Arc};
 
 use arrow2::{datatypes::Schema, io::ipc::write::FileWriter, record_batch::RecordBatch};
@@ -5,13 +6,16 @@ use thiserror::Error;
 
 use crate::data::{field::Field, frame::Frame};
 
-/// Errors occurring when serializing
+/// Errors occurring when serializing a [`Frame`] to the Arrow IPC format.
 #[derive(Debug, Error)]
 pub enum Error {
+    /// An error occurred converting the frame's metadata to JSON.
     #[error("Error serializing metadata")]
     Json(#[from] serde_json::Error),
+    /// An error occurred creating the Arrow record batch.
     #[error("Error creating record batch: {0}")]
     CreateRecordBatch(arrow2::error::ArrowError),
+    /// An error occurred when attempting to create or write data to the output buffer.
     #[error("Error writing data to Arrow buffer")]
     WriteBuffer(arrow2::error::ArrowError),
 }

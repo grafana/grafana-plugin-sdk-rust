@@ -21,18 +21,67 @@ pub const TIME_FIELD_NAME: &str = "Time";
 pub const VALUE_FIELD_NAME: &str = "Value";
 
 /// A structured, two-dimensional data frame.
+///
+/// The fields of this struct are public so it can be created manually if desired.
+/// Alternatively, the [`IntoFrame`] trait provides a convenient way to create a
+/// frame from an iterator of [`Field`]s.
+///
+/// # Examples
+///
+/// Creating a Frame directly:
+///
+/// ```rust
+/// use grafana_plugin_sdk::{prelude::*, data::{Frame, Field}};
+///
+/// let field = [1_u32, 2, 3].into_field("x");
+///
+/// let frame = Frame {
+///     name: "direct".to_string(),
+///     fields: vec![field],
+///     meta: None,
+///     ref_id: None,
+/// };
+/// ```
+///
+/// Using the constructor methods:
+///
+/// ```rust
+/// use grafana_plugin_sdk::{prelude::*, data::{Frame, Field}};
+///
+/// let field = [1_u32, 2, 3].into_field("x");
+///
+/// let mut new_frame = Frame::new("new".to_string());
+/// new_frame.add_field(field);
+/// let new_frame_with_metadata = Frame::new_with_metadata("new with metadata", Default::default());
+/// ```
+///
+/// Using the [`IntoFrame`] trait:
+///
+/// ```rust
+/// use grafana_plugin_sdk::prelude::*;
+///
+/// let frame = [
+///     [1_u32, 2, 3].into_field("x"),
+///     ["a", "b", "c"].into_field("y"),
+/// ].into_frame("convenient");
+/// ```
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
 pub struct Frame {
-    /// The name of this [`Frame`].
+    /// The name of this frame.
     pub name: String,
-    /// The fields of this [`Frame`].
+
+    /// The fields of this frame.
     ///
     /// The data in all fields must be of the same length, but may have different types.
     pub fields: Vec<Field>,
-    /// Optional metadata describing this [`Frame`].
+
+    /// Optional metadata describing this frame.
+    ///
+    /// This can include custom metadata.
     pub meta: Option<Metadata>,
-    /// The ID of this [`Frame`], used by the Grafana frontend.
+
+    /// The ID of this frame, used by the Grafana frontend.
     ///
     /// This does not usually need to be provided; it will be filled
     /// in by the SDK when the Frame is returned to Grafana.
@@ -42,9 +91,9 @@ pub struct Frame {
 impl Frame {
     /// Create a new, empty `Frame` with no fields and no metadata.
     #[must_use]
-    pub const fn new(name: String) -> Self {
+    pub fn new<S: Into<String>>(name: S) -> Self {
         Self {
-            name,
+            name: name.into(),
             fields: vec![],
             meta: None,
             ref_id: None,
@@ -53,9 +102,9 @@ impl Frame {
 
     /// Create a new, empty `Frame` with no fields and the given metadata.
     #[must_use]
-    pub const fn new_with_metadata(name: String, metadata: Metadata) -> Self {
+    pub fn new_with_metadata<S: Into<String>>(name: S, metadata: Metadata) -> Self {
         Self {
-            name,
+            name: name.into(),
             fields: vec![],
             meta: Some(metadata),
             ref_id: None,
@@ -64,8 +113,8 @@ impl Frame {
 
     /// Add a field to this frame.
     ///
-    /// This will not fail if the field's data has a different length to any existing fields,
-    /// but this will be checked later before the frame is serialized.
+    /// This method will not fail if the field's data has a different length to any existing fields,
+    /// but this property will be checked later before the frame is serialized.
     pub fn add_field(&mut self, field: Field) {
         self.fields.push(field);
     }
@@ -104,27 +153,49 @@ impl Frame {
     }
 
     /// Set the channel of the frame.
+    ///
+    /// This is used when a frame can be 'upgraded' to a streaming response, to
+    /// tell Grafana that the given channel should be used to subscribe to updates
+    /// to this frame.
     pub fn set_channel(&mut self, channel: String) {
         self.meta = Some(std::mem::take(&mut self.meta).unwrap_or_default());
         self.meta.as_mut().unwrap().channel = Some(channel);
     }
 }
 
+/// Convenience trait for converting iterators of [`Field`]s into a [`Frame`].
+#[cfg_attr(docsrs, doc(notable_trait))]
 pub trait IntoFrame {
-    fn into_frame(self, name: String) -> Frame;
+    /// Create a [`Frame`] with the given name from `self`.
+    fn into_frame<S: Into<String>>(self, name: S) -> Frame;
 }
 
 impl<T> IntoFrame for T
 where
     T: IntoIterator<Item = Field>,
 {
-    fn into_frame(self, name: String) -> Frame {
+    fn into_frame<S: Into<String>>(self, name: S) -> Frame {
         Frame {
-            name,
+            name: name.into(),
             fields: self.into_iter().collect(),
             meta: None,
             ref_id: None,
         }
+    }
+}
+
+/// Convenience trait for creating a [`Frame`] from an iterator of [`Field`]s.
+///
+/// This is the inverse of [`IntoFrame`] and is defined for all implementors of that trait.
+#[cfg_attr(docsrs, doc(notable_trait))]
+pub trait FromFields<T: IntoFrame> {
+    /// Create a [`Frame`] with the given name from `fields`.
+    fn from_fields<S: Into<String>>(name: S, fields: T) -> Frame;
+}
+
+impl<T: IntoFrame> FromFields<T> for Frame {
+    fn from_fields<S: Into<String>>(name: S, fields: T) -> Frame {
+        fields.into_frame(name)
     }
 }
 
@@ -140,6 +211,7 @@ pub enum FrameInclude {
     SchemaOnly,
 }
 
+/// Metadata about a [`Frame`].
 #[skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -179,9 +251,9 @@ pub struct Metadata {
     pub executed_query_string: Option<String>,
 }
 
+/// Visualiation type options understood by Grafana.
 #[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-/// Visualiation type options understood by Grafana.
 pub enum VisType {
     /// Graph visualisation.
     Graph,
@@ -195,41 +267,70 @@ pub enum VisType {
     NodeGraph,
 }
 
+/// A notification to be displayed in Grafana's UI.
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Notice {
+    /// The severity level of this notice.
     #[serde(default)]
-    pub severity: Option<NoticeSeverity>,
+    pub severity: Option<Severity>,
+
+    /// Freeform descriptive text to display on the notice.
     pub text: String,
+
+    /// An optional link to display in the Grafana UI.
+    ///
+    /// Can be an absolute URL or a path relative to Grafana's root URL.
     #[serde(default)]
     pub link: Option<String>,
+
+    /// An optional suggestion for which tab to display in the panel inspector in Grafana's UI.
     #[serde(default)]
     pub inspect: Option<InspectType>,
 }
 
+/// The severity level of a notice.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(untagged, rename_all = "camelCase")]
-pub enum NoticeSeverity {
+#[serde(rename_all = "camelCase")]
+pub enum Severity {
+    /// Informational severity.
     Info,
+    /// Warning severity.
     Warning,
+    /// Error severity.
     Error,
 }
 
+/// A suggestion for which tab to display in the panel inspector in Grafana's UI.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(untagged, rename_all = "camelCase")]
+#[serde(rename_all = "camelCase")]
 pub enum InspectType {
+    /// Do not suggest anything.
     None,
+    /// Suggest the "meta" tab of the panel inspector.
     Meta,
+    /// Suggest the "error" tab of the panel inspector.
     Error,
+    /// Suggest the "data" tab of the panel inspector.
     Data,
+    /// Suggest the "stats" tab of the panel inspector.
     Stats,
 }
 
+/// Used for storing arbitrary statistics metadata related to a query and its results.
+///
+/// Examples include total request time and data processing time.
+///
+/// The `field_config` field's `name` property MUST be set.
+///
+/// This corresponds to the [`QueryResultMetaStat` on the frontend](https://github.com/grafana/grafana/blob/master/packages/grafana-data/src/types/data.ts#L53).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct QueryStat {
     #[serde(flatten)]
+    /// Information used to identify the field to which this statistic applies.
     pub field_config: FieldConfig,
+    /// The actual statistic.
     pub value: ConfFloat64,
 }
