@@ -201,6 +201,20 @@ pub struct PublishStreamRequest {
     pub data: serde_json::Value,
 }
 
+impl TryFrom<pluginv2::PublishStreamRequest> for PublishStreamRequest {
+    type Error = ConversionError;
+    fn try_from(other: pluginv2::PublishStreamRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+            plugin_context: other
+                .plugin_context
+                .ok_or(ConversionError::MissingPluginContext)
+                .and_then(TryInto::try_into)?,
+            path: other.path,
+            data: super::read_json(&other.data)?,
+        })
+    }
+}
+
 /// The status of a publish stream response.
 pub enum PublishStreamStatus {
     /// The request to publish was accepted.
@@ -227,6 +241,18 @@ pub struct PublishStreamResponse {
     pub status: PublishStreamStatus,
     /// Data returned in response to publishing.
     pub data: serde_json::Value,
+}
+
+impl TryInto<pluginv2::PublishStreamResponse> for PublishStreamResponse {
+    type Error = serde_json::Error;
+    fn try_into(self) -> Result<pluginv2::PublishStreamResponse, Self::Error> {
+        let mut response = pluginv2::PublishStreamResponse {
+            status: 0,
+            data: serde_json::to_vec(&self.data)?,
+        };
+        response.set_status(self.status.into());
+        Ok(response)
+    }
 }
 
 /// Trait for services that wish to provide uni- or bi-directional streaming.
@@ -333,10 +359,16 @@ where
 
     async fn publish_stream(
         &self,
-        _request: tonic::Request<pluginv2::PublishStreamRequest>,
+        request: tonic::Request<pluginv2::PublishStreamRequest>,
     ) -> Result<tonic::Response<pluginv2::PublishStreamResponse>, tonic::Status> {
-        Err(tonic::Status::unimplemented(
-            "Stream publishing is not yet implemented in the Rust SDK.",
-        ))
+        let request = request
+            .into_inner()
+            .try_into()
+            .map_err(ConversionError::into_tonic_status)?;
+        let response = StreamService::publish_stream(self, request)
+            .await
+            .try_into()
+            .map_err(|e: serde_json::Error| tonic::Status::internal(e.to_string()))?;
+        Ok(tonic::Response::new(response))
     }
 }
