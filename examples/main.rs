@@ -78,7 +78,7 @@ impl backend::StreamService for MyPluginService {
     }
 
     type StreamError = StreamError;
-    type Stream = backend::BoxStream<Self::StreamError>;
+    type Stream = backend::BoxRunStream<Self::StreamError>;
     async fn run_stream(&self, _request: backend::RunStreamRequest) -> Self::Stream {
         eprintln!("Running stream");
         let mut frame = data::Frame::new("foo");

@@ -40,7 +40,7 @@ impl backend::DataQueryError for QueryError {
 #[tonic::async_trait]
 impl backend::DataService for Plugin {
     type QueryError = QueryError;
-    type Iter = backend::BoxQueryDataResponse<Self::QueryError>;
+    type Iter = backend::BoxDataResponseIter<Self::QueryError>;
     async fn query_data(&self, request: backend::QueryDataRequest) -> Self::Iter {
         Box::new(
             request.queries.into_iter().map(|x| {
