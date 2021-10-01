@@ -1,6 +1,13 @@
-use std::{sync::Arc, time::Duration};
+use std::{
+    sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc,
+    },
+    time::Duration,
+};
 
 use chrono::prelude::*;
+use http::Response;
 use thiserror::Error;
 use tokio::sync::RwLock;
 use tokio_stream::StreamExt;
@@ -9,7 +16,13 @@ use tonic::transport::Server;
 use grafana_plugin_sdk::{backend, data, prelude::*};
 
 #[derive(Clone, Debug, Default)]
-struct MyPluginService {}
+struct MyPluginService(Arc<AtomicUsize>);
+
+impl MyPluginService {
+    fn new() -> Self {
+        Self(Arc::new(AtomicUsize::new(0)))
+    }
+}
 
 #[derive(Debug, Error)]
 #[error("Error querying backend for {}", .ref_id)]
@@ -116,6 +129,32 @@ impl backend::StreamService for MyPluginService {
     }
 }
 
+#[tonic::async_trait]
+impl backend::ResourceService for MyPluginService {
+    type Error = http::Error;
+    type Stream = backend::BoxResourceStream<Self::Error>;
+    async fn call_resource(&self, r: backend::CallResourceRequest) -> Self::Stream {
+        let count = Arc::clone(&self.0);
+        Box::pin(async_stream::stream! {
+            match r.request.uri().path() {
+                "/echo" => {
+                    yield Ok(Response::new(r.request.uri().to_string().into_bytes()));
+                    yield Ok(Response::new(format!("{:?}", r.request.headers()).into_bytes()));
+                    yield Ok(Response::new(r.request.into_body()));
+                },
+                "/count" => {
+                    yield Ok(Response::new(
+                        count.fetch_add(1, Ordering::SeqCst)
+                        .to_string()
+                        .into_bytes()
+                    ))
+                },
+                _ => yield Response::builder().status(404).body(vec![]),
+            }
+        })
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // The compiled executable is run by Grafana's backend and is expected
@@ -128,7 +167,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // [guide]: https://github.com/hashicorp/go-plugin/blob/master/docs/guide-plugin-write-non-go.md
     let addr = backend::initialize().await?;
 
-    let plugin = MyPluginService {};
+    let plugin = MyPluginService::new();
 
     let data_svc = backend::DataServer::new(plugin.clone());
     let stream_svc = backend::StreamServer::new(plugin.clone());

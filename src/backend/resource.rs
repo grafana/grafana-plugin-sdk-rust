@@ -1,5 +1,63 @@
-//! Resource services, which allow backend plugins to handle custom HTTP requests and responses.
+/*! Resource services, which allow backend plugins to handle custom HTTP requests and responses.
 
+# Example
+
+The following shows an example implementation of [`ResourceService`] which handles
+two endpoints:
+- /echo, which echos back the request's URL, headers and body in three responses,
+- /count, which increments the plugin's internal count and returns it in a response.
+
+```rust
+use std::sync::{atomic::{AtomicUsize, Ordering}, Arc};
+
+use async_stream::stream;
+use grafana_plugin_sdk::backend::{
+    BoxResourceStream, CallResourceRequest, ResourceService,
+};
+use http::Response;
+
+struct Plugin(Arc<AtomicUsize>);
+
+impl Plugin {
+    // Increment the counter and return the stringified result in a `Response`.
+    fn inc_and_respond(&self) -> Response<Vec<u8>> {
+        Response::new(
+            self.0
+                .fetch_add(1, Ordering::SeqCst)
+                .to_string()
+                .into_bytes()
+        )
+    }
+}
+
+#[tonic::async_trait]
+impl ResourceService for Plugin {
+    type Error = http::Error;
+    type Stream = BoxResourceStream<Self::Error>;
+    async fn call_resource(&self, r: CallResourceRequest) -> Self::Stream {
+        let count = Arc::clone(&self.0);
+        Box::pin(stream! {
+            match r.request.uri().path() {
+                "/echo" => {
+                    // Note these are three separate responses!
+                    yield Ok(Response::new(r.request.uri().to_string().into_bytes()));
+                    yield Ok(Response::new(format!("{:?}", r.request.headers()).into_bytes()));
+                    yield Ok(Response::new(r.request.into_body()));
+                },
+                "/count" => {
+                    yield Ok(Response::new(
+                        count.fetch_add(1, Ordering::SeqCst)
+                        .to_string()
+                        .into_bytes()
+                    ))
+                },
+                _ => yield Response::builder().status(404).body(vec![]),
+            }
+        })
+    }
+}
+```
+*/
 use std::{
     convert::{TryFrom, TryInto},
     pin::Pin,
@@ -112,10 +170,7 @@ pub trait ResourceService {
     ///
     /// This will generally be impossible to name directly, so returning the
     /// [`BoxResourceStream`] type alias will probably be more convenient.
-    type Stream: futures_core::Stream<Item = Result<Response<Vec<u8>>, Self::Error>>
-        + Send
-        + Sync
-        + 'static;
+    type Stream: futures_core::Stream<Item = Result<Response<Vec<u8>>, Self::Error>> + Send + Sync;
 
     /// Handle a resource request.
     ///
