@@ -143,7 +143,7 @@ pub trait DataService {
     /// The type of iterator returned by the `query_data` method.
     ///
     /// This will generally be impossible to name directly, so returning the
-    /// [`BoxQueryDataResponse`] type alias will probably be more convenient.
+    /// [`BoxDataResponseIter`] type alias will probably be more convenient.
     type Iter: Iterator<Item = Result<DataResponse, Self::QueryError>>;
 
     /// Query data for an input request.
@@ -154,7 +154,7 @@ pub trait DataService {
 }
 
 /// Type alias for a boxed iterator of query responses, useful for returning from [`DataService::query_data`].
-pub type BoxQueryDataResponse<E> = Box<dyn Iterator<Item = Result<backend::DataResponse, E>>>;
+pub type BoxDataResponseIter<E> = Box<dyn Iterator<Item = Result<backend::DataResponse, E>>>;
 
 /// Serialize a slice of frames to Arrow IPC format.
 ///

@@ -99,10 +99,11 @@ use crate::pluginv2;
 
 mod data;
 mod diagnostics;
+mod resource;
 mod stream;
 
 pub use data::{
-    BoxQueryDataResponse, DataQuery, DataQueryError, DataResponse, DataService, QueryDataRequest,
+    BoxDataResponseIter, DataQuery, DataQueryError, DataResponse, DataService, QueryDataRequest,
 };
 pub use diagnostics::{
     CheckHealthRequest, CheckHealthResponse, CollectMetricsRequest, CollectMetricsResponse,
@@ -112,8 +113,9 @@ pub use pluginv2::{
     data_server::DataServer, diagnostics_server::DiagnosticsServer,
     resource_server::ResourceServer, stream_server::StreamServer,
 };
+pub use resource::{BoxResourceStream, CallResourceRequest, ResourceService};
 pub use stream::{
-    BoxStream, InitialData, PublishStreamRequest, PublishStreamResponse, RunStreamRequest,
+    BoxRunStream, InitialData, PublishStreamRequest, PublishStreamResponse, RunStreamRequest,
     StreamPacket, StreamService, SubscribeStreamRequest, SubscribeStreamResponse,
     SubscribeStreamStatus,
 };
@@ -160,6 +162,15 @@ pub enum ConversionError {
         /// The underlying JSON error.
         source: serde_json::Error,
     },
+    /// The resource request was not a valid HTTP request.
+    #[error("invalid HTTP request: {source}")]
+    InvalidRequest {
+        /// The underlying `http` error.
+        source: http::Error,
+    },
+    /// The resource response was not a valid HTTP response.
+    #[error("invalid HTTP response")]
+    InvalidResponse,
     /// The role string provided by Grafana didn't match the roles known by the SDK.
     #[error("Unknown role: {0}")]
     UnknownRole(String),

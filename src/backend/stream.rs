@@ -171,7 +171,6 @@ impl<T> StreamPacket<T>
 where
     T: Serialize,
 {
-    // async fn into_plugin_packet(self) -> pluginv2::StreamPacket {
     async fn into_plugin_packet(self) -> Result<pluginv2::StreamPacket, serde_json::Error> {
         Ok(pluginv2::StreamPacket {
             data: match self {
@@ -184,7 +183,7 @@ where
 }
 
 /// Type alias for a pinned, boxed stream of stream packets with a custom error type.
-pub type BoxStream<E, T = ()> =
+pub type BoxRunStream<E, T = ()> =
     Pin<Box<dyn Stream<Item = Result<StreamPacket<T>, E>> + Send + Sync + 'static>>;
 
 /// A request to publish data to a stream.
@@ -255,7 +254,7 @@ impl TryInto<pluginv2::PublishStreamResponse> for PublishStreamResponse {
     }
 }
 
-/// Trait for services that wish to provide uni- or bi-directional streaming.
+/// Trait for plugins that wish to provide uni- or bi-directional streaming.
 #[tonic::async_trait]
 pub trait StreamService {
     /// Handle requests to begin a subscription to a plugin or datasource managed channel path.
@@ -280,6 +279,9 @@ pub trait StreamService {
     type StreamError: std::error::Error + Send + Sync;
 
     /// The type of stream returned by `run_stream`.
+    ///
+    /// This will generally be impossible to name directly, so returning the
+    /// [`BoxRunStream`] type alias will probably be more convenient.
     type Stream: futures_core::Stream<Item = Result<StreamPacket<Self::JsonValue>, Self::StreamError>>
         + Send
         + Sync
