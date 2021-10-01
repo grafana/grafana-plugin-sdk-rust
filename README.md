@@ -14,5 +14,5 @@ Related projects
 
 The [grafana-rs-datasource] also makes use of the Grafana Plugin SDK protobufs and implements a DataFusion datasource in Rust.
 
-[go]: https://pkg.go.dev/github.com/grafana/grafana-plugin-sdk-go.
+[go]: https://pkg.go.dev/github.com/grafana/grafana-plugin-sdk-go
 [grafana-rs-datasource]: https://github.com/toddtreece/grafana-rs-datasource
