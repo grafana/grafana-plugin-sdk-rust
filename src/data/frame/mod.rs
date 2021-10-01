@@ -31,7 +31,10 @@ pub const VALUE_FIELD_NAME: &str = "Value";
 /// Creating a Frame directly:
 ///
 /// ```rust
-/// use grafana_plugin_sdk::{prelude::*, data::{Frame, Field}};
+/// use grafana_plugin_sdk::{
+///     data::{Field, Frame},
+///     prelude::*,
+/// };
 ///
 /// let field = [1_u32, 2, 3].into_field("x");
 ///
@@ -46,7 +49,10 @@ pub const VALUE_FIELD_NAME: &str = "Value";
 /// Using the constructor methods:
 ///
 /// ```rust
-/// use grafana_plugin_sdk::{prelude::*, data::{Frame, Field}};
+/// use grafana_plugin_sdk::{
+///     data::{Field, Frame},
+///     prelude::*,
+/// };
 ///
 /// let field = [1_u32, 2, 3].into_field("x");
 ///
@@ -63,7 +69,8 @@ pub const VALUE_FIELD_NAME: &str = "Value";
 /// let frame = [
 ///     [1_u32, 2, 3].into_field("x"),
 ///     ["a", "b", "c"].into_field("y"),
-/// ].into_frame("convenient");
+/// ]
+/// .into_frame("convenient");
 /// ```
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
