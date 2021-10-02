@@ -582,30 +582,21 @@ pub struct DataLink {
 
 #[cfg(test)]
 mod tests {
+
+    use chrono::prelude::*;
+
     use arrow2::array::PrimitiveArray;
 
     use super::*;
 
     #[test]
-    fn create_field_from_vec_primitive() {
-        let field = vec![1u32, 2, 3].into_field("yhat".to_string());
-        assert_eq!(field.name, "yhat");
-    }
-
-    #[test]
-    fn create_field_from_vec_opt_primitive() {
-        let field = vec![Some(1u32), None, None].into_opt_field("yhat".to_string());
-        assert_eq!(field.name, "yhat");
-    }
-
-    #[test]
-    fn create_field_from_slice_primitive() {
+    fn create_field_from_primitive() {
         let field = [1u32, 2, 3].into_field("yhat".to_string());
         assert_eq!(field.name, "yhat");
     }
 
     #[test]
-    fn create_field_from_slice_opt_primitive() {
+    fn create_field_from_opt_primitive() {
         let field = [Some(1u32), None, None].into_opt_field("yhat".to_string());
         assert_eq!(field.name, "yhat");
     }
@@ -616,4 +607,44 @@ mod tests {
         let field = array.try_into_field("yhat".to_string()).unwrap();
         assert_eq!(field.name, "yhat");
     }
+
+    #[test]
+    fn create_field_from_iter_datetime_primitive() {
+        let field = [
+            Utc.ymd(2021, 1, 1).and_hms(0, 0, 0),
+            Utc.ymd(2021, 1, 1).and_hms(0, 0, 1),
+            Utc.ymd(2021, 1, 1).and_hms(0, 0, 2),
+        ]
+        .into_field("yhat".to_string());
+        assert_eq!(field.name, "yhat");
+    }
+
+    #[test]
+    fn create_field_from_iter_opt_datetime_primitive() {
+        let field = [
+            Utc.ymd(2021, 1, 1).and_hms(0, 0, 0),
+            Utc.ymd(2021, 1, 1).and_hms(0, 0, 1),
+            Utc.ymd(2021, 1, 1).and_hms(0, 0, 2),
+        ]
+        .map(Some)
+        .into_opt_field("yhat".to_string());
+        assert_eq!(field.name, "yhat");
+    }
+
+    #[test]
+    fn set_values_from_iter_primitive() {
+        let mut field = vec![1u32, 2, 3].into_field("yhat".to_string());
+        assert!(field.set_values([4u32, 5, 6]).is_ok());
+        assert!(field.set_values([4u64, 5, 6]).is_err());
+    }
+
+    // #[test]
+    // fn set_values_from_array_primitive() {
+    //     let array = PrimitiveArray::<u32>::from_slice([1u32, 2, 3]);
+    //     let mut field = array.try_into_field("yhat".to_string()).unwrap();
+    //     let array = PrimitiveArray::<u32>::from_slice([4u32, 5, 6]);
+    //     assert!(field.set_values(array).is_ok());
+    //     let array = PrimitiveArray::<u64>::from_slice([4u64, 5, 6]);
+    //     assert!(field.set_values(array).is_err());
+    // }
 }

@@ -12,6 +12,7 @@ use crate::data::TypeInfoType;
 /// TODO: are these logical or physical types?
 pub trait FieldType {
     type Array;
+    /// The logical arrow data type that an arrow array of this data should have.
     const ARROW_DATA_TYPE: DataType;
 
     /// Convert the logical type of `Self::Array`, if needed.
