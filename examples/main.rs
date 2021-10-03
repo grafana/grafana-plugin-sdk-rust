@@ -11,7 +11,6 @@ use http::Response;
 use thiserror::Error;
 use tokio::sync::RwLock;
 use tokio_stream::StreamExt;
-use tonic::transport::Server;
 
 use grafana_plugin_sdk::{backend, data, prelude::*};
 
@@ -157,34 +156,13 @@ impl backend::ResourceService for MyPluginService {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // The compiled executable is run by Grafana's backend and is expected
-    // to behave as a [go-plugin]. The first thing we need to do upon startup
-    // is output the eventual address of our gRPC service to stdout, in a
-    // format understood by go-plugin. See [this guide on non-Go languages][guide]
-    // for more details.
-    //
-    // [go-plugin]: https://github.com/hashicorp/go-plugin
-    // [guide]: https://github.com/hashicorp/go-plugin/blob/master/docs/guide-plugin-write-non-go.md
-    let addr = backend::initialize().await?;
-
+    let listener = backend::initialize().await?;
     let plugin = MyPluginService::new();
 
-    let data_svc = backend::DataServer::new(plugin.clone());
-    let stream_svc = backend::StreamServer::new(plugin.clone());
-
-    let (mut health_reporter, health_service) = tonic_health::server::health_reporter();
-    health_reporter
-        .set_serving::<backend::DataServer<MyPluginService>>()
-        .await;
-    health_reporter
-        .set_serving::<backend::StreamServer<MyPluginService>>()
-        .await;
-
-    Server::builder()
-        .add_service(health_service)
-        .add_service(data_svc)
-        .add_service(stream_svc)
-        .serve(addr)
+    backend::Plugin::new()
+        .data_service(plugin.clone())
+        .stream_service(plugin)
+        .start(listener)
         .await?;
 
     Ok(())

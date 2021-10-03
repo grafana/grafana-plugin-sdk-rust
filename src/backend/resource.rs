@@ -165,7 +165,7 @@ pub type BoxResourceStream<E> =
 #[tonic::async_trait]
 pub trait ResourceService {
     /// The error type that can be returned by individual responses.
-    type Error: std::error::Error + Send + Sync;
+    type Error: std::error::Error;
     /// The type of stream returned by `run_stream`.
     ///
     /// This will generally be impossible to name directly, so returning the

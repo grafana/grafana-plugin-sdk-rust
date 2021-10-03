@@ -5,13 +5,14 @@ communicate all information. This SDK uses [tonic] as its gRPC implementation.
 
 The basic requirements for a plugin are to provide a `main` function which:
 
-- first, calls the [`initialize`] function from this module to initialize the plugin
+- first, calls the [`initialize`] function from this module to initialize the plugin. This **must**
+  be done before any other code can output to stdout or stderr!
 - performs any setup required by the plugin (such as connecting to databases or initializing any state)
-- creates the struct representing the plugin, which should implement one of the various traits exposed
+- creates the struct representing the plugin's services, which should implement one of the various traits exposed
   by this module
-- create 'services' by wrapping the plugin struct in the various `Server` structs re-exported from the `pluginv2` module
-- create a [`tonic::transport::Server`] and add the services using `add_service`
-- begin serving on the address returned by `initialize`.
+- create a [`Plugin`] to manage the plugin's lifecycle with Grafana
+- use the `Plugin::*_service` methods to attach your plugin
+- begin serving on the listener returned by `initialize` using [`Plugin::start`].
 
 # Example
 
@@ -20,7 +21,7 @@ use grafana_plugin_sdk::{backend, prelude::*};
 use thiserror::Error;
 use tonic::transport::Server;
 
-struct Plugin;
+struct MyPlugin;
 
 /// An error that may occur during a query.
 ///
@@ -38,7 +39,7 @@ impl backend::DataQueryError for QueryError {
 }
 
 #[tonic::async_trait]
-impl backend::DataService for Plugin {
+impl backend::DataService for MyPlugin {
     type QueryError = QueryError;
     type Iter = backend::BoxDataResponseIter<Self::QueryError>;
     async fn query_data(&self, request: backend::QueryDataRequest) -> Self::Iter {
@@ -65,17 +66,19 @@ impl backend::DataService for Plugin {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let addr = backend::initialize().await?;
+    // Initialize the plugin. This **must** be done first!
+    let listener = backend::initialize().await?;
 
     // Create our plugin struct. Any state, such as a database connection, should be
     // held here, perhaps inside an `Arc` if required.
-    let plugin = Plugin;
+    let plugin = MyPlugin;
 
-    // Our plugin implements `backend::DataService`, so we can wrap it like so.
-    let data_svc = backend::DataServer::new(plugin);
+    // Start the plugin executable using the `backend::Plugin`.
+    backend::Plugin::new()
+        .data_service(plugin)
+        .start(listener)
+        .await?;
 
-    // Serve forever.
-    Server::builder().add_service(data_svc).serve(addr).await?;
     Ok(())
 }
 ```
@@ -91,17 +94,23 @@ use std::{
 };
 
 use chrono::prelude::*;
+use futures_util::FutureExt;
 use serde_json::Value;
 use thiserror::Error;
 use tokio::net::TcpListener;
+use tokio_stream::wrappers::TcpListenerStream;
 
-use crate::pluginv2;
+use crate::pluginv2::{
+    self, data_server::DataServer, diagnostics_server::DiagnosticsServer,
+    resource_server::ResourceServer, stream_server::StreamServer,
+};
 
 /// Re-export of `async_trait` proc macro, so plugin implementations don't have to import tonic manually.
 pub use tonic::async_trait;
 
 mod data;
 mod diagnostics;
+mod noop;
 mod resource;
 mod stream;
 
@@ -112,10 +121,6 @@ pub use diagnostics::{
     CheckHealthRequest, CheckHealthResponse, CollectMetricsRequest, CollectMetricsResponse,
     DiagnosticsService, HealthStatus,
 };
-pub use pluginv2::{
-    data_server::DataServer, diagnostics_server::DiagnosticsServer,
-    resource_server::ResourceServer, stream_server::StreamServer,
-};
 pub use resource::{BoxResourceStream, CallResourceRequest, ResourceService};
 pub use stream::{
     BoxRunStream, InitialData, PublishStreamRequest, PublishStreamResponse, RunStreamRequest,
@@ -123,21 +128,284 @@ pub use stream::{
     SubscribeStreamStatus,
 };
 
-/// Initialize the plugin, returning the address that the gRPC service should serve on.
+use noop::NoopService;
+
+struct ShutdownHandler {
+    port: u16,
+}
+
+impl ShutdownHandler {
+    fn new(port: u16) -> Self {
+        Self { port }
+    }
+
+    fn spawn(self) -> impl std::future::Future<Output = ()> {
+        tokio::spawn(async move {
+            let addr = SocketAddr::from(([0, 0, 0, 0], self.port));
+            let listener = TcpListener::bind(&addr).await.map_err(|e| {
+                eprintln!("Error creating shutdown handler: {}", e);
+                e
+            })?;
+            Ok::<_, std::io::Error>(listener.accept().await.map(|_| ()))
+        })
+        .map(|_| ())
+    }
+}
+
+/// Main entrypoint into the Grafana plugin SDK.
+///
+/// A `Plugin` handles the negotiation with Grafana, adding gRPC health checks,
+/// serving the various `Service`s, and gracefully exiting if configured.
+///
+/// # Example:
+///
+/// ```rust
+/// use grafana_plugin_sdk::{backend, prelude::*};
+/// use thiserror::Error;
+///
+/// struct MyPlugin;
+///
+/// /// An error that may occur during a query.
+/// ///
+/// /// This must store the `ref_id` of the query so that Grafana can line it up.
+/// #[derive(Debug, Error)]
+/// #[error("Error querying backend for {ref_id}")]
+/// struct QueryError {
+///     ref_id: String,
+/// };
+///
+/// impl backend::DataQueryError for QueryError {
+///     fn ref_id(self) -> String {
+///         self.ref_id
+///     }
+/// }
+///
+/// #[tonic::async_trait]
+/// impl backend::DataService for MyPlugin {
+///     type QueryError = QueryError;
+///     type Iter = backend::BoxDataResponseIter<Self::QueryError>;
+///     async fn query_data(&self, request: backend::QueryDataRequest) -> Self::Iter {
+///         Box::new(
+///             request.queries.into_iter().map(|x| {
+///                 Ok(backend::DataResponse::new(
+///                     // Include the ID of the query in the response.
+///                     x.ref_id,
+///                     // Return one or more frames.
+///                     // A real implementation would fetch this data from a database
+///                     // or something.
+///                     vec![
+///                         [
+///                             [1_u32, 2, 3].into_field("x"),
+///                             ["a", "b", "c"].into_field("y"),
+///                         ]
+///                         .into_frame("foo"),
+///                     ],
+///                 ))
+///             })
+///         )
+///     }
+/// }
+///
+/// #[tokio::main]
+/// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+///     let listener = backend::initialize().await?;
+///     let plugin = MyPlugin;
+///
+///     backend::Plugin::new()
+///         .data_service(plugin)
+///         .shutdown_handler(10001)
+///         .start(listener)
+///         .await?;
+///     Ok(())
+/// }
+/// ```
+pub struct Plugin<D = NoopService, Q = NoopService, R = NoopService, S = NoopService>
+where
+    D: DiagnosticsService + Send + Sync + 'static,
+    Q: DataService + Send + Sync + 'static,
+    R: ResourceService + Send + Sync + 'static,
+    S: StreamService + Send + Sync + 'static,
+{
+    shutdown_handler: Option<ShutdownHandler>,
+
+    diagnostics_service: Option<DiagnosticsServer<D>>,
+    query_service: Option<DataServer<Q>>,
+    resource_service: Option<ResourceServer<R>>,
+    stream_service: Option<StreamServer<S>>,
+}
+
+impl Plugin<NoopService, NoopService, NoopService, NoopService> {
+    /// Create a new `Plugin`.
+    pub fn new() -> Self {
+        Self {
+            shutdown_handler: None,
+            diagnostics_service: None,
+            query_service: None,
+            resource_service: None,
+            stream_service: None,
+        }
+    }
+}
+
+impl Default for Plugin<NoopService, NoopService, NoopService, NoopService> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<D, R, S> Plugin<D, NoopService, R, S>
+where
+    D: DiagnosticsService + Send + Sync + 'static,
+    R: ResourceService + Send + Sync + 'static,
+    S: StreamService + Send + Sync + 'static,
+{
+    /// Add a data service to this plugin.
+    pub fn data_service<T>(self, service: T) -> Plugin<D, T, R, S>
+    where
+        T: DataService + Send + Sync + 'static,
+    {
+        Plugin {
+            query_service: Some(DataServer::new(service)),
+            shutdown_handler: self.shutdown_handler,
+            diagnostics_service: self.diagnostics_service,
+            resource_service: self.resource_service,
+            stream_service: self.stream_service,
+        }
+    }
+}
+
+impl<Q, R, S> Plugin<NoopService, Q, R, S>
+where
+    Q: DataService + Send + Sync + 'static,
+    R: ResourceService + Send + Sync + 'static,
+    S: StreamService + Send + Sync + 'static,
+{
+    /// Add a diagnostics service to this plugin.
+    pub fn diagnostics_service<T>(self, service: T) -> Plugin<T, Q, R, S>
+    where
+        T: DiagnosticsService + Send + Sync + 'static,
+    {
+        Plugin {
+            diagnostics_service: Some(DiagnosticsServer::new(service)),
+            shutdown_handler: self.shutdown_handler,
+            query_service: self.query_service,
+            resource_service: self.resource_service,
+            stream_service: self.stream_service,
+        }
+    }
+}
+
+impl<D, Q, S> Plugin<D, Q, NoopService, S>
+where
+    D: DiagnosticsService + Send + Sync + 'static,
+    Q: DataService + Send + Sync + 'static,
+    S: StreamService + Send + Sync + 'static,
+{
+    /// Add a resource service to this plugin.
+    pub fn resource_service<T>(self, service: T) -> Plugin<D, Q, T, S>
+    where
+        T: ResourceService + Send + Sync + 'static,
+    {
+        Plugin {
+            resource_service: Some(ResourceServer::new(service)),
+            shutdown_handler: self.shutdown_handler,
+            diagnostics_service: self.diagnostics_service,
+            query_service: self.query_service,
+            stream_service: self.stream_service,
+        }
+    }
+}
+
+impl<D, Q, R> Plugin<D, Q, R, NoopService>
+where
+    D: DiagnosticsService + Send + Sync + 'static,
+    Q: DataService + Send + Sync + 'static,
+    R: ResourceService + Send + Sync + 'static,
+{
+    /// Add a streaming service to this plugin.
+    pub fn stream_service<T>(self, service: T) -> Plugin<D, Q, R, T>
+    where
+        T: StreamService + Send + Sync + 'static,
+    {
+        Plugin {
+            stream_service: Some(StreamServer::new(service)),
+            shutdown_handler: self.shutdown_handler,
+            diagnostics_service: self.diagnostics_service,
+            query_service: self.query_service,
+            resource_service: self.resource_service,
+        }
+    }
+}
+
+impl<D, Q, R, S> Plugin<D, Q, R, S>
+where
+    D: DiagnosticsService + Send + Sync + 'static,
+    Q: DataService + Send + Sync + 'static,
+    R: ResourceService + Send + Sync + 'static,
+    S: StreamService + Send + Sync + 'static,
+{
+    /// Add a shutdown handler to the plugin, listening on the specified port.
+    ///
+    /// The shutdown handler waits for a TCP connection from localhost on the port
+    /// and requests that the server gracefully shutdown when any connection is made.
+    pub fn shutdown_handler(mut self, port: u16) -> Self {
+        self.shutdown_handler = Some(ShutdownHandler::new(port));
+        self
+    }
+
+    /// Start the plugin.
+    ///
+    /// This adds all of the configured services, spawns a shutdown handler
+    /// (if configured), and blocks while the plugin runs.
+    pub async fn start(self, listener: TcpListener) -> Result<(), Error> {
+        let (mut health_reporter, health_service) = tonic_health::server::health_reporter();
+        if self.diagnostics_service.is_some() {
+            health_reporter.set_serving::<DiagnosticsServer<D>>().await;
+        }
+        if self.query_service.is_some() {
+            health_reporter.set_serving::<DataServer<Q>>().await;
+        }
+        if self.resource_service.is_some() {
+            health_reporter.set_serving::<ResourceServer<R>>().await;
+        }
+        if self.stream_service.is_some() {
+            health_reporter.set_serving::<StreamServer<S>>().await;
+        }
+        let router = tonic::transport::Server::builder()
+            .add_service(health_service)
+            .add_optional_service(self.diagnostics_service)
+            .add_optional_service(self.query_service)
+            .add_optional_service(self.resource_service)
+            .add_optional_service(self.stream_service);
+        if let Some(handler) = self.shutdown_handler {
+            let handler = handler.spawn();
+            router
+                .serve_with_incoming_shutdown(TcpListenerStream::new(listener), handler.map(|_| ()))
+                .await?;
+        } else {
+            router
+                .serve_with_incoming(TcpListenerStream::new(listener))
+                .await?;
+        }
+        Ok(())
+    }
+}
+
+/// Initialize the plugin, returning the [`TcpListener`] that the gRPC service should serve on.
 ///
 /// The compiled plugin executable is run by Grafana's backend and is expected
 /// to behave as a [go-plugin]. This function initializes the plugin by binding to
-/// an available IPv6 address and printing the address and protocol to stdout,
+/// an available IPv4 address and printing the address and protocol to stdout,
 /// which the [go-plugin] infrastructure requires.
 ///
 /// See [the guide on non-Go languages][guide] more details.
 ///
 /// [go-plugin]: https://github.com/hashicorp/go-plugin
 /// [guide]: https://github.com/hashicorp/go-plugin/blob/master/docs/guide-plugin-write-non-go.md
-pub async fn initialize() -> Result<SocketAddr, io::Error> {
-    let address = TcpListener::bind("127.0.0.1:0").await?.local_addr()?;
-    println!("1|2|tcp|{}|grpc", address);
-    Ok(address)
+pub async fn initialize() -> Result<TcpListener, io::Error> {
+    let listener = TcpListener::bind("127.0.0.1:0").await?;
+    println!("1|2|tcp|{}|grpc", listener.local_addr()?);
+    Ok(listener)
 }
 
 /// Errors returned by plugin backends.
