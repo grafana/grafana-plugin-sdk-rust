@@ -132,7 +132,7 @@ pub use stream::{
 /// [go-plugin]: https://github.com/hashicorp/go-plugin
 /// [guide]: https://github.com/hashicorp/go-plugin/blob/master/docs/guide-plugin-write-non-go.md
 pub async fn initialize() -> Result<SocketAddr, io::Error> {
-    let address = TcpListener::bind("[::1]:0").await?.local_addr()?;
+    let address = TcpListener::bind("127.0.0.1:0").await?.local_addr()?;
     println!("1|2|tcp|{}|grpc", address);
     Ok(address)
 }
