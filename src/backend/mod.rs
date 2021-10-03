@@ -137,10 +137,30 @@ pub async fn initialize() -> Result<SocketAddr, io::Error> {
     Ok(address)
 }
 
+/// Errors returned by plugin backends.
+///
+/// This is very subject to change and should not be relied upon.
+#[derive(Debug, Error)]
+#[non_exhaustive]
+pub enum Error {
+    /// An error occurred converting data to/from protobufs.
+    #[error("error converting to or from proto: {0}")]
+    Conversion(#[from] ConversionError),
+    /// An error occurred while starting the plugin.
+    #[error("error starting plugin: {0}")]
+    Start(#[from] io::Error),
+    /// An error occurred while starting the plugin.
+    #[error("error serving plugin: {0}")]
+    Serve(#[from] tonic::transport::Error),
+}
+
 /// Errors occurring when trying to interpret data passed from Grafana to this SDK.
 ///
 /// Generally any errors should be considered a bug and should be reported.
+///
+/// This is very subject to change and should not be relied upon.
 #[derive(Debug, Error)]
+#[non_exhaustive]
 pub enum ConversionError {
     /// The `time_range` was missing from the query.
     #[error("time_range missing from query")]
