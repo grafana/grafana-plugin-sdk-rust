@@ -97,6 +97,9 @@ use tokio::net::TcpListener;
 
 use crate::pluginv2;
 
+/// Re-export of `async_trait` proc macro, so plugin implementations don't have to import tonic manually.
+pub use tonic::async_trait;
+
 mod data;
 mod diagnostics;
 mod resource;
