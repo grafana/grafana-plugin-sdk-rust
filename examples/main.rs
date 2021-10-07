@@ -162,6 +162,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     backend::Plugin::new()
         .data_service(plugin.clone())
         .stream_service(plugin)
+        .shutdown_handler(([0, 0, 0, 0], 10001).into())
         .start(listener)
         .await?;
 

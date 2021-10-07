@@ -150,18 +150,17 @@ pub use stream::{
 use noop::NoopService;
 
 struct ShutdownHandler {
-    port: u16,
+    address: SocketAddr,
 }
 
 impl ShutdownHandler {
-    fn new(port: u16) -> Self {
-        Self { port }
+    fn new(address: SocketAddr) -> Self {
+        Self { address }
     }
 
     fn spawn(self) -> impl std::future::Future<Output = ()> {
         tokio::spawn(async move {
-            let addr = SocketAddr::from(([0, 0, 0, 0], self.port));
-            let listener = TcpListener::bind(&addr).await.map_err(|e| {
+            let listener = TcpListener::bind(&self.address).await.map_err(|e| {
                 eprintln!("Error creating shutdown handler: {}", e);
                 e
             })?;
@@ -284,7 +283,7 @@ impl ShutdownHandler {
 ///     /// and call our plugin's implementation when required.
 ///     backend::Plugin::new()
 ///         .data_service(plugin)
-///         .shutdown_handler(10001)
+///         .shutdown_handler(([0, 0, 0, 0], 10001).into())
 ///         .start(listener)
 ///         .await?;
 ///     Ok(())
@@ -415,12 +414,12 @@ where
     R: ResourceService + Send + Sync + 'static,
     S: StreamService + Send + Sync + 'static,
 {
-    /// Add a shutdown handler to the plugin, listening on the specified port.
+    /// Add a shutdown handler to the plugin, listening on the specified address.
     ///
-    /// The shutdown handler waits for a TCP connection from localhost on the port
+    /// The shutdown handler waits for a TCP connection on the specified address
     /// and requests that the server gracefully shutdown when any connection is made.
-    pub fn shutdown_handler(mut self, port: u16) -> Self {
-        self.shutdown_handler = Some(ShutdownHandler::new(port));
+    pub fn shutdown_handler(mut self, address: SocketAddr) -> Self {
+        self.shutdown_handler = Some(ShutdownHandler::new(address));
         self
     }
 
