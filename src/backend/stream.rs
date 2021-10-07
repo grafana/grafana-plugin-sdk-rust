@@ -255,6 +255,99 @@ impl TryInto<pluginv2::PublishStreamResponse> for PublishStreamResponse {
 }
 
 /// Trait for plugins that wish to provide uni- or bi-directional streaming.
+///
+/// # Example
+///
+/// ```rust
+/// use std::{sync::Arc, time::Duration};
+///
+/// use grafana_plugin_sdk::{backend, data, prelude::*};
+/// use thiserror::Error;
+/// use tokio::sync::RwLock;
+/// use tokio_stream::StreamExt;
+///
+/// struct MyPlugin;
+///
+/// #[derive(Debug, Error)]
+/// #[error("Error streaming data")]
+/// struct StreamError;
+///
+/// #[tonic::async_trait]
+/// impl backend::StreamService for MyPlugin {
+///     /// The type of JSON value we might return in our `initial_data`.
+///     ///
+///     /// If we're not returning JSON we can just use `()`.
+///     type JsonValue = ();
+///
+///     /// Handle a request to subscribe to a stream.
+///     ///
+///     /// Here we just check that the path matches some fixed value
+///     /// and return `NotFound` if not.
+///     async fn subscribe_stream(
+///         &self,
+///         request: backend::SubscribeStreamRequest,
+///     ) -> backend::SubscribeStreamResponse {
+///         eprintln!("Subscribing to stream");
+///         let status = if request.path == "stream" {
+///             backend::SubscribeStreamStatus::Ok
+///         } else {
+///             backend::SubscribeStreamStatus::NotFound
+///         };
+///         backend::SubscribeStreamResponse {
+///             status,
+///             initial_data: None,
+///         }
+///     }
+///
+///     type StreamError = StreamError;
+///     type Stream = backend::BoxRunStream<Self::StreamError>;
+///
+///     /// Begin streaming data for a request.
+///     ///
+///     /// This example just creates an in-memory `Frame` which is initially empty,
+///     /// then sends an updated version of the frame once per second. This requires
+///     /// the use of an `Arc<RwLock<Frame>>`, since the frame is mutated rather than
+///     /// recreated each time.
+///     async fn run_stream(&self, _request: backend::RunStreamRequest) -> Self::Stream {
+///         eprintln!("Running stream");
+///         let mut frame = data::Frame::new("foo");
+///         let initial_data: [u32; 0] = [];
+///         frame.add_field(initial_data.into_field("x"));
+///         let mut x = 0u32;
+///         let n = 3;
+///         let frame = Arc::new(RwLock::new(frame));
+///         Box::pin(
+///             async_stream::stream! {
+///                 loop {
+///                     let frame = Arc::clone(&frame);
+///                     if frame.write().await.fields[0]
+///                         .set_values(x..(x + n))
+///                         .is_ok()
+///                     {
+///                         eprintln!("Yielding frame from {} to {}", x, x+n);
+///                         x = x + n;
+///                         yield Ok(backend::StreamPacket::MutableFrame(frame))
+///                     } else {
+///                         yield Err(StreamError)
+///                     }
+///                 }
+///             }
+///             .throttle(Duration::from_secs(1)),
+///         )
+///     }
+///
+///     /// Handle a request to publish data to a stream.
+///     ///
+///     /// Currently unimplemented in this example, but the functionality _should_ work.
+///     async fn publish_stream(
+///         &self,
+///         _request: backend::PublishStreamRequest,
+///     ) -> backend::PublishStreamResponse {
+///         eprintln!("Publishing to stream");
+///         todo!()
+///     }
+/// }
+/// ```
 #[tonic::async_trait]
 pub trait StreamService {
     /// Handle requests to begin a subscription to a plugin or datasource managed channel path.

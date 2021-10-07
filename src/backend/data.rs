@@ -132,6 +132,72 @@ pub trait DataQueryError: std::error::Error {
 ///
 /// Datasource plugins will usually want to implement this trait to perform the
 /// bulk of their processing.
+///
+/// # Example
+///
+/// ```rust
+/// use grafana_plugin_sdk::{backend, prelude::*};
+/// use thiserror::Error;
+///
+/// struct MyPlugin;
+///
+/// /// An error that may occur during a query.
+/// ///
+/// /// This must store the `ref_id` of the query so that Grafana can line it up.
+/// #[derive(Debug, Error)]
+/// #[error("Error querying backend for {ref_id}")]
+/// struct QueryError {
+///     ref_id: String,
+/// };
+///
+/// impl backend::DataQueryError for QueryError {
+///     fn ref_id(self) -> String {
+///         self.ref_id
+///     }
+/// }
+///
+/// #[tonic::async_trait]
+/// impl backend::DataService for MyPlugin {
+///
+///     /// The type of error that could be returned by an individual query.
+///     type QueryError = QueryError;
+///
+///     /// The type of iterator we're returning.
+///     ///
+///     /// In general the concrete type will be impossible to name in advance,
+///     /// so the `backend::BoxDataResponseIter` type alias will be useful.
+///     type Iter = backend::BoxDataResponseIter<Self::QueryError>;
+///
+///     /// Respond to a request for data from Grafana.
+///     ///
+///     /// This request will contain zero or more queries, as well as information
+///     /// about the datasource instance on behalf of which this request is made,
+///     /// such as address, credentials, etc.
+///     ///
+///     /// Our plugin must respond to each query and return an iterator of `DataResponse`s,
+///     /// which themselves can contain zero or more `Frame`s.
+///     async fn query_data(&self, request: backend::QueryDataRequest) -> Self::Iter {
+///         Box::new(
+///             request.queries.into_iter().map(|x| {
+///                 Ok(backend::DataResponse::new(
+///                     // Include the ID of the query in the response.
+///                     x.ref_id,
+///                     // Return zero or more frames.
+///                     // A real implementation would fetch this data from a database
+///                     // or something.
+///                     vec![
+///                         [
+///                             [1_u32, 2, 3].into_field("x"),
+///                             ["a", "b", "c"].into_field("y"),
+///                         ]
+///                         .into_frame("foo"),
+///                     ],
+///                 ))
+///             })
+///         )
+///     }
+/// }
+/// ```
 #[tonic::async_trait]
 pub trait DataService {
     /// The error type that can be returned by individual queries.

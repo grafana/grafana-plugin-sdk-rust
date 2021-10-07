@@ -3,7 +3,7 @@
 Backend plugins are executables that expose a gRPC server, which Grafana uses to
 communicate all information. This SDK uses [tonic] as its gRPC implementation.
 
-The basic requirements for a plugin are to provide a `main` function which:
+The basic requirements for a backend plugin are to provide a `main` function which:
 
 - first, calls the [`initialize`] function from this module to initialize the plugin. This **must**
   be done before any other code can output to stdout or stderr!
@@ -13,6 +13,9 @@ The basic requirements for a plugin are to provide a `main` function which:
 - create a [`Plugin`] to manage the plugin's lifecycle with Grafana
 - use the `Plugin::*_service` methods to attach your plugin
 - begin serving on the listener returned by `initialize` using [`Plugin::start`].
+
+If you're not sure where to start, take a look at the [`Plugin`] struct, its four important methods, and
+the trait bounds for each of them - those give an idea of what your plugin will need to implement.
 
 # Example
 
@@ -40,8 +43,24 @@ impl backend::DataQueryError for QueryError {
 
 #[tonic::async_trait]
 impl backend::DataService for MyPlugin {
+
+    /// The type of error that could be returned by an individual query.
     type QueryError = QueryError;
+
+    /// The type of iterator we're returning.
+    ///
+    /// In general the concrete type will be impossible to name in advance,
+    /// so the `backend::BoxDataResponseIter` type alias will be useful.
     type Iter = backend::BoxDataResponseIter<Self::QueryError>;
+
+    /// Respond to a request for data from Grafana.
+    ///
+    /// This request will contain zero or more queries, as well as information
+    /// about the datasource instance on behalf of which this request is made,
+    /// such as address, credentials, etc.
+    ///
+    /// Our plugin must respond to each query and return an iterator of `DataResponse`s,
+    /// which themselves can contain zero or more `Frame`s.
     async fn query_data(&self, request: backend::QueryDataRequest) -> Self::Iter {
         Box::new(
             request.queries.into_iter().map(|x| {
@@ -157,6 +176,36 @@ impl ShutdownHandler {
 /// A `Plugin` handles the negotiation with Grafana, adding gRPC health checks,
 /// serving the various `Service`s, and gracefully exiting if configured.
 ///
+/// # Shutdown Handler
+///
+/// A plugin can be configured to gracefully shutdown by calling the [`Plugin::shutdown_handler`]
+/// method. This will spawn a new task which simply waits for _any_ TCP connection on
+/// the given address, and triggers a graceful shutdown of the underlying gRPC server.
+/// This is helpful during development using Docker: a tool such as [`cargo-watch`][cargo-watch]
+/// can be used to rebuild on changes, then use `nc` to trigger a shutdown of the plugin. Grafana
+/// will automatically plugins when their process exits, so this avoids having to restart the
+/// Grafana server on every change. An example configuration for this can be seen in the
+/// [grafana-sample-backend-plugin-rust] repository.
+///
+/// [cargo-watch]: https://crates.io/crates/cargo-watch
+/// [grafana-sample-backend-plugin-rust]: https://github.com/sd2k/grafana-sample-backend-plugin-rust
+///
+/// # Type parameters
+///
+/// The four type parameters of a `Plugin` represent the services that this plugin
+/// is configured to run. When created using [`Plugin::new`] the plugin has the
+/// `NoopService` associated with each type, which simply does not register anything
+/// for this piece of functionality. Calling the various methods on `Plugin` (such
+/// as [`Plugin::data_service`] and [`Plugin::stream_service`]) will return a new
+/// `Plugin` with your plugin implementation registered for that functionality.
+///
+/// The type parameters stand for:
+///
+/// - `D`, the diagnostic service
+/// - `Q`, the data service ('Q' stands for 'query', here)
+/// - `R`, the resource service
+/// - `S`, the streaming service
+///
 /// # Example:
 ///
 /// ```rust
@@ -182,15 +231,31 @@ impl ShutdownHandler {
 ///
 /// #[tonic::async_trait]
 /// impl backend::DataService for MyPlugin {
+///
+///     /// The type of error that could be returned by an individual query.
 ///     type QueryError = QueryError;
+///
+///     /// The type of iterator we're returning.
+///     ///
+///     /// In general the concrete type will be impossible to name in advance,
+///     /// so the `backend::BoxDataResponseIter` type alias will be useful.
 ///     type Iter = backend::BoxDataResponseIter<Self::QueryError>;
+///
+///     /// Respond to a request for data from Grafana.
+///     ///
+///     /// This request will contain zero or more queries, as well as information
+///     /// about the datasource instance on behalf of which this request is made,
+///     /// such as address, credentials, etc.
+///     ///
+///     /// Our plugin must respond to each query and return an iterator of `DataResponse`s,
+///     /// which themselves can contain zero or more `Frame`s.
 ///     async fn query_data(&self, request: backend::QueryDataRequest) -> Self::Iter {
 ///         Box::new(
 ///             request.queries.into_iter().map(|x| {
 ///                 Ok(backend::DataResponse::new(
 ///                     // Include the ID of the query in the response.
 ///                     x.ref_id,
-///                     // Return one or more frames.
+///                     // Return zero or more frames.
 ///                     // A real implementation would fetch this data from a database
 ///                     // or something.
 ///                     vec![
@@ -208,9 +273,15 @@ impl ShutdownHandler {
 ///
 /// #[tokio::main]
 /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+///     // Initialize the plugin. This **must** be done first!
 ///     let listener = backend::initialize().await?;
+///
+///     /// Create our plugin struct. A real implementation may wish to establish connections
+///     /// to a database or initialize some state here.
 ///     let plugin = MyPlugin;
 ///
+///     /// Hand our plugin off to the `backend::Plugin` struct, which will communicate with Grafana
+///     /// and call our plugin's implementation when required.
 ///     backend::Plugin::new()
 ///         .data_service(plugin)
 ///         .shutdown_handler(10001)
@@ -219,7 +290,7 @@ impl ShutdownHandler {
 ///     Ok(())
 /// }
 /// ```
-pub struct Plugin<D = NoopService, Q = NoopService, R = NoopService, S = NoopService>
+pub struct Plugin<D, Q, R, S>
 where
     D: DiagnosticsService + Send + Sync + 'static,
     Q: DataService + Send + Sync + 'static,
