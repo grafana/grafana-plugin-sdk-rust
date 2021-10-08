@@ -15,6 +15,7 @@ use super::*;
 ///
 /// This struct cannot be constructed, so
 /// the `unreachable`s in this module should never be reached.
+#[derive(Debug)]
 pub struct NoopService {
     _priv: (),
 }

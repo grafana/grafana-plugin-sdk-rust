@@ -24,6 +24,7 @@ use grafana_plugin_sdk::{backend, prelude::*};
 use thiserror::Error;
 use tonic::transport::Server;
 
+#[derive(Debug)]
 struct MyPlugin;
 
 /// An error that may occur during a query.
@@ -107,6 +108,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 use std::{
     collections::HashMap,
     convert::{TryFrom, TryInto},
+    fmt::Debug,
     io,
     net::SocketAddr,
     str::FromStr,
@@ -164,6 +166,7 @@ impl ShutdownHandler {
                 eprintln!("Error creating shutdown handler: {}", e);
                 e
             })?;
+            tracing::debug!(address = %self.address, "Shutdown handler started on {}", &self.address);
             Ok::<_, std::io::Error>(listener.accept().await.map(|_| ()))
         })
         .map(|_| ())
@@ -211,6 +214,7 @@ impl ShutdownHandler {
 /// use grafana_plugin_sdk::{backend, prelude::*};
 /// use thiserror::Error;
 ///
+/// #[derive(Debug)]
 /// struct MyPlugin;
 ///
 /// /// An error that may occur during a query.
@@ -291,10 +295,10 @@ impl ShutdownHandler {
 /// ```
 pub struct Plugin<D, Q, R, S>
 where
-    D: DiagnosticsService + Send + Sync + 'static,
-    Q: DataService + Send + Sync + 'static,
-    R: ResourceService + Send + Sync + 'static,
-    S: StreamService + Send + Sync + 'static,
+    D: DiagnosticsService + Debug + Send + Sync + 'static,
+    Q: DataService + Debug + Send + Sync + 'static,
+    R: ResourceService + Debug + Send + Sync + 'static,
+    S: StreamService + Debug + Send + Sync + 'static,
 {
     shutdown_handler: Option<ShutdownHandler>,
 
@@ -325,14 +329,14 @@ impl Default for Plugin<NoopService, NoopService, NoopService, NoopService> {
 
 impl<D, R, S> Plugin<D, NoopService, R, S>
 where
-    D: DiagnosticsService + Send + Sync + 'static,
-    R: ResourceService + Send + Sync + 'static,
-    S: StreamService + Send + Sync + 'static,
+    D: DiagnosticsService + Debug + Send + Sync + 'static,
+    R: ResourceService + Debug + Send + Sync + 'static,
+    S: StreamService + Debug + Send + Sync + 'static,
 {
     /// Add a data service to this plugin.
     pub fn data_service<T>(self, service: T) -> Plugin<D, T, R, S>
     where
-        T: DataService + Send + Sync + 'static,
+        T: DataService + Debug + Send + Sync + 'static,
     {
         Plugin {
             query_service: Some(DataServer::new(service)),
@@ -346,14 +350,14 @@ where
 
 impl<Q, R, S> Plugin<NoopService, Q, R, S>
 where
-    Q: DataService + Send + Sync + 'static,
-    R: ResourceService + Send + Sync + 'static,
-    S: StreamService + Send + Sync + 'static,
+    Q: DataService + Debug + Send + Sync + 'static,
+    R: ResourceService + Debug + Send + Sync + 'static,
+    S: StreamService + Debug + Send + Sync + 'static,
 {
     /// Add a diagnostics service to this plugin.
     pub fn diagnostics_service<T>(self, service: T) -> Plugin<T, Q, R, S>
     where
-        T: DiagnosticsService + Send + Sync + 'static,
+        T: DiagnosticsService + Debug + Send + Sync + 'static,
     {
         Plugin {
             diagnostics_service: Some(DiagnosticsServer::new(service)),
@@ -367,14 +371,14 @@ where
 
 impl<D, Q, S> Plugin<D, Q, NoopService, S>
 where
-    D: DiagnosticsService + Send + Sync + 'static,
-    Q: DataService + Send + Sync + 'static,
-    S: StreamService + Send + Sync + 'static,
+    D: DiagnosticsService + Debug + Send + Sync + 'static,
+    Q: DataService + Debug + Send + Sync + 'static,
+    S: StreamService + Debug + Send + Sync + 'static,
 {
     /// Add a resource service to this plugin.
     pub fn resource_service<T>(self, service: T) -> Plugin<D, Q, T, S>
     where
-        T: ResourceService + Send + Sync + 'static,
+        T: ResourceService + Debug + Send + Sync + 'static,
     {
         Plugin {
             resource_service: Some(ResourceServer::new(service)),
@@ -388,14 +392,14 @@ where
 
 impl<D, Q, R> Plugin<D, Q, R, NoopService>
 where
-    D: DiagnosticsService + Send + Sync + 'static,
-    Q: DataService + Send + Sync + 'static,
-    R: ResourceService + Send + Sync + 'static,
+    D: DiagnosticsService + Debug + Send + Sync + 'static,
+    Q: DataService + Debug + Send + Sync + 'static,
+    R: ResourceService + Debug + Send + Sync + 'static,
 {
     /// Add a streaming service to this plugin.
     pub fn stream_service<T>(self, service: T) -> Plugin<D, Q, R, T>
     where
-        T: StreamService + Send + Sync + 'static,
+        T: StreamService + Debug + Send + Sync + 'static,
     {
         Plugin {
             stream_service: Some(StreamServer::new(service)),
@@ -409,10 +413,10 @@ where
 
 impl<D, Q, R, S> Plugin<D, Q, R, S>
 where
-    D: DiagnosticsService + Send + Sync + 'static,
-    Q: DataService + Send + Sync + 'static,
-    R: ResourceService + Send + Sync + 'static,
-    S: StreamService + Send + Sync + 'static,
+    D: DiagnosticsService + Debug + Send + Sync + 'static,
+    Q: DataService + Debug + Send + Sync + 'static,
+    R: ResourceService + Debug + Send + Sync + 'static,
+    S: StreamService + Debug + Send + Sync + 'static,
 {
     /// Add a shutdown handler to the plugin, listening on the specified address.
     ///
@@ -442,6 +446,7 @@ where
             health_reporter.set_serving::<StreamServer<S>>().await;
         }
         let router = tonic::transport::Server::builder()
+            .trace_fn(|_| tracing::debug_span!("grafana-plugin"))
             .add_service(health_service)
             .add_optional_service(self.diagnostics_service)
             .add_optional_service(self.query_service)
@@ -475,6 +480,13 @@ where
 pub async fn initialize() -> Result<TcpListener, io::Error> {
     let listener = TcpListener::bind("127.0.0.1:0").await?;
     println!("1|2|tcp|{}|grpc", listener.local_addr()?);
+
+    tracing_subscriber::fmt()
+        .with_max_level(tracing::Level::DEBUG)
+        .json()
+        .flatten_event(true)
+        .init();
+
     Ok(listener)
 }
 
