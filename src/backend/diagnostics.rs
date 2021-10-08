@@ -167,8 +167,9 @@ pub trait DiagnosticsService {
 #[tonic::async_trait]
 impl<T> pluginv2::diagnostics_server::Diagnostics for T
 where
-    T: DiagnosticsService + Send + Sync + 'static,
+    T: std::fmt::Debug + DiagnosticsService + Send + Sync + 'static,
 {
+    #[tracing::instrument(level = "debug")]
     async fn check_health(
         &self,
         request: tonic::Request<pluginv2::CheckHealthRequest>,
@@ -185,6 +186,7 @@ where
         Ok(tonic::Response::new(response.into()))
     }
 
+    #[tracing::instrument(level = "debug")]
     async fn collect_metrics(
         &self,
         request: tonic::Request<pluginv2::CollectMetricsRequest>,

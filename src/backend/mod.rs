@@ -23,6 +23,7 @@ the trait bounds for each of them - those give an idea of what your plugin will 
 use grafana_plugin_sdk::{backend, prelude::*};
 use thiserror::Error;
 use tonic::transport::Server;
+use tracing::info;
 
 #[derive(Debug)]
 struct MyPlugin;
@@ -103,7 +104,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
-[tonic]: https://github.com/hyperium/tonic.
+[tonic]: https://github.com/hyperium/tonic
 */
 use std::{
     collections::HashMap,
@@ -120,6 +121,10 @@ use serde_json::Value;
 use thiserror::Error;
 use tokio::net::TcpListener;
 use tokio_stream::wrappers::TcpListenerStream;
+use tracing_subscriber::{
+    fmt::{format::JsonFields, time::ChronoUtc},
+    registry::LookupSpan,
+};
 
 use crate::pluginv2::{
     self, data_server::DataServer, diagnostics_server::DiagnosticsServer,
@@ -134,6 +139,7 @@ mod diagnostics;
 mod noop;
 mod resource;
 mod stream;
+mod tracing_fmt;
 
 pub use data::{
     BoxDataResponseIter, DataQuery, DataQueryError, DataResponse, DataService, QueryDataRequest,
@@ -148,6 +154,7 @@ pub use stream::{
     StreamPacket, StreamService, SubscribeStreamRequest, SubscribeStreamResponse,
     SubscribeStreamStatus,
 };
+pub use tracing_fmt::HCLogJson;
 
 use noop::NoopService;
 
@@ -446,7 +453,7 @@ where
             health_reporter.set_serving::<StreamServer<S>>().await;
         }
         let router = tonic::transport::Server::builder()
-            .trace_fn(|_| tracing::debug_span!("grafana-plugin"))
+            .trace_fn(|_| tracing::debug_span!("grafana-plugin-sdk"))
             .add_service(health_service)
             .add_optional_service(self.diagnostics_service)
             .add_optional_service(self.query_service)
@@ -480,14 +487,33 @@ where
 pub async fn initialize() -> Result<TcpListener, io::Error> {
     let listener = TcpListener::bind("127.0.0.1:0").await?;
     println!("1|2|tcp|{}|grpc", listener.local_addr()?);
-
-    tracing_subscriber::fmt()
-        .with_max_level(tracing::Level::DEBUG)
-        .json()
-        .flatten_event(true)
-        .init();
-
     Ok(listener)
+}
+
+/// Create a [`Layer`][tracing_subscriber::Layer] configured to log events in a format understood by Grafana.
+///
+/// The returned layer should be installed into the tracing subscriber registry, with an optional env filter.
+///
+/// # Example
+///
+/// ```rust
+/// use grafana_plugin_sdk::backend;
+/// use tracing_subscriber::{prelude::*, EnvFilter};
+///
+/// tracing_subscriber::registry()
+///     .with(backend::layer())
+///     .with(EnvFilter::from_default_env())
+///     .init();
+/// ```
+pub fn layer<S: tracing::Subscriber + for<'a> LookupSpan<'a>>(
+) -> tracing_subscriber::fmt::Layer<S, JsonFields, tracing_fmt::HCLogJson, fn() -> io::Stderr> {
+    tracing_subscriber::fmt::layer()
+        .with_timer(ChronoUtc::with_format(
+            "%Y-%m-%dT%H:%M:%S.%6f+00:00".to_string(),
+        ))
+        .with_writer(io::stderr as fn() -> std::io::Stderr)
+        .event_format(tracing_fmt::HCLogJson::default())
+        .fmt_fields(JsonFields::new())
 }
 
 /// Errors returned by plugin backends.
