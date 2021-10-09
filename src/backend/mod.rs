@@ -17,6 +17,17 @@ The basic requirements for a backend plugin are to provide a `main` function whi
 If you're not sure where to start, take a look at the [`Plugin`] struct, its four important methods, and
 the trait bounds for each of them - those give an idea of what your plugin will need to implement.
 
+# Logging and `tracing`
+
+The SDK provides a preconfigured [`tracing_subscriber::fmt::Layer`] which, when installed,
+will emit structured logs in a format understood by Grafana. Use the [`layer`] function
+to get the `Layer`, and install it using `tracing_subscriber::Registry::with`. Alternatively
+use [`Plugin::init_subscriber`] to automatically install a subscriber using the `RUST_LOG`
+environment variable to set the directive (defaulting to `info` if not set).
+
+Once the layer is installed, any logs emitted by the various [`log`](https://docs.rs/log) or [`tracing`] macros
+will be emitted to Grafana.
+
 # Example
 
 ```rust,no_run
@@ -123,7 +134,9 @@ use tokio::net::TcpListener;
 use tokio_stream::wrappers::TcpListenerStream;
 use tracing_subscriber::{
     fmt::{format::JsonFields, time::ChronoUtc},
+    prelude::*,
     registry::LookupSpan,
+    EnvFilter,
 };
 
 use crate::pluginv2::{
@@ -308,6 +321,7 @@ where
     S: StreamService + Debug + Send + Sync + 'static,
 {
     shutdown_handler: Option<ShutdownHandler>,
+    init_subscriber: bool,
 
     diagnostics_service: Option<DiagnosticsServer<D>>,
     query_service: Option<DataServer<Q>>,
@@ -320,6 +334,7 @@ impl Plugin<NoopService, NoopService, NoopService, NoopService> {
     pub fn new() -> Self {
         Self {
             shutdown_handler: None,
+            init_subscriber: false,
             diagnostics_service: None,
             query_service: None,
             resource_service: None,
@@ -348,6 +363,7 @@ where
         Plugin {
             query_service: Some(DataServer::new(service)),
             shutdown_handler: self.shutdown_handler,
+            init_subscriber: self.init_subscriber,
             diagnostics_service: self.diagnostics_service,
             resource_service: self.resource_service,
             stream_service: self.stream_service,
@@ -369,6 +385,7 @@ where
         Plugin {
             diagnostics_service: Some(DiagnosticsServer::new(service)),
             shutdown_handler: self.shutdown_handler,
+            init_subscriber: self.init_subscriber,
             query_service: self.query_service,
             resource_service: self.resource_service,
             stream_service: self.stream_service,
@@ -390,6 +407,7 @@ where
         Plugin {
             resource_service: Some(ResourceServer::new(service)),
             shutdown_handler: self.shutdown_handler,
+            init_subscriber: self.init_subscriber,
             diagnostics_service: self.diagnostics_service,
             query_service: self.query_service,
             stream_service: self.stream_service,
@@ -411,6 +429,7 @@ where
         Plugin {
             stream_service: Some(StreamServer::new(service)),
             shutdown_handler: self.shutdown_handler,
+            init_subscriber: self.init_subscriber,
             diagnostics_service: self.diagnostics_service,
             query_service: self.query_service,
             resource_service: self.resource_service,
@@ -434,11 +453,47 @@ where
         self
     }
 
+    /// Initialize a default [`tracing_subscriber::fmt::Subscriber`] upon starting.
+    ///
+    /// If enabled, this will initialize a `Subscriber` emitting logs to stderr
+    /// in a format compatible with Grafana, at a default max level of `info`.
+    ///
+    /// This effectively causes the following to be called as part of `Plugin::start`:
+    ///
+    /// ```rust
+    /// use grafana_plugin_sdk::backend;
+    /// use tracing_subscriber::{prelude::*, EnvFilter};
+    ///
+    /// let filter = EnvFilter::try_from_default_env()
+    ///     .unwrap_or_else(|_| EnvFilter::new("info"));
+    /// tracing_subscriber::registry()
+    ///     .with(filter)
+    ///     .with(backend::layer())
+    ///     .init()
+    /// ```
+    pub fn init_subscriber(mut self, init_subscriber: bool) -> Self {
+        self.init_subscriber = init_subscriber;
+        self
+    }
+
     /// Start the plugin.
     ///
     /// This adds all of the configured services, spawns a shutdown handler
     /// (if configured), and blocks while the plugin runs.
+    ///
+    /// # Panics
+    ///
+    /// This will panic if `init_subscriber(true)` has been set and another
+    /// global subscriber has already been installed. If you are initializing your
+    /// own `Subscriber`, you should instead use the [`layer`] function to add a
+    /// Grafana-compatible `tokio_subscriber::fmt::Layer` to your subscriber.
     pub async fn start(self, listener: TcpListener) -> Result<(), Error> {
+        if self.init_subscriber {
+            tracing_subscriber::registry()
+                .with(layer())
+                .with(EnvFilter::from_default_env())
+                .init();
+        }
         let (mut health_reporter, health_service) = tonic_health::server::health_reporter();
         if self.diagnostics_service.is_some() {
             health_reporter.set_serving::<DiagnosticsServer<D>>().await;
@@ -490,11 +545,13 @@ pub async fn initialize() -> Result<TcpListener, io::Error> {
     Ok(listener)
 }
 
-/// Create a [`Layer`][tracing_subscriber::Layer] configured to log events in a format understood by Grafana.
+/// Create a `tracing` [`Layer`][tracing_subscriber::Layer] configured to log events in a format understood by Grafana.
 ///
 /// The returned layer should be installed into the tracing subscriber registry, with an optional env filter.
 ///
 /// # Example
+///
+/// Installing the layer with the default `EnvFilter` (using the `RUST_LOG` environment variable):
 ///
 /// ```rust
 /// use grafana_plugin_sdk::backend;
