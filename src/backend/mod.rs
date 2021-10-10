@@ -457,9 +457,11 @@ where
     /// Grafana-compatible `tokio_subscriber::fmt::Layer` to your subscriber.
     pub async fn start(self, listener: TcpListener) -> Result<(), Error> {
         if self.init_subscriber {
+            let filter =
+                EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
             tracing_subscriber::registry()
                 .with(layer())
-                .with(EnvFilter::from_default_env())
+                .with(filter)
                 .init();
         }
         let (mut health_reporter, health_service) = tonic_health::server::health_reporter();
