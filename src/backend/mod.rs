@@ -495,18 +495,28 @@ where
                 .init();
         }
         let (mut health_reporter, health_service) = tonic_health::server::health_reporter();
+        let mut plugins = Vec::with_capacity(5);
         if self.diagnostics_service.is_some() {
             health_reporter.set_serving::<DiagnosticsServer<D>>().await;
+            plugins.push("diagnostics");
         }
         if self.query_service.is_some() {
             health_reporter.set_serving::<DataServer<Q>>().await;
+            plugins.push("data");
         }
         if self.resource_service.is_some() {
             health_reporter.set_serving::<ResourceServer<R>>().await;
+            plugins.push("resource");
         }
         if self.stream_service.is_some() {
             health_reporter.set_serving::<StreamServer<S>>().await;
+            plugins.push("stream");
         }
+        // Log the services included in the plugin, identically to the Go SDK.
+        tracing::debug!(
+            plugins = %format!("[{}]", plugins.join(" ")),
+            "Serving plugin"
+        );
         let router = tonic::transport::Server::builder()
             .trace_fn(|_| tracing::debug_span!("grafana-plugin-sdk"))
             .add_service(health_service)
