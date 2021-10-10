@@ -313,30 +313,24 @@ impl ShutdownHandler {
 ///     Ok(())
 /// }
 /// ```
-pub struct Plugin<D, Q, R, S>
-where
-    D: DiagnosticsService + Debug + Send + Sync + 'static,
-    Q: DataService + Debug + Send + Sync + 'static,
-    R: ResourceService + Debug + Send + Sync + 'static,
-    S: StreamService + Debug + Send + Sync + 'static,
-{
+pub struct Plugin<D, Q, R, S> {
     shutdown_handler: Option<ShutdownHandler>,
     init_subscriber: bool,
 
-    diagnostics_service: Option<DiagnosticsServer<D>>,
-    query_service: Option<DataServer<Q>>,
-    resource_service: Option<ResourceServer<R>>,
-    stream_service: Option<StreamServer<S>>,
+    diagnostics_service: Option<D>,
+    data_service: Option<Q>,
+    resource_service: Option<R>,
+    stream_service: Option<S>,
 }
 
 impl Plugin<NoopService, NoopService, NoopService, NoopService> {
-    /// Create a new `Plugin`.
+    /// Create a new `Plugin` with no registered services.
     pub fn new() -> Self {
         Self {
             shutdown_handler: None,
             init_subscriber: false,
             diagnostics_service: None,
-            query_service: None,
+            data_service: None,
             resource_service: None,
             stream_service: None,
         }
@@ -349,101 +343,7 @@ impl Default for Plugin<NoopService, NoopService, NoopService, NoopService> {
     }
 }
 
-impl<D, R, S> Plugin<D, NoopService, R, S>
-where
-    D: DiagnosticsService + Debug + Send + Sync + 'static,
-    R: ResourceService + Debug + Send + Sync + 'static,
-    S: StreamService + Debug + Send + Sync + 'static,
-{
-    /// Add a data service to this plugin.
-    pub fn data_service<T>(self, service: T) -> Plugin<D, T, R, S>
-    where
-        T: DataService + Debug + Send + Sync + 'static,
-    {
-        Plugin {
-            query_service: Some(DataServer::new(service)),
-            shutdown_handler: self.shutdown_handler,
-            init_subscriber: self.init_subscriber,
-            diagnostics_service: self.diagnostics_service,
-            resource_service: self.resource_service,
-            stream_service: self.stream_service,
-        }
-    }
-}
-
-impl<Q, R, S> Plugin<NoopService, Q, R, S>
-where
-    Q: DataService + Debug + Send + Sync + 'static,
-    R: ResourceService + Debug + Send + Sync + 'static,
-    S: StreamService + Debug + Send + Sync + 'static,
-{
-    /// Add a diagnostics service to this plugin.
-    pub fn diagnostics_service<T>(self, service: T) -> Plugin<T, Q, R, S>
-    where
-        T: DiagnosticsService + Debug + Send + Sync + 'static,
-    {
-        Plugin {
-            diagnostics_service: Some(DiagnosticsServer::new(service)),
-            shutdown_handler: self.shutdown_handler,
-            init_subscriber: self.init_subscriber,
-            query_service: self.query_service,
-            resource_service: self.resource_service,
-            stream_service: self.stream_service,
-        }
-    }
-}
-
-impl<D, Q, S> Plugin<D, Q, NoopService, S>
-where
-    D: DiagnosticsService + Debug + Send + Sync + 'static,
-    Q: DataService + Debug + Send + Sync + 'static,
-    S: StreamService + Debug + Send + Sync + 'static,
-{
-    /// Add a resource service to this plugin.
-    pub fn resource_service<T>(self, service: T) -> Plugin<D, Q, T, S>
-    where
-        T: ResourceService + Debug + Send + Sync + 'static,
-    {
-        Plugin {
-            resource_service: Some(ResourceServer::new(service)),
-            shutdown_handler: self.shutdown_handler,
-            init_subscriber: self.init_subscriber,
-            diagnostics_service: self.diagnostics_service,
-            query_service: self.query_service,
-            stream_service: self.stream_service,
-        }
-    }
-}
-
-impl<D, Q, R> Plugin<D, Q, R, NoopService>
-where
-    D: DiagnosticsService + Debug + Send + Sync + 'static,
-    Q: DataService + Debug + Send + Sync + 'static,
-    R: ResourceService + Debug + Send + Sync + 'static,
-{
-    /// Add a streaming service to this plugin.
-    pub fn stream_service<T>(self, service: T) -> Plugin<D, Q, R, T>
-    where
-        T: StreamService + Debug + Send + Sync + 'static,
-    {
-        Plugin {
-            stream_service: Some(StreamServer::new(service)),
-            shutdown_handler: self.shutdown_handler,
-            init_subscriber: self.init_subscriber,
-            diagnostics_service: self.diagnostics_service,
-            query_service: self.query_service,
-            resource_service: self.resource_service,
-        }
-    }
-}
-
-impl<D, Q, R, S> Plugin<D, Q, R, S>
-where
-    D: DiagnosticsService + Debug + Send + Sync + 'static,
-    Q: DataService + Debug + Send + Sync + 'static,
-    R: ResourceService + Debug + Send + Sync + 'static,
-    S: StreamService + Debug + Send + Sync + 'static,
-{
+impl<D, Q, R, S> Plugin<D, Q, R, S> {
     /// Add a shutdown handler to the plugin, listening on the specified address.
     ///
     /// The shutdown handler waits for a TCP connection on the specified address
@@ -476,6 +376,74 @@ where
         self
     }
 
+    /// Add a data service to this plugin.
+    pub fn data_service<T>(self, service: T) -> Plugin<D, T, R, S>
+    where
+        T: DataService + Debug + Send + Sync + 'static,
+    {
+        Plugin {
+            data_service: Some(service),
+            shutdown_handler: self.shutdown_handler,
+            init_subscriber: self.init_subscriber,
+            diagnostics_service: self.diagnostics_service,
+            resource_service: self.resource_service,
+            stream_service: self.stream_service,
+        }
+    }
+
+    /// Add a diagnostics service to this plugin.
+    pub fn diagnostics_service<T>(self, service: T) -> Plugin<T, Q, R, S>
+    where
+        T: DiagnosticsService + Debug + Send + Sync + 'static,
+    {
+        Plugin {
+            diagnostics_service: Some(service),
+            shutdown_handler: self.shutdown_handler,
+            init_subscriber: self.init_subscriber,
+            data_service: self.data_service,
+            resource_service: self.resource_service,
+            stream_service: self.stream_service,
+        }
+    }
+
+    /// Add a resource service to this plugin.
+    pub fn resource_service<T>(self, service: T) -> Plugin<D, Q, T, S>
+    where
+        T: ResourceService + Debug + Send + Sync + 'static,
+    {
+        Plugin {
+            resource_service: Some(service),
+            shutdown_handler: self.shutdown_handler,
+            init_subscriber: self.init_subscriber,
+            diagnostics_service: self.diagnostics_service,
+            data_service: self.data_service,
+            stream_service: self.stream_service,
+        }
+    }
+
+    /// Add a streaming service to this plugin.
+    pub fn stream_service<T>(self, service: T) -> Plugin<D, Q, R, T>
+    where
+        T: StreamService + Debug + Send + Sync + 'static,
+    {
+        Plugin {
+            stream_service: Some(service),
+            shutdown_handler: self.shutdown_handler,
+            init_subscriber: self.init_subscriber,
+            diagnostics_service: self.diagnostics_service,
+            data_service: self.data_service,
+            resource_service: self.resource_service,
+        }
+    }
+}
+
+impl<D, Q, R, S> Plugin<D, Q, R, S>
+where
+    D: DiagnosticsService + Debug + Send + Sync + 'static,
+    Q: DataService + Debug + Send + Sync + 'static,
+    R: ResourceService + Debug + Send + Sync + 'static,
+    S: StreamService + Debug + Send + Sync + 'static,
+{
     /// Start the plugin.
     ///
     /// This adds all of the configured services, spawns a shutdown handler
@@ -500,7 +468,7 @@ where
             health_reporter.set_serving::<DiagnosticsServer<D>>().await;
             plugins.push("diagnostics");
         }
-        if self.query_service.is_some() {
+        if self.data_service.is_some() {
             health_reporter.set_serving::<DataServer<Q>>().await;
             plugins.push("data");
         }
@@ -520,10 +488,10 @@ where
         let router = tonic::transport::Server::builder()
             .trace_fn(|_| tracing::debug_span!("grafana-plugin-sdk"))
             .add_service(health_service)
-            .add_optional_service(self.diagnostics_service)
-            .add_optional_service(self.query_service)
-            .add_optional_service(self.resource_service)
-            .add_optional_service(self.stream_service);
+            .add_optional_service(self.diagnostics_service.map(DiagnosticsServer::new))
+            .add_optional_service(self.data_service.map(DataServer::new))
+            .add_optional_service(self.resource_service.map(ResourceServer::new))
+            .add_optional_service(self.stream_service.map(StreamServer::new));
         if let Some(handler) = self.shutdown_handler {
             let handler = handler.spawn();
             router
