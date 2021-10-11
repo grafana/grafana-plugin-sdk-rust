@@ -16,7 +16,7 @@
                     "value": 1.234
                 }
             ],
-            "channel": "sample/channel/name",
+            "channel": "plugin/channel/name",
             "executedQueryString": "SELECT * FROM table"
         },
         "fields":
