@@ -1,10 +1,13 @@
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
-use serde_with::skip_serializing_none;
+use serde_with::{serde_as, skip_serializing_none};
 
-use crate::data::{
-    field::{Field, FieldConfig},
-    ConfFloat64,
+use crate::{
+    data::{
+        field::{Field, FieldConfig},
+        ConfFloat64,
+    },
+    live::Channel,
 };
 
 pub(self) mod de;
@@ -164,7 +167,7 @@ impl Frame {
     /// This is used when a frame can be 'upgraded' to a streaming response, to
     /// tell Grafana that the given channel should be used to subscribe to updates
     /// to this frame.
-    pub fn set_channel(&mut self, channel: String) {
+    pub fn set_channel(&mut self, channel: Channel) {
         self.meta = Some(std::mem::take(&mut self.meta).unwrap_or_default());
         self.meta.as_mut().unwrap().channel = Some(channel);
     }
@@ -220,6 +223,7 @@ pub enum FrameInclude {
 
 /// Metadata about a [`Frame`].
 #[skip_serializing_none]
+#[serde_as]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Metadata {
@@ -244,8 +248,9 @@ pub struct Metadata {
     pub notices: Option<Vec<Notice>>,
 
     /// Path to a stream in Grafana Live that has real-time updates for this data.
+    #[serde_as(as = "Option<serde_with::DisplayFromStr>")]
     #[serde(default)]
-    pub channel: Option<String>,
+    pub channel: Option<Channel>,
 
     /// The preferred visualisation option when used in Grafana's Explore mode.
     #[serde(rename = "preferredVisualisationType", default)]
