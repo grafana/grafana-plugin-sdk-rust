@@ -4,7 +4,10 @@ use std::{collections::HashMap, sync::Arc};
 use arrow2::{datatypes::Schema, io::ipc::write::FileWriter, record_batch::RecordBatch};
 use thiserror::Error;
 
-use crate::data::{field::Field, frame::Frame};
+use crate::data::{
+    field::Field,
+    frame::{Checked, Frame},
+};
 
 /// Errors occurring when serializing a [`Frame`] to the Arrow IPC format.
 #[derive(Debug, Error)]
@@ -20,7 +23,7 @@ pub enum Error {
     WriteBuffer(arrow2::error::ArrowError),
 }
 
-impl Frame {
+impl Frame<Checked> {
     /// Create an Arrow [`Schema`] for this Frame.
     ///
     /// If `ref_id` is provided, it is passed down to the various conversion

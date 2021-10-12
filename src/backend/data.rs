@@ -109,13 +109,13 @@ pub struct DataResponse {
     ref_id: String,
 
     /// The data returned from the query.
-    frames: Vec<data::Frame>,
+    frames: Vec<data::Frame<data::Checked>>,
 }
 
 impl DataResponse {
     /// Create a new [`DataResponse`] with the given `ref_id` and `frames`.
     #[must_use]
-    pub const fn new(ref_id: String, frames: Vec<data::Frame>) -> Self {
+    pub const fn new(ref_id: String, frames: Vec<data::Frame<data::Checked>>) -> Self {
         Self { ref_id, frames }
     }
 }
@@ -181,7 +181,7 @@ pub trait DataQueryError: std::error::Error {
 ///             request.queries.into_iter().map(|x| {
 ///                 Ok(backend::DataResponse::new(
 ///                     // Include the ID of the query in the response.
-///                     x.ref_id,
+///                     x.ref_id.clone(),
 ///                     // Return zero or more frames.
 ///                     // A real implementation would fetch this data from a database
 ///                     // or something.
@@ -190,7 +190,9 @@ pub trait DataQueryError: std::error::Error {
 ///                             [1_u32, 2, 3].into_field("x"),
 ///                             ["a", "b", "c"].into_field("y"),
 ///                         ]
-///                         .into_frame("foo"),
+///                         .into_frame("foo")
+///                         .check()
+///                         .map_err(|_| QueryError { ref_id: x.ref_id })?,
 ///                     ],
 ///                 ))
 ///             })
@@ -227,7 +229,7 @@ pub type BoxDataResponseIter<E> = Box<dyn Iterator<Item = Result<backend::DataRe
 /// If `ref_id` is provided, it is passed down to the various conversion
 /// function and takes precedence over any `ref_id`s set on the individual frames.
 pub(crate) fn to_arrow(
-    frames: &[data::Frame],
+    frames: &[data::Frame<data::Checked>],
     ref_id: &Option<String>,
 ) -> Result<Vec<Vec<u8>>, data::Error> {
     frames

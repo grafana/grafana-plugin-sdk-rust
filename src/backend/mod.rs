@@ -79,7 +79,7 @@ impl backend::DataService for MyPlugin {
             request.queries.into_iter().map(|x| {
                 Ok(backend::DataResponse::new(
                     // Include the ID of the query in the response.
-                    x.ref_id,
+                    x.ref_id.clone(),
                     // Return one or more frames.
                     // A real implementation would fetch this data from a database
                     // or something.
@@ -88,7 +88,8 @@ impl backend::DataService for MyPlugin {
                             [1_u32, 2, 3].into_field("x"),
                             ["a", "b", "c"].into_field("y"),
                         ]
-                        .into_frame("foo"),
+                        .into_checked_frame("foo")
+                        .map_err(|_| QueryError { ref_id: x.ref_id })?,
                     ],
                 ))
             })
@@ -277,7 +278,7 @@ impl ShutdownHandler {
 ///             request.queries.into_iter().map(|x| {
 ///                 Ok(backend::DataResponse::new(
 ///                     // Include the ID of the query in the response.
-///                     x.ref_id,
+///                     x.ref_id.clone(),
 ///                     // Return zero or more frames.
 ///                     // A real implementation would fetch this data from a database
 ///                     // or something.
@@ -286,7 +287,8 @@ impl ShutdownHandler {
 ///                             [1_u32, 2, 3].into_field("x"),
 ///                             ["a", "b", "c"].into_field("y"),
 ///                         ]
-///                         .into_frame("foo"),
+///                         .into_checked_frame("foo")
+///                         .map_err(|_| QueryError { ref_id: x.ref_id })?,
 ///                     ],
 ///                 ))
 ///             })

@@ -170,7 +170,7 @@ pub trait IntoField {
     /// Create a [`Field`] from `self`.
     ///
     /// The type of the `Field` will depend on the values in `self`.
-    fn into_field<S: Into<String>>(self, name: S) -> Field;
+    fn into_field(self, name: impl Into<String>) -> Field;
 }
 
 impl<T, U, V> IntoField for T
@@ -180,7 +180,7 @@ where
     V: FieldType,
     V::Array: Array + FromIterator<Option<V>> + 'static,
 {
-    fn into_field<S: Into<String>>(self, name: S) -> Field {
+    fn into_field(self, name: impl Into<String>) -> Field {
         Field {
             name: name.into(),
             labels: Default::default(),
@@ -202,7 +202,7 @@ where
 /// Indicates that a [`Field`] of optional values can be created from this type.
 pub trait IntoOptField {
     /// Create a [`Field`] from `self`, with `None` values marked as null.
-    fn into_opt_field<S: Into<String>>(self, name: S) -> Field;
+    fn into_opt_field(self, name: impl Into<String>) -> Field;
 }
 
 impl<'a, T, U, V> IntoOptField for T
@@ -212,7 +212,7 @@ where
     V: FieldType,
     V::Array: Array + FromIterator<Option<V>> + 'static,
 {
-    fn into_opt_field<S: Into<String>>(self, name: S) -> Field {
+    fn into_opt_field(self, name: impl Into<String>) -> Field {
         Field {
             name: name.into(),
             labels: Default::default(),
@@ -238,14 +238,14 @@ pub trait ArrayIntoField {
     /// # Errors
     ///
     /// This returns an error if the values are not valid field types.
-    fn try_into_field<S: Into<String>>(self, name: S) -> Result<Field, error::Error>;
+    fn try_into_field(self, name: impl Into<String>) -> Result<Field, error::Error>;
 }
 
 impl<T> ArrayIntoField for T
 where
     T: Array + 'static,
 {
-    fn try_into_field<S: Into<String>>(self, name: S) -> Result<Field, error::Error> {
+    fn try_into_field(self, name: impl Into<String>) -> Result<Field, error::Error> {
         Ok(Field {
             name: name.into(),
             labels: Default::default(),
