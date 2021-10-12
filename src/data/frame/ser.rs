@@ -15,11 +15,11 @@ use serde::{
 use serde_with::skip_serializing_none;
 
 use crate::data::{
-    field::{Field, FieldConfig, SimpleType, TypeInfo},
-    frame::{Frame, Metadata},
+    field::{DynField, Field, FieldConfig, FixedSizeField, SimpleType, TypeInfo},
+    frame::{DynFrame, FixedSizeFrame, Frame, Metadata},
 };
 
-impl Serialize for Frame {
+impl Serialize for DynFrame {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -83,7 +83,7 @@ pub(super) struct SerializableField<'a> {
 
 #[derive(Debug)]
 pub(super) struct SerializableFrameData<'a> {
-    pub(super) fields: &'a [Field],
+    pub(super) fields: &'a [DynField],
 }
 
 impl<'a> Serialize for SerializableFrameData<'a> {
@@ -116,7 +116,7 @@ impl<'a> Serialize for SerializableFrameData<'a> {
 }
 
 struct SerializableFrameDataValues<'a, 'b> {
-    fields: &'a [Field],
+    fields: &'a [DynField],
     entities: &'b [RefCell<Option<Entities>>],
 }
 
@@ -127,7 +127,7 @@ impl<'a, 'b> Serialize for SerializableFrameDataValues<'a, 'b> {
     {
         let mut seq = serializer.serialize_seq(Some(self.fields.len()))?;
         for (arr, e) in self.fields.iter().zip(self.entities.iter()) {
-            seq.serialize_element(&SerializableArray(&*arr.values, e))?;
+            seq.serialize_element(&SerializableArray(&*arr.values(), e))?;
         }
         seq.end()
     }
@@ -272,14 +272,14 @@ mod test {
     // Ignore this test for now, the JSON isn't minified.
     fn serialize_golden() {
         let expected = include_str!("golden.json");
-        let f: Frame = from_str(expected).unwrap();
+        let f: DynFrame = from_str(expected).unwrap();
         let actual = to_string(&f).unwrap();
         assert_eq!(&actual, expected);
     }
 
     #[test]
     fn round_trip_small() {
-        let f = Frame {
+        let f = DynFrame {
             name: "many_types".to_string(),
             ref_id: Some("A".to_string()),
             meta: Some(Metadata {
@@ -287,7 +287,7 @@ mod test {
                 ..Default::default()
             }),
             fields: vec![
-                Field {
+                DynField {
                     name: "int8_values".to_string(),
                     labels: Default::default(),
                     config: None,
@@ -297,7 +297,7 @@ mod test {
                         nullable: Some(false),
                     },
                 },
-                Field {
+                DynField {
                     name: "date32_values".to_string(),
                     labels: Default::default(),
                     config: None,
@@ -310,7 +310,7 @@ mod test {
                         nullable: Some(false),
                     },
                 },
-                Field {
+                DynField {
                     name: "date64_values".to_string(),
                     labels: Default::default(),
                     config: None,
@@ -329,7 +329,7 @@ mod test {
                         nullable: Some(false),
                     },
                 },
-                Field {
+                DynField {
                     name: "timestamp_s_values".to_string(),
                     labels: Default::default(),
                     config: None,
@@ -344,7 +344,7 @@ mod test {
                         nullable: Some(false),
                     },
                 },
-                Field {
+                DynField {
                     name: "timestamp_ms_values".to_string(),
                     labels: Default::default(),
                     config: None,
@@ -363,7 +363,7 @@ mod test {
                         nullable: Some(false),
                     },
                 },
-                Field {
+                DynField {
                     name: "timestamp_us_values".to_string(),
                     labels: Default::default(),
                     config: None,
@@ -382,7 +382,7 @@ mod test {
                         nullable: Some(false),
                     },
                 },
-                Field {
+                DynField {
                     name: "timestamp_ns_values".to_string(),
                     labels: Default::default(),
                     config: None,
@@ -407,7 +407,7 @@ mod test {
             ],
         };
         let jdoc = to_string_pretty(&f).unwrap();
-        let parsed: Frame = from_str(&jdoc).unwrap();
+        let parsed: DynFrame = from_str(&jdoc).unwrap();
         let jdoc_again = to_string_pretty(&parsed).unwrap();
         // Compare the JSON reprs; the internal Arrow datatypes will
         // be different because the JSON representation is lossy
@@ -418,9 +418,9 @@ mod test {
     #[test]
     fn round_trip_full() {
         let jdoc = include_str!("golden.json");
-        let parsed: Frame = from_str(&jdoc).unwrap();
+        let parsed: DynFrame = from_str(&jdoc).unwrap();
         let jdoc_ser = to_string(&parsed).unwrap();
-        let parsed_again: Frame = from_str(&jdoc).unwrap();
+        let parsed_again: DynFrame = from_str(&jdoc).unwrap();
         let jdoc_ser_again = to_string(&parsed_again).unwrap();
         // Compare the JSON reprs; the internal Arrow datatypes will
         // be different because the JSON representation is lossy

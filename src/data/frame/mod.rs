@@ -1,9 +1,11 @@
+use std::sync::Arc;
+
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use serde_with::skip_serializing_none;
 
 use crate::data::{
-    field::{Field, FieldConfig},
+    field::{DynField, Field, FieldConfig, FixedSizeField},
     ConfFloat64,
 };
 
@@ -20,7 +22,21 @@ pub const TIME_FIELD_NAME: &str = "Time";
 /// The standard name for time series value fields.
 pub const VALUE_FIELD_NAME: &str = "Value";
 
-/// A structured, two-dimensional data frame.
+mod sealed {
+    pub trait Sealed {}
+}
+
+pub trait Frame: sealed::Sealed {
+    type Field;
+    fn name(&self) -> &str;
+    fn set_name(&mut self, name: String);
+    fn meta(&self) -> &Option<Metadata>;
+    fn set_meta(&mut self, meta: Option<Metadata>);
+
+    fn fields(&self) -> &[Self::Field];
+}
+
+/// A structured, two-dimensional data frame with constant length.
 ///
 /// The fields of this struct are public so it can be created manually if desired.
 /// Alternatively, the [`IntoFrame`] trait provides a convenient way to create a
@@ -74,14 +90,14 @@ pub const VALUE_FIELD_NAME: &str = "Value";
 /// ```
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
-pub struct Frame {
+pub struct FixedSizeFrame<const N: usize> {
     /// The name of this frame.
     pub name: String,
 
     /// The fields of this frame.
     ///
     /// The data in all fields must be of the same length, but may have different types.
-    pub fields: Vec<Field>,
+    pub fields: Vec<FixedSizeField<N>>,
 
     /// Optional metadata describing this frame.
     ///
@@ -95,7 +111,7 @@ pub struct Frame {
     pub ref_id: Option<String>,
 }
 
-impl Frame {
+impl<const N: usize> FixedSizeFrame<N> {
     /// Create a new, empty `Frame` with no fields and no metadata.
     #[must_use]
     pub fn new<S: Into<String>>(name: S) -> Self {
@@ -122,10 +138,114 @@ impl Frame {
     ///
     /// This method will not fail if the field's data has a different length to any existing fields,
     /// but this property will be checked later before the frame is serialized.
-    pub fn add_field(&mut self, field: Field) {
+    pub fn add_field(&mut self, field: FixedSizeField<N>) {
         self.fields.push(field);
     }
 
+    /// Serialize this frame to JSON, returning the serialized bytes.
+    ///
+    /// Unlike the `Serialize` impl, this method allows for customization of the fields included.
+    pub(crate) fn to_json(&self, include: FrameInclude) -> Result<Vec<u8>, serde_json::Error> {
+        let schema_fields: Vec<_> = self
+            .fields
+            .iter()
+            .map(|f| SerializableField {
+                name: &f.name,
+                labels: &f.labels,
+                config: f.config.as_ref(),
+                type_: f.type_info.simple_type(),
+                type_info: &f.type_info,
+            })
+            .collect();
+        let mut ser = SerializableFrame {
+            schema: matches!(include, FrameInclude::All | FrameInclude::SchemaOnly).then(|| {
+                SerializableFrameSchema {
+                    name: &self.name,
+                    ref_id: self.ref_id.as_deref(),
+                    meta: &self.meta,
+                    fields: &schema_fields,
+                }
+            }),
+            data: None,
+        };
+        let mut data = Vec::new();
+        if matches!(include, FrameInclude::All | FrameInclude::DataOnly) {
+            data = self
+                .fields
+                .iter()
+                .map(|f| DynField {
+                    // TODO: get rid of clones
+                    name: f.name.clone(),
+                    labels: f.labels.clone(),
+                    config: f.config.clone(),
+                    values: Arc::clone(&f.values),
+                    type_info: f.type_info.clone(),
+                })
+                .collect::<Vec<_>>();
+            ser.data = Some(SerializableFrameData { fields: &data });
+        }
+        serde_json::to_vec(&ser)
+    }
+
+    /// Set the channel of the frame.
+    ///
+    /// This is used when a frame can be 'upgraded' to a streaming response, to
+    /// tell Grafana that the given channel should be used to subscribe to updates
+    /// to this frame.
+    pub fn set_channel(&mut self, channel: String) {
+        self.meta = Some(std::mem::take(&mut self.meta).unwrap_or_default());
+        self.meta.as_mut().unwrap().channel = Some(channel);
+    }
+}
+
+pub struct DynFrame {
+    /// The name of this frame.
+    pub name: String,
+
+    /// The fields of this frame.
+    ///
+    /// The data in all fields must be of the same length, but may have different types.
+    pub fields: Vec<DynField>,
+
+    /// Optional metadata describing this frame.
+    ///
+    /// This can include custom metadata.
+    pub meta: Option<Metadata>,
+
+    /// The ID of this frame, used by the Grafana frontend.
+    ///
+    /// This does not usually need to be provided; it will be filled
+    /// in by the SDK when the Frame is returned to Grafana.
+    pub ref_id: Option<String>,
+}
+
+impl sealed::Sealed for DynFrame {}
+
+impl Frame for DynFrame {
+    type Field = DynField;
+
+    fn name(&self) -> &str {
+        self.name.as_str()
+    }
+
+    fn set_name(&mut self, name: String) {
+        self.name = name;
+    }
+
+    fn fields(&self) -> &[DynField] {
+        &self.fields
+    }
+
+    fn meta(&self) -> &Option<Metadata> {
+        &self.meta
+    }
+
+    fn set_meta(&mut self, meta: Option<Metadata>) {
+        self.meta = meta;
+    }
+}
+
+impl DynFrame {
     /// Serialize this frame to JSON, returning the serialized bytes.
     ///
     /// Unlike the `Serialize` impl, this method allows for customization of the fields included.
@@ -158,31 +278,21 @@ impl Frame {
         };
         serde_json::to_vec(&ser)
     }
-
-    /// Set the channel of the frame.
-    ///
-    /// This is used when a frame can be 'upgraded' to a streaming response, to
-    /// tell Grafana that the given channel should be used to subscribe to updates
-    /// to this frame.
-    pub fn set_channel(&mut self, channel: String) {
-        self.meta = Some(std::mem::take(&mut self.meta).unwrap_or_default());
-        self.meta.as_mut().unwrap().channel = Some(channel);
-    }
 }
 
-/// Convenience trait for converting iterators of [`Field`]s into a [`Frame`].
+/// Convenience trait for converting iterators of [`FixedSizeField`]s into a [`FixedSizeFrame`].
 #[cfg_attr(docsrs, doc(notable_trait))]
-pub trait IntoFrame {
+pub trait IntoFixedSizeFrame<const N: usize> {
     /// Create a [`Frame`] with the given name from `self`.
-    fn into_frame<S: Into<String>>(self, name: S) -> Frame;
+    fn into_frame<S: Into<String>>(self, name: S) -> FixedSizeFrame<N>;
 }
 
-impl<T> IntoFrame for T
+impl<T, const N: usize> IntoFixedSizeFrame<N> for T
 where
-    T: IntoIterator<Item = Field>,
+    T: IntoIterator<Item = FixedSizeField<N>>,
 {
-    fn into_frame<S: Into<String>>(self, name: S) -> Frame {
-        Frame {
+    fn into_frame<S: Into<String>>(self, name: S) -> FixedSizeFrame<N> {
+        FixedSizeFrame {
             name: name.into(),
             fields: self.into_iter().collect(),
             meta: None,
@@ -191,17 +301,17 @@ where
     }
 }
 
-/// Convenience trait for creating a [`Frame`] from an iterator of [`Field`]s.
+/// Convenience trait for creating a [`FixedSizeFrame`] from an iterator of [`FixedSizeField`]s.
 ///
 /// This is the inverse of [`IntoFrame`] and is defined for all implementors of that trait.
 #[cfg_attr(docsrs, doc(notable_trait))]
-pub trait FromFields<T: IntoFrame> {
+pub trait FromFields<T: IntoFixedSizeFrame<N>, const N: usize> {
     /// Create a [`Frame`] with the given name from `fields`.
-    fn from_fields<S: Into<String>>(name: S, fields: T) -> Frame;
+    fn from_fields<S: Into<String>>(name: S, fields: T) -> FixedSizeFrame<N>;
 }
 
-impl<T: IntoFrame> FromFields<T> for Frame {
-    fn from_fields<S: Into<String>>(name: S, fields: T) -> Frame {
+impl<T: IntoFixedSizeFrame<N>, const N: usize> FromFields<T, N> for FixedSizeFrame<N> {
+    fn from_fields<S: Into<String>>(name: S, fields: T) -> FixedSizeFrame<N> {
         fields.into_frame(name)
     }
 }

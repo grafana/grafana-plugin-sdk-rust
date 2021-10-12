@@ -23,17 +23,17 @@ use serde::{
 use serde_json::from_str;
 
 use crate::data::{
-    field::{FieldConfig, SimpleType, TypeInfo, TypeInfoType},
+    field::{DynField, FieldConfig, SimpleType, TypeInfo, TypeInfoType},
     frame::ser::Entities,
-    Frame, Metadata,
+    DynFrame, Metadata,
 };
 
-// Deserialization from the JSON representation for [`Frame`]s.
+// Deserialization from the JSON representation for [`DynFrame`]s.
 //
 // This follows the [Manually deserializing a struct](https://serde.rs/deserialize-struct.html)
 // example in the [`serde`] docs, and uses [`RawValue`] to avoid intermediate buffering
 // of arrays during deserialization.
-impl<'de> Deserialize<'de> for Frame {
+impl<'de> Deserialize<'de> for DynFrame {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
@@ -48,7 +48,7 @@ impl<'de> Deserialize<'de> for Frame {
         struct FrameVisitor;
 
         impl<'de> Visitor<'de> for FrameVisitor {
-            type Value = Frame;
+            type Value = DynFrame;
 
             fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
                 formatter.write_str("stuct Frame")
@@ -83,7 +83,7 @@ impl<'de> Deserialize<'de> for Frame {
                     .try_into()
                     .map_err(|e| Error::custom(&format!("invalid values: {}", e)))?;
 
-                Ok(Frame {
+                Ok(DynFrame {
                     name: schema.name,
                     ref_id: Some(schema.ref_id),
                     meta: schema.meta,
@@ -91,7 +91,7 @@ impl<'de> Deserialize<'de> for Frame {
                         .fields
                         .into_iter()
                         .zip(data.values.into_iter())
-                        .map(|(f, values)| crate::data::field::Field {
+                        .map(|(f, values)| DynField {
                             name: f.name,
                             labels: f.labels,
                             config: f.config,
@@ -393,11 +393,11 @@ impl<T: Offset> WithCapacity for MutableUtf8Array<T> {
 
 #[cfg(test)]
 mod test {
-    use crate::data::Frame;
+    use crate::data::DynFrame;
 
     #[test]
     fn deserialize_golden() {
         let jdoc = include_str!("golden.json");
-        let _: Frame = serde_json::from_str(&jdoc).unwrap();
+        let _: DynFrame = serde_json::from_str(&jdoc).unwrap();
     }
 }

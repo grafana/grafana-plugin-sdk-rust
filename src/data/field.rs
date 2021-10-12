@@ -1,4 +1,4 @@
-//! Contains the `Field` struct, which holds actual data in the form of Arrow arrays, as well as column-specific metadata.
+//! Contains the `FixedSizeField` struct, which holds actual data in the form of Arrow arrays, as well as column-specific metadata.
 use std::{
     collections::{BTreeMap, HashMap},
     convert::{TryFrom, TryInto},
@@ -20,15 +20,31 @@ use crate::data::{
     ConfFloat64,
 };
 
-/// A typed column within a [`Frame`][crate::data::Frame].
+pub trait Field {
+    fn name(&self) -> &str;
+    fn set_name(&mut self, name: String);
+
+    fn labels(&self) -> &BTreeMap<String, String>;
+    fn set_labels(&mut self, labels: BTreeMap<String, String>);
+
+    fn config(&self) -> &Option<FieldConfig>;
+    fn set_config(&mut self, labels: Option<FieldConfig>);
+
+    /// Get the values of this field as a [`&dyn Array`].
+    fn values(&self) -> Arc<dyn Array>;
+
+    fn type_info(&self) -> &TypeInfo;
+}
+
+/// A typed column within a [`Frame`][crate::data::Frame] with dynamic length.
 ///
-/// The underlying data for this field can be read using the [`Field::values`] method,
-/// and updated using the [`Field::set_values`] and [`Field::set_values_opt`] methods.
+/// The underlying data for this field can be read using the [`FixedSizeField::values`] method,
+/// and updated using the [`FixedSizeField::set_values`] and [`FixedSizeField::set_values_opt`] methods.
 #[derive(Debug)]
-pub struct Field {
+pub struct DynField {
     /// The name of this field.
     ///
-    /// Fields within a [`Frame`][crate::data::Frame] are not required to have unique names, but
+    /// FixedSizeFields within a [`Frame`][crate::data::Frame] are not required to have unique names, but
     /// the combination of `name` and `labels` should be unique within a frame
     /// to ensure proper behaviour in all situations.
     pub name: String,
@@ -47,7 +63,102 @@ pub struct Field {
     pub(crate) type_info: TypeInfo,
 }
 
-impl Field {
+impl Field for DynField {
+    fn name(&self) -> &str {
+        self.name.as_str()
+    }
+
+    fn set_name(&mut self, name: String) {
+        self.name = name;
+    }
+
+    fn labels(&self) -> &BTreeMap<String, String> {
+        &self.labels
+    }
+
+    fn set_labels(&mut self, labels: BTreeMap<String, String>) {
+        self.labels = labels;
+    }
+
+    fn config(&self) -> &Option<FieldConfig> {
+        &self.config
+    }
+
+    fn set_config(&mut self, config: Option<FieldConfig>) {
+        self.config = config;
+    }
+
+    fn values(&self) -> Arc<dyn Array> {
+        Arc::clone(&self.values)
+    }
+
+    fn type_info(&self) -> &TypeInfo {
+        &self.type_info
+    }
+}
+
+/// A typed column within a [`Frame`][crate::data::Frame] with constant length.
+///
+/// The underlying data for this field can be read using the [`FixedSizeField::values`] method,
+/// and updated using the [`FixedSizeField::set_values`] and [`FixedSizeField::set_values_opt`] methods.
+#[derive(Debug)]
+pub struct FixedSizeField<const N: usize> {
+    /// The name of this field.
+    ///
+    /// FixedSizeFields within a [`Frame`][crate::data::Frame] are not required to have unique names, but
+    /// the combination of `name` and `labels` should be unique within a frame
+    /// to ensure proper behaviour in all situations.
+    pub name: String,
+    /// An optional set of key-value pairs that, combined with the name, should uniquely identify a field within a [`Frame`][crate::data::Frame].
+    pub labels: BTreeMap<String, String>,
+    /// Optional display configuration used by Grafana.
+    pub config: Option<FieldConfig>,
+
+    /// The actual values of this field.
+    ///
+    /// The types of values contained within the `Array` MUST match the
+    /// type information in `type_info` at all times. The various `into_field`-like
+    /// functions and the `set_values` methods should ensure this.
+    pub(crate) values: Arc<dyn Array>,
+    /// Type information for this field, as understood by Grafana.
+    pub(crate) type_info: TypeInfo,
+}
+
+impl<const N: usize> Field for FixedSizeField<N> {
+    fn name(&self) -> &str {
+        self.name.as_str()
+    }
+
+    fn set_name(&mut self, name: String) {
+        self.name = name;
+    }
+
+    fn labels(&self) -> &BTreeMap<String, String> {
+        &self.labels
+    }
+
+    fn set_labels(&mut self, labels: BTreeMap<String, String>) {
+        self.labels = labels;
+    }
+
+    fn config(&self) -> &Option<FieldConfig> {
+        &self.config
+    }
+
+    fn set_config(&mut self, config: Option<FieldConfig>) {
+        self.config = config;
+    }
+
+    fn values(&self) -> Arc<dyn Array> {
+        Arc::clone(&self.values)
+    }
+
+    fn type_info(&self) -> &TypeInfo {
+        &self.type_info
+    }
+}
+
+impl<const N: usize> FixedSizeField<N> {
     pub(crate) fn to_arrow_field(&self) -> Result<ArrowField, serde_json::Error> {
         let metadata = match (self.labels.is_empty(), self.config.as_ref()) {
             (true, None) => None,
@@ -80,12 +191,70 @@ impl Field {
         })
     }
 
-    /// Get the values of this field as a [`&dyn Array`].
-    pub fn values(&self) -> &dyn Array {
-        &*self.values
+    /// Set the values of this field using an array of values.
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`Error::DataTypeMismatch`][error::Error::DataTypeMismatch] if the types of the new data
+    /// do not match the types of the existing data.
+    pub fn set_values<T, U>(&mut self, values: [T; N]) -> Result<(), crate::data::error::Error>
+    where
+        T: IntoFieldType<ElementType = U>,
+        U: FieldType,
+        U::Array: Array + From<[Option<U>; N]> + 'static,
+    {
+        let new_data_type: DataType = T::TYPE_INFO_TYPE.into();
+        if self.values.data_type() != &new_data_type {
+            return Err(crate::data::error::Error::DataTypeMismatch {
+                existing: self.values.data_type().clone(),
+                new: new_data_type,
+                field: self.name.clone(),
+            });
+        }
+        self.values = Arc::new(U::convert_arrow_array(
+            values.map(T::into_field_type).into(),
+            new_data_type,
+        ));
+        self.type_info.nullable = Some(false);
+        Ok(())
     }
 
-    /// Set the values of this frame using an iterator of values.
+    /// Set the values of this field using an array of optional values.
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`Error::DataTypeMismatch`][error::Error::DataTypeMismatch] if the types of the new data
+    /// do not match the types of the existing data.
+    pub fn set_values_opt<T, U>(
+        &mut self,
+        values: [Option<T>; N],
+    ) -> Result<(), crate::data::error::Error>
+    where
+        T: IntoFieldType<ElementType = U>,
+        U: FieldType,
+        U::Array: Array + From<[Option<T>; N]> + 'static,
+    {
+        let new_data_type: DataType = T::TYPE_INFO_TYPE.into();
+        if self.values.data_type() != &new_data_type {
+            return Err(crate::data::error::Error::DataTypeMismatch {
+                existing: self.values.data_type().clone(),
+                new: new_data_type,
+                field: self.name.clone(),
+            });
+        }
+        self.values = Arc::new(U::convert_arrow_array(
+            values
+                .map(<Option<T> as IntoFieldType>::into_field_type)
+                .into(),
+            new_data_type,
+        ));
+        self.type_info.nullable = Some(true);
+        Ok(())
+    }
+}
+
+impl DynField {
+    /// Set the values of this field using an iterator of values.
     ///
     /// # Errors
     ///
@@ -150,7 +319,7 @@ impl Field {
     }
 }
 
-impl PartialEq for Field {
+impl<const N: usize> PartialEq for FixedSizeField<N> {
     fn eq(&self, other: &Self) -> bool {
         self.name == other.name
             && self.labels == other.labels
@@ -160,28 +329,28 @@ impl PartialEq for Field {
     }
 }
 
-// Traits for creating a `Field` from various array-like things:
+// Traits for creating a `FixedSizeField` from various array-like things:
 // iterators of both values and optional values, and arrays themselves.
 // These need to be separate traits because otherwise the impls would conflict,
 // as e.g. `Array` implements `IntoIterator`.
 
-/// Indicates that a [`Field`] can be created from this type.
-pub trait IntoField {
-    /// Create a [`Field`] from `self`.
+/// Indicates that a [`FixedSizeField`] can be created from this type.
+pub trait IntoFixedSizeField<const N: usize> {
+    /// Create a [`FixedSizeField`] from `self`.
     ///
-    /// The type of the `Field` will depend on the values in `self`.
-    fn into_field<S: Into<String>>(self, name: S) -> Field;
+    /// The type of the `FixedSizeField` will depend on the values in `self`.
+    fn into_field<S: Into<String>>(self, name: S) -> FixedSizeField<N>;
 }
 
-impl<T, U, V> IntoField for T
+impl<T, U, V, const N: usize> IntoFixedSizeField<N> for T
 where
     T: IntoIterator<Item = U>,
     U: IntoFieldType<ElementType = V>,
     V: FieldType,
     V::Array: Array + FromIterator<Option<V>> + 'static,
 {
-    fn into_field<S: Into<String>>(self, name: S) -> Field {
-        Field {
+    fn into_field<S: Into<String>>(self, name: S) -> FixedSizeField<N> {
+        FixedSizeField {
             name: name.into(),
             labels: Default::default(),
             config: None,
@@ -199,21 +368,21 @@ where
     }
 }
 
-/// Indicates that a [`Field`] of optional values can be created from this type.
-pub trait IntoOptField {
-    /// Create a [`Field`] from `self`, with `None` values marked as null.
-    fn into_opt_field<S: Into<String>>(self, name: S) -> Field;
+/// Indicates that a [`FixedSizeField`] of optional values can be created from this type.
+pub trait IntoOptFixedSizeField<const N: usize> {
+    /// Create a [`FixedSizeField`] from `self`, with `None` values marked as null.
+    fn into_opt_field<S: Into<String>>(self, name: S) -> FixedSizeField<N>;
 }
 
-impl<'a, T, U, V> IntoOptField for T
+impl<'a, T, U, V, const N: usize> IntoOptFixedSizeField<N> for T
 where
     T: IntoIterator<Item = Option<U>>,
     U: IntoFieldType<ElementType = V>,
     V: FieldType,
     V::Array: Array + FromIterator<Option<V>> + 'static,
 {
-    fn into_opt_field<S: Into<String>>(self, name: S) -> Field {
-        Field {
+    fn into_opt_field<S: Into<String>>(self, name: S) -> FixedSizeField<N> {
+        FixedSizeField {
             name: name.into(),
             labels: Default::default(),
             config: None,
@@ -231,22 +400,22 @@ where
     }
 }
 
-/// Helper trait for creating a [`Field`] from an [`Array`][arrow2::array::Array].
-pub trait ArrayIntoField {
-    /// Create a `Field` using `self` as the values.
+/// Helper trait for creating a [`DynField`] from an [`Array`][arrow2::array::Array].
+pub trait ArrayIntoDynField {
+    /// Create a `FixedSizeField` using `self` as the values.
     ///
     /// # Errors
     ///
     /// This returns an error if the values are not valid field types.
-    fn try_into_field<S: Into<String>>(self, name: S) -> Result<Field, error::Error>;
+    fn try_into_field<S: Into<String>>(self, name: S) -> Result<DynField, error::Error>;
 }
 
-impl<T> ArrayIntoField for T
+impl<T> ArrayIntoDynField for T
 where
     T: Array + 'static,
 {
-    fn try_into_field<S: Into<String>>(self, name: S) -> Result<Field, error::Error> {
-        Ok(Field {
+    fn try_into_field<S: Into<String>>(self, name: S) -> Result<DynField, error::Error> {
+        Ok(DynField {
             name: name.into(),
             labels: Default::default(),
             config: None,
@@ -261,7 +430,7 @@ where
 
 /// The type information for a [`Frame`][crate::data::Frame] as understood by Grafana.
 #[skip_serializing_none]
-#[derive(Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TypeInfo {
     /// The type, as understood by Grafana.

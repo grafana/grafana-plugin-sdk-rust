@@ -4,7 +4,7 @@ use std::{collections::HashMap, sync::Arc};
 use arrow2::{datatypes::Schema, io::ipc::write::FileWriter, record_batch::RecordBatch};
 use thiserror::Error;
 
-use crate::data::{field::Field, frame::Frame};
+use crate::data::{field::FixedSizeField, frame::FixedSizeFrame};
 
 /// Errors occurring when serializing a [`Frame`] to the Arrow IPC format.
 #[derive(Debug, Error)]
@@ -20,7 +20,7 @@ pub enum Error {
     WriteBuffer(arrow2::error::ArrowError),
 }
 
-impl Frame {
+impl<const N: usize> FixedSizeFrame<N> {
     /// Create an Arrow [`Schema`] for this Frame.
     ///
     /// If `ref_id` is provided, it is passed down to the various conversion
@@ -29,7 +29,7 @@ impl Frame {
         let fields: Vec<_> = self
             .fields
             .iter()
-            .map(Field::to_arrow_field)
+            .map(FixedSizeField::to_arrow_field)
             .collect::<Result<_, _>>()?;
         let mut metadata: HashMap<String, String> = IntoIterator::into_iter([
             ("name".to_string(), self.name.clone()),
