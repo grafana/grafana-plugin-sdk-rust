@@ -2,12 +2,10 @@
 use std::{
     convert::{TryFrom, TryInto},
     pin::Pin,
-    sync::Arc,
 };
 
-use futures_util::{FutureExt, Stream, StreamExt, TryStreamExt};
+use futures_util::{Stream, StreamExt, TryStreamExt};
 use serde::Serialize;
-use tokio::sync::RwLock;
 
 use crate::{
     backend::{ConversionError, PluginContext},
@@ -68,7 +66,7 @@ pub enum InitialData {
     /// Return a [`Frame`][data::Frame] containing initial data.
     ///
     /// This MUST have the same schema as the data returned in subsequent requests to run the stream.
-    Frame(data::Frame, data::FrameInclude),
+    Frame(data::Frame<data::Checked>, data::FrameInclude),
     /// Return some arbitrary JSON on stream subscription.
     Json(serde_json::Value),
 }
@@ -155,27 +153,19 @@ where
     T: Serialize,
 {
     /// An owned [`Frame`][data::Frame].
-    ///
-    /// This provides the simplest API, but when streaming lots of data
-    /// it may be preferable to use the [`MutableFrame`][Self::MutableFrame] variant which allows
-    /// the same `data::Frame` to be reused.
-    Frame(data::Frame),
-    /// A shared, mutable [`Frame`][data::Frame].
-    MutableFrame(Arc<RwLock<data::Frame>>),
+    Frame(data::Frame<data::Checked>),
     /// JSON data of type `T`.
     Json(T),
-    // TODO: add MutableJson.
 }
 
 impl<T> StreamPacket<T>
 where
     T: Serialize,
 {
-    async fn into_plugin_packet(self) -> Result<pluginv2::StreamPacket, serde_json::Error> {
+    fn into_plugin_packet(self) -> Result<pluginv2::StreamPacket, serde_json::Error> {
         Ok(pluginv2::StreamPacket {
             data: match self {
                 Self::Frame(f) => f.to_json(data::FrameInclude::All)?,
-                Self::MutableFrame(f) => f.read().await.to_json(data::FrameInclude::All)?,
                 Self::Json(j) => serde_json::to_vec(&j)?,
             },
         })
@@ -273,6 +263,12 @@ impl TryInto<pluginv2::PublishStreamResponse> for PublishStreamResponse {
 /// #[error("Error streaming data")]
 /// struct StreamError;
 ///
+/// impl From<data::FrameError> for StreamError {
+///     fn from(_other: data::FrameError) -> StreamError {
+///         StreamError
+///     }
+/// }
+///
 /// #[backend::async_trait]
 /// impl backend::StreamService for MyPlugin {
 ///     /// The type of JSON value we might return in our `initial_data`.
@@ -305,32 +301,22 @@ impl TryInto<pluginv2::PublishStreamResponse> for PublishStreamResponse {
 ///
 ///     /// Begin streaming data for a request.
 ///     ///
-///     /// This example just creates an in-memory `Frame` which is initially empty,
-///     /// then sends an updated version of the frame once per second. This requires
-///     /// the use of an `Arc<RwLock<Frame>>`, since the frame is mutated rather than
-///     /// recreated each time.
+///     /// This example just creates an in-memory `Frame` in each loop iteration,
+///     /// sends an updated version of the frame once per second, and updates a loop variable
+///     /// so that each frame is different.
 ///     async fn run_stream(&self, _request: backend::RunStreamRequest) -> Self::Stream {
 ///         info!("Running stream");
-///         let mut frame = data::Frame::new("foo");
-///         let initial_data: [u32; 0] = [];
-///         frame.add_field(initial_data.into_field("x"));
 ///         let mut x = 0u32;
 ///         let n = 3;
-///         let frame = Arc::new(RwLock::new(frame));
 ///         Box::pin(
-///             async_stream::stream! {
+///             async_stream::try_stream! {
 ///                 loop {
-///                     let frame = Arc::clone(&frame);
-///                     if frame.write().await.fields[0]
-///                         .set_values(x..(x + n))
-///                         .is_ok()
-///                     {
-///                         debug!("Yielding frame from {} to {}", x, x+n);
-///                         x = x + n;
-///                         yield Ok(backend::StreamPacket::MutableFrame(frame))
-///                     } else {
-///                         yield Err(StreamError)
-///                     }
+///                     let frame = data::Frame::from_fields("foo", [
+///                         (x..x+n).into_field("x"),
+///                     ]).check()?;
+///                     eprintln!("Yielding frame from {} to {}", x, x+n);
+///                     yield backend::StreamPacket::Frame(frame);
+///                     x += n;
 ///                 }
 ///             }
 ///             .throttle(Duration::from_secs(1)),
@@ -437,7 +423,7 @@ where
             .map_err(ConversionError::into_tonic_status)?;
         let stream = StreamService::run_stream(self, request)
             .await
-            .and_then(|packet: StreamPacket<T::JsonValue>| packet.into_plugin_packet().map(Ok))
+            .map_ok(|packet: StreamPacket<T::JsonValue>| packet.into_plugin_packet())
             .map(|res| match res {
                 Ok(Ok(x)) => Ok(x),
                 Ok(Err(e)) => Err(tonic::Status::internal(e.to_string())),

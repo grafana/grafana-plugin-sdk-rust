@@ -9,7 +9,6 @@ use std::{
 use chrono::prelude::*;
 use http::Response;
 use thiserror::Error;
-use tokio::sync::RwLock;
 use tokio_stream::StreamExt;
 use tracing::{debug, info};
 
@@ -48,7 +47,7 @@ impl backend::DataService for MyPluginService {
             // Here we create a single response Frame for each query.
             // Frames can be created from iterators of fields using [`IntoFrame`].
             Ok(backend::DataResponse::new(
-                x.ref_id,
+                x.ref_id.clone(),
                 vec![[
                     // Fields can be created from iterators of a variety of
                     // relevant datatypes.
@@ -61,7 +60,8 @@ impl backend::DataService for MyPluginService {
                     [1_u32, 2, 3].into_field("x"),
                     ["a", "b", "c"].into_field("y"),
                 ]
-                .into_frame("foo")],
+                .into_checked_frame("foo")
+                .map_err(|_| QueryError { ref_id: x.ref_id })?],
             ))
         })
     }
@@ -70,6 +70,12 @@ impl backend::DataService for MyPluginService {
 #[derive(Debug, Error)]
 #[error("Error streaming data")]
 struct StreamError;
+
+impl From<data::FrameError> for StreamError {
+    fn from(_other: data::FrameError) -> StreamError {
+        StreamError
+    }
+}
 
 #[tonic::async_trait]
 impl backend::StreamService for MyPluginService {
@@ -94,26 +100,17 @@ impl backend::StreamService for MyPluginService {
     type Stream = backend::BoxRunStream<Self::StreamError>;
     async fn run_stream(&self, _request: backend::RunStreamRequest) -> Self::Stream {
         info!("Running stream");
-        let mut frame = data::Frame::new("foo");
-        let initial_data: [u32; 0] = [];
-        frame.add_field(initial_data.into_field("x"));
         let mut x = 0u32;
         let n = 3;
-        let frame = Arc::new(RwLock::new(frame));
         Box::pin(
-            async_stream::stream! {
+            async_stream::try_stream! {
                 loop {
-                    let frame = Arc::clone(&frame);
-                    if frame.write().await.fields[0]
-                        .set_values(x..(x + n))
-                        .is_ok()
-                    {
-                        debug!(min = x, max = x+n, "Yielding frame from {} to {}", x, x+n);
-                        x = x + n;
-                        yield Ok(backend::StreamPacket::MutableFrame(frame))
-                    } else {
-                        yield Err(StreamError)
-                    }
+                    let frame = data::Frame::from_fields("foo", [
+                        (x..x+n).into_field("x"),
+                    ]).check()?;
+                    debug!("Yielding frame from {} to {}", x, x+n);
+                    yield backend::StreamPacket::Frame(frame);
+                    x += n;
                 }
             }
             .throttle(Duration::from_secs(1)),
@@ -180,6 +177,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     backend::Plugin::new()
         .data_service(plugin.clone())
         .stream_service(plugin)
+        .init_subscriber(true)
         .shutdown_handler(([0, 0, 0, 0], 10001).into())
         .start(listener)
         .await?;
