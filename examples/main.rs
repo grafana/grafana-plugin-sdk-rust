@@ -11,6 +11,7 @@ use http::Response;
 use thiserror::Error;
 use tokio::sync::RwLock;
 use tokio_stream::StreamExt;
+use tracing::{debug, info};
 
 use grafana_plugin_sdk::{backend, data, prelude::*};
 
@@ -77,12 +78,12 @@ impl backend::StreamService for MyPluginService {
         &self,
         request: backend::SubscribeStreamRequest,
     ) -> backend::SubscribeStreamResponse {
-        eprintln!("Subscribing to stream");
         let status = if request.path == "stream" {
             backend::SubscribeStreamStatus::Ok
         } else {
             backend::SubscribeStreamStatus::NotFound
         };
+        info!(path = %request.path, "Subscribing to stream");
         backend::SubscribeStreamResponse {
             status,
             initial_data: None,
@@ -92,7 +93,7 @@ impl backend::StreamService for MyPluginService {
     type StreamError = StreamError;
     type Stream = backend::BoxRunStream<Self::StreamError>;
     async fn run_stream(&self, _request: backend::RunStreamRequest) -> Self::Stream {
-        eprintln!("Running stream");
+        info!("Running stream");
         let mut frame = data::Frame::new("foo");
         let initial_data: [u32; 0] = [];
         frame.add_field(initial_data.into_field("x"));
@@ -107,7 +108,7 @@ impl backend::StreamService for MyPluginService {
                         .set_values(x..(x + n))
                         .is_ok()
                     {
-                        eprintln!("Yielding frame from {} to {}", x, x+n);
+                        debug!(min = x, max = x+n, "Yielding frame from {} to {}", x, x+n);
                         x = x + n;
                         yield Ok(backend::StreamPacket::MutableFrame(frame))
                     } else {
@@ -123,7 +124,7 @@ impl backend::StreamService for MyPluginService {
         &self,
         _request: backend::PublishStreamRequest,
     ) -> backend::PublishStreamResponse {
-        eprintln!("Publishing to stream");
+        info!("Publishing to stream");
         todo!()
     }
 }

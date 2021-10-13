@@ -183,7 +183,7 @@ impl ShutdownHandler {
     fn spawn(self) -> impl std::future::Future<Output = ()> {
         tokio::spawn(async move {
             let listener = TcpListener::bind(&self.address).await.map_err(|e| {
-                eprintln!("Error creating shutdown handler: {}", e);
+                tracing::warn!("Error creating shutdown handler: {}", e);
                 e
             })?;
             tracing::debug!(address = %self.address, "Shutdown handler started on {}", &self.address);

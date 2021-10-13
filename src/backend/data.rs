@@ -156,7 +156,7 @@ pub trait DataQueryError: std::error::Error {
 ///     }
 /// }
 ///
-/// #[tonic::async_trait]
+/// #[backend::async_trait]
 /// impl backend::DataService for MyPlugin {
 ///
 ///     /// The type of error that could be returned by an individual query.

@@ -115,9 +115,7 @@ pub type BoxResourceStream<E> =
 /// use std::sync::{atomic::{AtomicUsize, Ordering}, Arc};
 ///
 /// use async_stream::stream;
-/// use grafana_plugin_sdk::backend::{
-///     BoxResourceStream, CallResourceRequest, ResourceService,
-/// };
+/// use grafana_plugin_sdk::backend;
 /// use http::Response;
 ///
 /// struct Plugin(Arc<AtomicUsize>);
@@ -134,11 +132,11 @@ pub type BoxResourceStream<E> =
 ///     }
 /// }
 ///
-/// #[tonic::async_trait]
-/// impl ResourceService for Plugin {
+/// #[backend::async_trait]
+/// impl backend::ResourceService for Plugin {
 ///     type Error = http::Error;
-///     type Stream = BoxResourceStream<Self::Error>;
-///     async fn call_resource(&self, r: CallResourceRequest) -> Self::Stream {
+///     type Stream = backend::BoxResourceStream<Self::Error>;
+///     async fn call_resource(&self, r: backend::CallResourceRequest) -> Self::Stream {
 ///         let count = Arc::clone(&self.0);
 ///         Box::pin(stream! {
 ///             match r.request.uri().path() {

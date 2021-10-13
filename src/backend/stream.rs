@@ -265,6 +265,7 @@ impl TryInto<pluginv2::PublishStreamResponse> for PublishStreamResponse {
 /// use thiserror::Error;
 /// use tokio::sync::RwLock;
 /// use tokio_stream::StreamExt;
+/// use tracing::{debug, info};
 ///
 /// struct MyPlugin;
 ///
@@ -272,7 +273,7 @@ impl TryInto<pluginv2::PublishStreamResponse> for PublishStreamResponse {
 /// #[error("Error streaming data")]
 /// struct StreamError;
 ///
-/// #[tonic::async_trait]
+/// #[backend::async_trait]
 /// impl backend::StreamService for MyPlugin {
 ///     /// The type of JSON value we might return in our `initial_data`.
 ///     ///
@@ -287,12 +288,12 @@ impl TryInto<pluginv2::PublishStreamResponse> for PublishStreamResponse {
 ///         &self,
 ///         request: backend::SubscribeStreamRequest,
 ///     ) -> backend::SubscribeStreamResponse {
-///         eprintln!("Subscribing to stream");
 ///         let status = if request.path == "stream" {
 ///             backend::SubscribeStreamStatus::Ok
 ///         } else {
 ///             backend::SubscribeStreamStatus::NotFound
 ///         };
+///         info!(path = %request.path, "Subscribing to stream");
 ///         backend::SubscribeStreamResponse {
 ///             status,
 ///             initial_data: None,
@@ -309,7 +310,7 @@ impl TryInto<pluginv2::PublishStreamResponse> for PublishStreamResponse {
 ///     /// the use of an `Arc<RwLock<Frame>>`, since the frame is mutated rather than
 ///     /// recreated each time.
 ///     async fn run_stream(&self, _request: backend::RunStreamRequest) -> Self::Stream {
-///         eprintln!("Running stream");
+///         info!("Running stream");
 ///         let mut frame = data::Frame::new("foo");
 ///         let initial_data: [u32; 0] = [];
 ///         frame.add_field(initial_data.into_field("x"));
@@ -324,7 +325,7 @@ impl TryInto<pluginv2::PublishStreamResponse> for PublishStreamResponse {
 ///                         .set_values(x..(x + n))
 ///                         .is_ok()
 ///                     {
-///                         eprintln!("Yielding frame from {} to {}", x, x+n);
+///                         debug!("Yielding frame from {} to {}", x, x+n);
 ///                         x = x + n;
 ///                         yield Ok(backend::StreamPacket::MutableFrame(frame))
 ///                     } else {
@@ -343,7 +344,7 @@ impl TryInto<pluginv2::PublishStreamResponse> for PublishStreamResponse {
 ///         &self,
 ///         _request: backend::PublishStreamRequest,
 ///     ) -> backend::PublishStreamResponse {
-///         eprintln!("Publishing to stream");
+///         info!("Publishing to stream");
 ///         todo!()
 ///     }
 /// }
