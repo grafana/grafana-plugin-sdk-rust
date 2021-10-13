@@ -24,8 +24,9 @@ impl MyPluginService {
 }
 
 #[derive(Debug, Error)]
-#[error("Error querying backend for {}", .ref_id)]
+#[error("Error querying backend for query {ref_id}: {source}")]
 struct QueryError {
+    source: data::FrameError,
     ref_id: String,
 }
 
@@ -61,7 +62,10 @@ impl backend::DataService for MyPluginService {
                     ["a", "b", "c"].into_field("y"),
                 ]
                 .into_checked_frame("foo")
-                .map_err(|_| QueryError { ref_id: x.ref_id })?],
+                .map_err(|source| QueryError {
+                    ref_id: x.ref_id,
+                    source,
+                })?],
             ))
         })
     }

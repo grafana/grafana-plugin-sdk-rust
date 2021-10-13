@@ -136,7 +136,7 @@ pub trait DataQueryError: std::error::Error {
 /// # Example
 ///
 /// ```rust
-/// use grafana_plugin_sdk::{backend, prelude::*};
+/// use grafana_plugin_sdk::{backend, data, prelude::*};
 /// use thiserror::Error;
 ///
 /// struct MyPlugin;
@@ -145,10 +145,11 @@ pub trait DataQueryError: std::error::Error {
 /// ///
 /// /// This must store the `ref_id` of the query so that Grafana can line it up.
 /// #[derive(Debug, Error)]
-/// #[error("Error querying backend for {ref_id}")]
+/// #[error("Error querying backend for query {ref_id}: {source}")]
 /// struct QueryError {
+///     source: data::FrameError,
 ///     ref_id: String,
-/// };
+/// }
 ///
 /// impl backend::DataQueryError for QueryError {
 ///     fn ref_id(self) -> String {
@@ -192,7 +193,10 @@ pub trait DataQueryError: std::error::Error {
 ///                         ]
 ///                         .into_frame("foo")
 ///                         .check()
-///                         .map_err(|_| QueryError { ref_id: x.ref_id })?,
+///                         .map_err(|source| QueryError {
+///                             ref_id: x.ref_id,
+///                             source,
+///                         })?,
 ///                     ],
 ///                 ))
 ///             })
