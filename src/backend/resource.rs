@@ -160,7 +160,7 @@ pub type BoxResourceStream<E> =
 /// Implementing this trait allows plugins to handle a wide variety of use cases beyond
 /// 'just' responding to requests for data and returning dataframes.
 ///
-/// See `https://grafana.com/docs/grafana/latest/developers/plugins/backend/#resources` for
+/// See <https://grafana.com/docs/grafana/latest/developers/plugins/backend/#resources> for
 /// some examples of how this can be used.
 #[tonic::async_trait]
 pub trait ResourceService {

@@ -129,7 +129,7 @@ impl From<CollectMetricsResponse> for pluginv2::CollectMetricsResponse {
 /// The health check is used when checking that a datasource is configured correctly, or
 /// (for app plugins) is exposed in Grafana's HTTP API.
 ///
-/// Grafana will also expose a metrics endpoint at `/api/plugins/<plugin id>/metrics if this
+/// Grafana will also expose a metrics endpoint at `/api/plugins/<plugin id>/metrics` if this
 /// trait is implemented, and will call the `collect_metrics` function to get metrics
 /// for the plugin in text-based Prometheus exposition format. This allows plugins to be
 /// instrumented in detail.
@@ -146,7 +146,7 @@ pub trait DiagnosticsService {
     /// For an app plugin, a health check endpoint is exposed in the Grafana HTTP API and
     /// allows external systems to poll the plugin's health to make sure it is running as expected.
     ///
-    /// See `<https://grafana.com/docs/grafana/latest/developers/plugins/backend/#health-checks>`.
+    /// See <https://grafana.com/docs/grafana/latest/developers/plugins/backend/#health-checks>.
     async fn check_health(
         &self,
         request: CheckHealthRequest,
@@ -157,7 +157,7 @@ pub trait DiagnosticsService {
 
     /// Collect metrics for a plugin.
     ///
-    /// See `https://grafana.com/docs/grafana/latest/developers/plugins/backend/#collect-metrics`.
+    /// See <https://grafana.com/docs/grafana/latest/developers/plugins/backend/#collect-metrics>.
     async fn collect_metrics(
         &self,
         request: CollectMetricsRequest,
