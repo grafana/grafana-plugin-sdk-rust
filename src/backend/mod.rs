@@ -31,7 +31,7 @@ will be emitted to Grafana.
 # Example
 
 ```rust,no_run
-use grafana_plugin_sdk::{backend, prelude::*};
+use grafana_plugin_sdk::{backend, data, prelude::*};
 use thiserror::Error;
 use tonic::transport::Server;
 use tracing::info;
@@ -43,10 +43,11 @@ struct MyPlugin;
 ///
 /// This must store the `ref_id` of the query so that Grafana can line it up.
 #[derive(Debug, Error)]
-#[error("Error querying backend for {ref_id}")]
+#[error("Error querying backend for query {ref_id}: {source}")]
 struct QueryError {
+    source: data::FrameError,
     ref_id: String,
-};
+}
 
 impl backend::DataQueryError for QueryError {
     fn ref_id(self) -> String {
@@ -89,7 +90,10 @@ impl backend::DataService for MyPlugin {
                             ["a", "b", "c"].into_field("y"),
                         ]
                         .into_checked_frame("foo")
-                        .map_err(|_| QueryError { ref_id: x.ref_id })?,
+                        .map_err(|source| QueryError {
+                            ref_id: x.ref_id,
+                            source,
+                        })?,
                     ],
                 ))
             })
