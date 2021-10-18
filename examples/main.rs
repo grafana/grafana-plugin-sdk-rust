@@ -113,7 +113,7 @@ impl backend::StreamService for MyPluginService {
                         (x..x+n).into_field("x"),
                     ]).check()?;
                     debug!("Yielding frame from {} to {}", x, x+n);
-                    yield backend::StreamPacket::Frame(frame);
+                    yield backend::StreamPacket::Frame(Box::new(frame));
                     x += n;
                 }
             }

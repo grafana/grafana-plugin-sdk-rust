@@ -1,9 +1,6 @@
 //! Custom tracing structs required for a go-hclog compatible `tracing_subscriber` format.
 
-use std::{
-    fmt::{self},
-    io,
-};
+use std::{fmt, io};
 
 use chrono::prelude::*;
 use serde::ser::{SerializeMap, Serializer as _};
@@ -29,14 +26,9 @@ use tracing_subscriber::registry::LookupSpan;
 /// layers.
 ///
 /// [hclog]: https://github.com/hashicorp/go-hclog
+#[derive(Debug, Default)]
 pub struct HCLogJson {
     _priv: (),
-}
-
-impl Default for HCLogJson {
-    fn default() -> Self {
-        Self { _priv: () }
-    }
 }
 
 impl<S, N> FormatEvent<S, N> for HCLogJson

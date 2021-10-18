@@ -66,7 +66,7 @@ pub enum InitialData {
     /// Return a [`Frame`][data::Frame] containing initial data.
     ///
     /// This MUST have the same schema as the data returned in subsequent requests to run the stream.
-    Frame(data::Frame<data::Checked>, data::FrameInclude),
+    Frame(Box<data::Frame<data::Checked>>, data::FrameInclude),
     /// Return some arbitrary JSON on stream subscription.
     Json(serde_json::Value),
 }
@@ -153,7 +153,7 @@ where
     T: Serialize,
 {
     /// An owned [`Frame`][data::Frame].
-    Frame(data::Frame<data::Checked>),
+    Frame(Box<data::Frame<data::Checked>>),
     /// JSON data of type `T`.
     Json(T),
 }
@@ -315,7 +315,7 @@ impl TryInto<pluginv2::PublishStreamResponse> for PublishStreamResponse {
 ///                         (x..x+n).into_field("x"),
 ///                     ]).check()?;
 ///                     eprintln!("Yielding frame from {} to {}", x, x+n);
-///                     yield backend::StreamPacket::Frame(frame);
+///                     yield backend::StreamPacket::Frame(Box::new(frame));
 ///                     x += n;
 ///                 }
 ///             }
