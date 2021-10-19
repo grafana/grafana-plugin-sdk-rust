@@ -61,7 +61,8 @@ impl backend::DataService for MyPluginService {
                     [1_u32, 2, 3].into_field("x"),
                     ["a", "b", "c"].into_field("y"),
                 ]
-                .into_checked_frame("foo")
+                .into_frame("foo")
+                .check()
                 .map_err(|source| QueryError {
                     ref_id: x.ref_id,
                     source,
@@ -75,8 +76,20 @@ impl backend::DataService for MyPluginService {
 #[error("Error streaming data")]
 struct StreamError;
 
+impl From<data::Error> for StreamError {
+    fn from(_other: data::Error) -> StreamError {
+        StreamError
+    }
+}
+
 impl From<data::FrameError> for StreamError {
     fn from(_other: data::FrameError) -> StreamError {
+        StreamError
+    }
+}
+
+impl From<serde_json::Error> for StreamError {
+    fn from(_other: serde_json::Error) -> StreamError {
         StreamError
     }
 }
@@ -106,14 +119,16 @@ impl backend::StreamService for MyPluginService {
         info!("Running stream");
         let mut x = 0u32;
         let n = 3;
+        let mut frame = data::Frame::new("foo");
         Box::pin(
             async_stream::try_stream! {
                 loop {
-                    let frame = data::Frame::from_fields("foo", [
-                        (x..x+n).into_field("x"),
-                    ]).check()?;
+                    frame.fields_mut()[0].set_values(
+                        (x..x+n)
+                    )?;
+                    let packet = backend::StreamPacket::from_frame(frame.check()?)?;
                     debug!("Yielding frame from {} to {}", x, x+n);
-                    yield backend::StreamPacket::Frame(Box::new(frame));
+                    yield packet;
                     x += n;
                 }
             }

@@ -62,26 +62,26 @@ impl From<SubscribeStreamStatus> for pluginv2::subscribe_stream_response::Status
 
 /// Data returned from an initial request to subscribe to a stream.
 #[derive(Debug)]
-pub enum InitialData {
-    /// Return a [`Frame`][data::Frame] containing initial data.
-    ///
-    /// This MUST have the same schema as the data returned in subsequent requests to run the stream.
-    Frame(Box<data::Frame<data::Checked>>, data::FrameInclude),
-    /// Return some arbitrary JSON on stream subscription.
-    Json(serde_json::Value),
+pub struct InitialData {
+    data: Vec<u8>,
 }
 
-impl TryInto<Vec<u8>> for InitialData {
-    type Error = ConversionError;
-    fn try_into(self) -> Result<Vec<u8>, Self::Error> {
-        match self {
-            Self::Json(v) => {
-                Ok(serde_json::to_vec(&v).expect("serde_json::Value contained invalid data"))
-            }
-            Self::Frame(frame, include) => frame
-                .to_json(include)
-                .map_err(|source| ConversionError::InvalidFrame { source }),
-        }
+impl InitialData {
+    /// Create some initial data representing a `Frame`.
+    pub fn from_frame(
+        frame: data::CheckedFrame<'_>,
+        include: data::FrameInclude,
+    ) -> Result<Self, serde_json::Error> {
+        Ok(Self {
+            data: frame.to_json(include)?,
+        })
+    }
+
+    /// Create some initial data representing some JSON.
+    pub fn from_json(json: serde_json::Value) -> Result<Self, serde_json::Error> {
+        Ok(Self {
+            data: serde_json::to_vec(&json)?,
+        })
     }
 }
 
@@ -99,17 +99,14 @@ pub struct SubscribeStreamResponse {
     pub initial_data: Option<InitialData>,
 }
 
-impl TryInto<pluginv2::SubscribeStreamResponse> for SubscribeStreamResponse {
-    type Error = ConversionError;
-    fn try_into(self) -> Result<pluginv2::SubscribeStreamResponse, Self::Error> {
+impl From<SubscribeStreamResponse> for pluginv2::SubscribeStreamResponse {
+    fn from(other: SubscribeStreamResponse) -> Self {
         let mut response = pluginv2::SubscribeStreamResponse {
             status: 0,
-            data: self
-                .initial_data
-                .map_or_else(|| Ok(vec![]), TryInto::try_into)?,
+            data: other.initial_data.map(|x| x.data).unwrap_or_default(),
         };
-        response.set_status(self.status.into());
-        Ok(response)
+        response.set_status(other.status.into());
+        response
     }
 }
 
@@ -145,30 +142,36 @@ impl TryFrom<pluginv2::RunStreamRequest> for RunStreamRequest {
 /// - arbitrary JSON
 /// - arbitrary bytes.
 ///
-/// The `T` type parameter on this enum is only relevant when JSON data
+/// The `J` type parameter on this enum is only relevant when JSON data
 /// is being streamed back,
 #[derive(Debug)]
-pub enum StreamPacket<T = ()>
-where
-    T: Serialize,
-{
-    /// An owned [`Frame`][data::Frame].
-    Frame(Box<data::Frame<data::Checked>>),
-    /// JSON data of type `T`.
-    Json(T),
+pub struct StreamPacket<J = ()> {
+    data: Vec<u8>,
+    _p: std::marker::PhantomData<J>,
 }
 
-impl<T> StreamPacket<T>
-where
-    T: Serialize,
-{
-    fn into_plugin_packet(self) -> Result<pluginv2::StreamPacket, serde_json::Error> {
-        Ok(pluginv2::StreamPacket {
-            data: match self {
-                Self::Frame(f) => f.to_json(data::FrameInclude::All)?,
-                Self::Json(j) => serde_json::to_vec(&j)?,
-            },
+impl<J> StreamPacket<J> {
+    /// Create a StreamPacket representing a `Frame`.
+    pub fn from_frame(frame: data::CheckedFrame<'_>) -> Result<Self, serde_json::Error> {
+        Ok(Self {
+            data: frame.to_json(data::FrameInclude::All)?,
+            _p: std::marker::PhantomData,
         })
+    }
+
+    /// Create a StreamPacket representing some JSON.
+    pub fn from_json(json: &J) -> Result<Self, serde_json::Error>
+    where
+        J: Serialize,
+    {
+        Ok(Self {
+            data: serde_json::to_vec(json)?,
+            _p: std::marker::PhantomData,
+        })
+    }
+
+    fn into_plugin_packet(self) -> Result<pluginv2::StreamPacket, serde_json::Error> {
+        Ok(pluginv2::StreamPacket { data: self.data })
     }
 }
 
@@ -269,6 +272,18 @@ impl TryInto<pluginv2::PublishStreamResponse> for PublishStreamResponse {
 ///     }
 /// }
 ///
+/// impl From<data::Error> for StreamError {
+///     fn from(_other: data::Error) -> StreamError {
+///         StreamError
+///     }
+/// }
+///
+/// impl From<serde_json::Error> for StreamError {
+///     fn from(_other: serde_json::Error) -> StreamError {
+///         StreamError
+///     }
+/// }
+///
 /// #[backend::async_trait]
 /// impl backend::StreamService for MyPlugin {
 ///     /// The type of JSON value we might return in our `initial_data`.
@@ -308,14 +323,14 @@ impl TryInto<pluginv2::PublishStreamResponse> for PublishStreamResponse {
 ///         info!("Running stream");
 ///         let mut x = 0u32;
 ///         let n = 3;
+///         let mut frame = data::Frame::new("foo");
 ///         Box::pin(
 ///             async_stream::try_stream! {
 ///                 loop {
-///                     let frame = data::Frame::from_fields("foo", [
-///                         (x..x+n).into_field("x"),
-///                     ]).check()?;
-///                     eprintln!("Yielding frame from {} to {}", x, x+n);
-///                     yield backend::StreamPacket::Frame(Box::new(frame));
+///                     frame.fields_mut()[0].set_values(x..x+n);
+///                     let packet = backend::StreamPacket::from_frame(frame.check()?)?;
+///                     debug!("Yielding frame from {} to {}", x, x+n);
+///                     yield packet;
 ///                     x += n;
 ///                 }
 ///             }
@@ -350,7 +365,7 @@ pub trait StreamService {
     /// Each [`StreamPacket`] can return either a [`data::Frame`] or some arbitary JSON. This
     /// associated type allows the JSON value to be statically typed, if desired.
     ///
-    /// If the implementation does not intend to return any [`StreamPacket::Json`] variants, this
+    /// If the implementation does not intend to return JSON variants, this
     /// can be set to `()`. If the structure of the returned JSON is not statically known, this
     /// should be set to [`serde_json::Value`].
     type JsonValue: Serialize + Send + Sync;
@@ -396,10 +411,7 @@ where
             .into_inner()
             .try_into()
             .map_err(ConversionError::into_tonic_status)?;
-        let response = StreamService::subscribe_stream(self, request)
-            .await
-            .try_into()
-            .map_err(ConversionError::into_tonic_status)?;
+        let response = StreamService::subscribe_stream(self, request).await.into();
         Ok(tonic::Response::new(response))
     }
 

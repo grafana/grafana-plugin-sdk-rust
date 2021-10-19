@@ -89,7 +89,8 @@ impl backend::DataService for MyPlugin {
                             [1_u32, 2, 3].into_field("x"),
                             ["a", "b", "c"].into_field("y"),
                         ]
-                        .into_checked_frame("foo")
+                        .into_frame("foo")
+                        .check()
                         .map_err(|source| QueryError {
                             ref_id: x.ref_id,
                             source,
@@ -291,7 +292,8 @@ impl ShutdownHandler {
 ///                             [1_u32, 2, 3].into_field("x"),
 ///                             ["a", "b", "c"].into_field("y"),
 ///                         ]
-///                         .into_checked_frame("foo")
+///                         .into_frame("foo")
+///                         .check()
 ///                         .map_err(|_| QueryError { ref_id: x.ref_id })?,
 ///                     ],
 ///                 ))

@@ -38,7 +38,5 @@ pub mod live;
 
 /// Contains useful helper traits for constructing [`Field`][data::Field]s and [`Frame`][data::Frame]s.
 pub mod prelude {
-    pub use crate::data::{
-        ArrayIntoField, FromFields, IntoCheckedFrame, IntoField, IntoFrame, IntoOptField,
-    };
+    pub use crate::data::{ArrayIntoField, FromFields, IntoField, IntoFrame, IntoOptField};
 }

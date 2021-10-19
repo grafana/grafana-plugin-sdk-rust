@@ -24,7 +24,7 @@ use serde_json::from_str;
 
 use crate::data::{
     field::{FieldConfig, SimpleType, TypeInfo, TypeInfoType},
-    frame::{ser::Entities, Checked},
+    frame::ser::Entities,
     Frame, Metadata,
 };
 
@@ -33,7 +33,7 @@ use crate::data::{
 // This follows the [Manually deserializing a struct](https://serde.rs/deserialize-struct.html)
 // example in the [`serde`] docs, and uses [`RawValue`] to avoid intermediate buffering
 // of arrays during deserialization.
-impl<'de> Deserialize<'de> for Frame<Checked> {
+impl<'de> Deserialize<'de> for Frame {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
@@ -48,7 +48,7 @@ impl<'de> Deserialize<'de> for Frame<Checked> {
         struct FrameVisitor;
 
         impl<'de> Visitor<'de> for FrameVisitor {
-            type Value = Frame<Checked>;
+            type Value = Frame;
 
             fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
                 formatter.write_str("stuct Frame")
@@ -83,7 +83,7 @@ impl<'de> Deserialize<'de> for Frame<Checked> {
                     .try_into()
                     .map_err(|e| Error::custom(&format!("invalid values: {}", e)))?;
 
-                let f = Frame {
+                Ok(Frame {
                     name: schema.name,
                     ref_id: Some(schema.ref_id),
                     meta: schema.meta,
@@ -99,10 +99,7 @@ impl<'de> Deserialize<'de> for Frame<Checked> {
                             type_info: f.type_info,
                         })
                         .collect(),
-                    phantom: PhantomData,
-                };
-                f.check()
-                    .map_err(|e| Error::custom(&format!("invalid frame: {}", e)))
+                })
             }
         }
 
@@ -396,11 +393,11 @@ impl<T: Offset> WithCapacity for MutableUtf8Array<T> {
 
 #[cfg(test)]
 mod test {
-    use crate::data::{Checked, Frame};
+    use crate::data::Frame;
 
     #[test]
     fn deserialize_golden() {
         let jdoc = include_str!("golden.json");
-        let _: Frame<Checked> = serde_json::from_str(&jdoc).unwrap();
+        let _: Frame = serde_json::from_str(&jdoc).unwrap();
     }
 }

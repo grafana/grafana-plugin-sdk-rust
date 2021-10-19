@@ -16,10 +16,10 @@ use serde_with::skip_serializing_none;
 
 use crate::data::{
     field::{Field, FieldConfig, SimpleType, TypeInfo},
-    frame::{Checked, Frame, Metadata},
+    frame::{Frame, Metadata},
 };
 
-impl Serialize for Frame<Checked> {
+impl Serialize for Frame {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -272,7 +272,7 @@ mod test {
     // Ignore this test for now, the JSON isn't minified.
     fn serialize_golden() {
         let expected = include_str!("golden.json");
-        let f: Frame<Checked> = from_str(expected).unwrap();
+        let f: Frame = from_str(expected).unwrap();
         let actual = to_string(&f).unwrap();
         assert_eq!(&actual, expected);
     }
@@ -405,10 +405,9 @@ mod test {
                     },
                 },
             ],
-            phantom: PhantomData,
         };
         let jdoc = to_string_pretty(&f).unwrap();
-        let parsed: Frame<Checked> = from_str(&jdoc).unwrap();
+        let parsed: Frame = from_str(&jdoc).unwrap();
         let jdoc_again = to_string_pretty(&parsed).unwrap();
         // Compare the JSON reprs; the internal Arrow datatypes will
         // be different because the JSON representation is lossy
@@ -419,9 +418,9 @@ mod test {
     #[test]
     fn round_trip_full() {
         let jdoc = include_str!("golden.json");
-        let parsed: Frame<Checked> = from_str(&jdoc).unwrap();
+        let parsed: Frame = from_str(&jdoc).unwrap();
         let jdoc_ser = to_string(&parsed).unwrap();
-        let parsed_again: Frame<Checked> = from_str(&jdoc).unwrap();
+        let parsed_again: Frame = from_str(&jdoc).unwrap();
         let jdoc_ser_again = to_string(&parsed_again).unwrap();
         // Compare the JSON reprs; the internal Arrow datatypes will
         // be different because the JSON representation is lossy
