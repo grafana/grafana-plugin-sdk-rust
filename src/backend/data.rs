@@ -109,14 +109,17 @@ pub struct DataResponse {
     ref_id: String,
 
     /// The data returned from the query.
-    frames: Vec<data::Frame<data::Checked>>,
+    frames: Result<Vec<Vec<u8>>, data::Error>,
 }
 
 impl DataResponse {
     /// Create a new [`DataResponse`] with the given `ref_id` and `frames`.
     #[must_use]
-    pub const fn new(ref_id: String, frames: Vec<data::Frame<data::Checked>>) -> Self {
-        Self { ref_id, frames }
+    pub fn new(ref_id: String, frames: Vec<data::CheckedFrame<'_>>) -> Self {
+        Self {
+            ref_id: ref_id.clone(),
+            frames: to_arrow(frames, &Some(ref_id)),
+        }
     }
 }
 
@@ -232,12 +235,12 @@ pub type BoxDataResponseIter<E> = Box<dyn Iterator<Item = Result<backend::DataRe
 ///
 /// If `ref_id` is provided, it is passed down to the various conversion
 /// function and takes precedence over any `ref_id`s set on the individual frames.
-pub(crate) fn to_arrow(
-    frames: &[data::Frame<data::Checked>],
+pub(crate) fn to_arrow<'a>(
+    frames: impl IntoIterator<Item = data::CheckedFrame<'a>>,
     ref_id: &Option<String>,
 ) -> Result<Vec<Vec<u8>>, data::Error> {
     frames
-        .iter()
+        .into_iter()
         .map(|frame| Ok(frame.to_arrow(ref_id.clone())?))
         .collect()
 }
@@ -263,7 +266,7 @@ where
         .map(|resp| match resp {
             Ok(x) => {
                 let ref_id = x.ref_id;
-                to_arrow(&x.frames, &Some(ref_id.clone())).map_or_else(
+                x.frames.map_or_else(
                     |e| {
                         (
                             ref_id.clone(),

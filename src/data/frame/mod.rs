@@ -1,5 +1,3 @@
-use std::marker::PhantomData;
-
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
@@ -31,59 +29,32 @@ mod sealed {
     pub trait Sealed {}
 }
 
-/// Marker trait used as a trait bound for the `Validity` type parameter of a [`Frame`].
-pub trait FrameValidity: std::fmt::Debug + sealed::Sealed {}
-
-/// Marker struct used to indicate that a `Frame` has been checked to be valid.
-#[derive(Debug)]
-pub struct Checked {
-    _priv: (),
-}
-impl sealed::Sealed for Checked {}
-impl FrameValidity for Checked {}
-
-/// Marker struct used to indicate that a `Frame` has not been checked to be valid.
-///
-/// Unchecked `Frame`s can be checked and converted to checked frames using
-/// [`Frame::check`].
-#[derive(Debug)]
-pub struct Unchecked {
-    _priv: (),
-}
-impl sealed::Sealed for Unchecked {}
-impl FrameValidity for Unchecked {}
-
 /// An error occurring when handling a `Frame`.
 #[derive(Debug, Error)]
+#[non_exhaustive]
 pub enum FrameError {
     /// Occurs when a frame had mismatched field lengths while checking.
     #[error(
         "Mismatched frame field lengths: {}",
-        frame.fields.iter().map(|x| format!("{} ({})", x.name, x.values.len())).join(", ")
+        .lengths.iter().map(|x| format!("{} ({})", x.0, x.1)).join(", ")
     )]
     MismatchedFieldLengths {
-        /// The original `Frame`, which can be fixed and reused if desired.
-        frame: Frame<Unchecked>,
+        /// The names and lengths of the fields in the `Frame`.
+        lengths: Vec<(String, usize)>,
     },
 }
 
 /// A structured, two-dimensional data frame.
 ///
 /// `Frame`s can be created manually using [`Frame::new`] if desired.
-/// Alternatively, the [`IntoFrame`] and [`IntoCheckedFrame`] traits provide
-/// a convenient way to create a frame from an iterator of [`Field`]s.
+/// Alternatively, the [`IntoFrame`] trait (and its reciprocal, [`FromFields`])
+/// provide a convenient way to create a frame from an iterator of [`Field`]s.
 ///
-/// The type parameter `V` indicates whether the `Frame` has been confirmed to
-/// be in a valid state. Frames begin in the `Checked` state when created by
-/// [`Frame::new`], [`IntoCheckedFrame`], or by deserializing;
-/// and transition to `Unchecked` when any `Field`s are added or modified.
-/// They then remain in that state until [`Frame::check`] is called. This will
-/// consume the `Frame`, validates that all of the fields have the correct length,
-/// and returns a `Frame<Checked>` if successful. Checked frames can then be used
+/// Frames generally can't be passed back to the SDK without first being checked
+/// that they are valid. The [`Frame::check`] method performs all required checks
+/// (e.g. that all fields have the same length), and returns a [`CheckedFrame<'_>`]
+/// which contains a reference to the original frame. This can then be used
 /// throughout the rest of the SDK (e.g. to be sent back to Grafana).
-///
-/// The [`IntoCheckedFrame::into_checked_frame`] method exists as a more direct
-/// alternative to `iter.into_frame().check()`.
 ///
 /// # Examples
 ///
@@ -109,11 +80,11 @@ pub enum FrameError {
 ///     [1_u32, 2, 3].into_field("x"),
 ///     ["a", "b", "c"].into_field("y"),
 /// ]
-/// .into_frame("convenient");
+/// .into_frame("super convenient");
 /// ```
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
-pub struct Frame<V: FrameValidity> {
+pub struct Frame {
     /// The name of this frame.
     pub name: String,
 
@@ -132,16 +103,10 @@ pub struct Frame<V: FrameValidity> {
     ///
     /// The data in all fields must be of the same length, but may have different types.
     fields: Vec<Field>,
-
-    phantom: PhantomData<V>,
 }
 
-// Impls only valid for checked frames.
-impl Frame<Checked> {
+impl Frame {
     /// Create a new, empty `Frame` with no fields and no metadata.
-    ///
-    /// The returned frame is `Checked` because it begins with zero fields, which is
-    /// always valid.
     ///
     /// # Examples
     ///
@@ -149,11 +114,11 @@ impl Frame<Checked> {
     ///
     /// ```rust
     /// use grafana_plugin_sdk::{
-    ///     data::{Checked, Frame},
+    ///     data::Frame,
     ///     prelude::*,
     /// };
     ///
-    /// let frame: Frame<Checked> = Frame::new("frame");
+    /// let frame = Frame::new("frame");
     /// assert_eq!(frame.name, "frame".to_string());
     /// ```
     #[must_use]
@@ -163,66 +128,12 @@ impl Frame<Checked> {
             fields: vec![],
             meta: None,
             ref_id: None,
-            phantom: PhantomData,
         }
     }
 
-    /// Consumes this checked `Frame` and returns an unchecked frame.
-    ///
-    /// The returned unchecked `Frame` provides methods for accessing
-    /// the `Fields` of the frame directly.
-    #[must_use]
-    pub fn into_unchecked(self) -> Frame<Unchecked> {
-        Frame {
-            name: self.name,
-            fields: self.fields,
-            meta: self.meta,
-            ref_id: self.ref_id,
-            phantom: PhantomData,
-        }
-    }
-
-    /// Serialize this frame to JSON, returning the serialized bytes.
-    ///
-    /// Unlike the `Serialize` impl, this method allows for customization of the fields included.
-    pub(crate) fn to_json(&self, include: FrameInclude) -> Result<Vec<u8>, serde_json::Error> {
-        let schema_fields: Vec<_> = self
-            .fields
-            .iter()
-            .map(|f| SerializableField {
-                name: &f.name,
-                labels: &f.labels,
-                config: f.config.as_ref(),
-                type_: f.type_info.simple_type(),
-                type_info: &f.type_info,
-            })
-            .collect();
-        let ser = SerializableFrame {
-            schema: matches!(include, FrameInclude::All | FrameInclude::SchemaOnly).then(|| {
-                SerializableFrameSchema {
-                    name: &self.name,
-                    ref_id: self.ref_id.as_deref(),
-                    meta: &self.meta,
-                    fields: &schema_fields,
-                }
-            }),
-            data: matches!(include, FrameInclude::All | FrameInclude::DataOnly).then(|| {
-                SerializableFrameData {
-                    fields: &self.fields,
-                }
-            }),
-        };
-        serde_json::to_vec(&ser)
-    }
-}
-
-// Impls only valid for unchecked frames.
-// In general this is anything that could manipulate `fields`.
-impl Frame<Unchecked> {
     /// Add a field to this frame.
     ///
-    /// This is similar to [`Frame::with_field`] but takes the frame by mutable reference,
-    /// and is only available on unchecked frames.
+    /// This is similar to [`Frame::with_field`] but takes the frame by mutable reference.
     ///
     /// # Example
     ///
@@ -240,6 +151,25 @@ impl Frame<Unchecked> {
     /// ```
     pub fn add_field(&mut self, field: Field) {
         self.fields.push(field);
+    }
+
+    /// Get an immutable reference to the the `Fields` of this `Frame`.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use grafana_plugin_sdk::prelude::*;
+    ///
+    /// let mut frame = [
+    ///     [1_u32, 2, 3].into_field("x"),
+    /// ]
+    /// .into_frame("frame");
+    /// assert_eq!(frame.fields().len(), 1);
+    /// assert_eq!(&frame.fields()[0].name, "x");
+    /// ```
+    #[must_use]
+    pub fn fields(&self) -> &[Field] {
+        &self.fields
     }
 
     /// Get a mutable reference to the the `Fields` of this `Frame`.
@@ -289,17 +219,12 @@ impl Frame<Unchecked> {
         &mut self.fields
     }
 
-    /// Check this unchecked Frame, returning a checked Frame ready for serializing.
+    /// Check this unchecked Frame, returning a [`CheckedFrame`] ready for serializing.
     ///
-    /// Frames begin in the `Unchecked` state when created by
-    /// [`Frame::new`] or [`IntoFrame`], and
-    /// remain in that state until [`Frame::check`] is called. This consumes the
-    /// `Frame`, validates that all of the fields have the correct length, and
-    /// returns a `Frame<Checked>` if successful. Checked frames can then be used
+    /// `Frame`s may be in an intermediate state whilst being constructed (for example,
+    /// their field lengths may differ). Calling this method validates the frame and
+    /// returns a `CheckedFrame` if successful. Checked frames can then be used
     /// throughout the rest of the SDK (e.g. to be sent back to Grafana).
-    ///
-    /// If the check fails this returns a [`FrameError`] which contains the original
-    /// consumed `Frame`.
     ///
     /// # Errors
     ///
@@ -331,28 +256,21 @@ impl Frame<Unchecked> {
     ///     .is_err()
     /// );
     /// ```
-    pub fn check(self) -> Result<Frame<Checked>, FrameError> {
+    pub fn check(&self) -> Result<CheckedFrame<'_>, FrameError> {
         if self.fields.iter().map(|x| x.values.len()).all_equal() {
-            Ok(Frame {
-                name: self.name,
-                fields: self.fields,
-                meta: self.meta,
-                ref_id: self.ref_id,
-                phantom: PhantomData,
-            })
+            Ok(CheckedFrame(self))
         } else {
-            Err(FrameError::MismatchedFieldLengths { frame: self })
+            Err(FrameError::MismatchedFieldLengths {
+                lengths: self
+                    .fields
+                    .iter()
+                    .map(|x| (x.name.to_string(), x.values.len()))
+                    .collect(),
+            })
         }
     }
-}
 
-// Impls valid for checked and unchecked frames.
-// This is anything that doesn't touch `fields`; or, if the method
-// _does_ touch `fields`, it should consume `self` and return an unchecked frame.
-impl<V: FrameValidity> Frame<V> {
     /// Return a new frame with the given name.
-    ///
-    /// This consumes the input frame and returns a new `Frame`.
     ///
     /// # Example
     ///
@@ -363,19 +281,16 @@ impl<V: FrameValidity> Frame<V> {
     ///     .with_name("other name");
     /// assert_eq!(frame.name, "other name".to_string());
     /// ```
-    pub fn with_name(self, name: impl Into<String>) -> Frame<V> {
+    pub fn with_name(self, name: impl Into<String>) -> Self {
         Self {
             name: name.into(),
             fields: self.fields,
             meta: self.meta,
             ref_id: self.ref_id,
-            phantom: PhantomData,
         }
     }
 
     /// Return a new frame with the given metadata.
-    ///
-    /// This consumes the input frame and returns a new `Frame`.
     ///
     /// # Example
     ///
@@ -394,19 +309,16 @@ impl<V: FrameValidity> Frame<V> {
     /// assert_eq!(frame.meta.unwrap().path, Some("a path".to_string()));
     /// ```
     #[must_use]
-    pub fn with_metadata(self, metadata: impl Into<Option<Metadata>>) -> Frame<V> {
+    pub fn with_metadata(self, metadata: impl Into<Option<Metadata>>) -> Self {
         Self {
             name: self.name,
             fields: self.fields,
             meta: metadata.into(),
             ref_id: self.ref_id,
-            phantom: PhantomData,
         }
     }
 
     /// Return a new frame with an added field.
-    ///
-    /// This consumes the input frame and returns an unchecked `Frame` in its place.
     ///
     /// # Example
     ///
@@ -421,34 +333,41 @@ impl<V: FrameValidity> Frame<V> {
     /// assert_eq!(&frame.fields()[1].name, "y");
     /// ```
     #[must_use]
-    pub fn with_field(mut self, field: Field) -> Frame<Unchecked> {
+    pub fn with_field(mut self, field: Field) -> Self {
         self.fields.push(field);
-        Frame {
+        Self {
             name: self.name,
             fields: self.fields,
             meta: self.meta,
             ref_id: self.ref_id,
-            phantom: PhantomData,
         }
     }
 
-    /// Get an immutable reference to the the `Fields` of this `Frame`.
+    /// Return a new frame with added fields.
     ///
     /// # Example
     ///
     /// ```rust
-    /// use grafana_plugin_sdk::prelude::*;
+    /// use grafana_plugin_sdk::{data::Frame, prelude::*};
     ///
-    /// let mut frame = [
-    ///     [1_u32, 2, 3].into_field("x"),
-    /// ]
-    /// .into_frame("frame");
-    /// assert_eq!(frame.fields().len(), 1);
+    /// let frame = Frame::new("frame")
+    ///     .with_fields([
+    ///         [1_u32, 2, 3].into_field("x"),
+    ///         ["a", "b", "c"].into_field("y"),
+    ///     ]);
+    /// assert_eq!(frame.fields().len(), 2);
     /// assert_eq!(&frame.fields()[0].name, "x");
+    /// assert_eq!(&frame.fields()[1].name, "y");
     /// ```
     #[must_use]
-    pub fn fields(&self) -> &[Field] {
-        &self.fields
+    pub fn with_fields(mut self, fields: impl IntoIterator<Item = Field>) -> Self {
+        self.fields.extend(fields);
+        Self {
+            name: self.name,
+            fields: self.fields,
+            meta: self.meta,
+            ref_id: self.ref_id,
+        }
     }
 
     /// Set the channel of the frame.
@@ -462,68 +381,77 @@ impl<V: FrameValidity> Frame<V> {
     }
 }
 
-/// Convenience trait for converting iterators of [`Field`]s into a [`Frame<Unchecked>`].
+/// A reference to a checked and verified `Frame`, which is ready for serialization.
+pub struct CheckedFrame<'a>(&'a Frame);
+
+impl CheckedFrame<'_> {
+    /// Serialize this frame to JSON, returning the serialized bytes.
+    ///
+    /// Unlike the `Serialize` impl, this method allows for customization of the fields included.
+    pub(crate) fn to_json(&self, include: FrameInclude) -> Result<Vec<u8>, serde_json::Error> {
+        let schema_fields: Vec<_> = self
+            .0
+            .fields
+            .iter()
+            .map(|f| SerializableField {
+                name: &f.name,
+                labels: &f.labels,
+                config: f.config.as_ref(),
+                type_: f.type_info.simple_type(),
+                type_info: &f.type_info,
+            })
+            .collect();
+        let ser = SerializableFrame {
+            schema: matches!(include, FrameInclude::All | FrameInclude::SchemaOnly).then(|| {
+                SerializableFrameSchema {
+                    name: &self.0.name,
+                    ref_id: self.0.ref_id.as_deref(),
+                    meta: &self.0.meta,
+                    fields: &schema_fields,
+                }
+            }),
+            data: matches!(include, FrameInclude::All | FrameInclude::DataOnly).then(|| {
+                SerializableFrameData {
+                    fields: &self.0.fields,
+                }
+            }),
+        };
+        serde_json::to_vec(&ser)
+    }
+}
+
+/// Convenience trait for converting iterators of [`Field`]s into a [`Frame`].
 #[cfg_attr(docsrs, doc(notable_trait))]
 pub trait IntoFrame {
-    /// Create a [`Frame<Unchecked>`] with the given name from `self`.
-    fn into_frame(self, name: impl Into<String>) -> Frame<Unchecked>;
+    /// Create a [`Frame`] with the given name from `self`.
+    fn into_frame(self, name: impl Into<String>) -> Frame;
 }
 
 impl<T> IntoFrame for T
 where
     T: IntoIterator<Item = Field>,
 {
-    fn into_frame(self, name: impl Into<String>) -> Frame<Unchecked> {
+    fn into_frame(self, name: impl Into<String>) -> Frame {
         Frame {
             name: name.into(),
             fields: self.into_iter().collect(),
             meta: None,
             ref_id: None,
-            phantom: PhantomData,
         }
     }
 }
 
-/// Convenience trait for fallibly converting iterators of [`Field`]s into a [`Frame<Unchecked>`].
-#[cfg_attr(docsrs, doc(notable_trait))]
-pub trait IntoCheckedFrame {
-    /// Fallibly create a [`Frame<Checked>`] with the given name from `self`.
-    ///
-    /// This is the same as calling `IntoFrame::into_frame(iter, "name").check()`.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the fields of `self` do not all have the same length.
-    fn into_checked_frame(self, name: impl Into<String>) -> Result<Frame<Checked>, FrameError>;
-}
-
-impl<T> IntoCheckedFrame for T
-where
-    T: IntoIterator<Item = Field>,
-{
-    fn into_checked_frame(self, name: impl Into<String>) -> Result<Frame<Checked>, FrameError> {
-        Frame {
-            name: name.into(),
-            fields: self.into_iter().collect(),
-            meta: None,
-            ref_id: None,
-            phantom: PhantomData,
-        }
-        .check()
-    }
-}
-
-/// Convenience trait for creating a [`Frame<Unchecked>`] from an iterator of [`Field`]s.
+/// Convenience trait for creating a [`Frame`] from an iterator of [`Field`]s.
 ///
 /// This is the inverse of [`IntoFrame`] and is defined for all implementors of that trait.
 #[cfg_attr(docsrs, doc(notable_trait))]
 pub trait FromFields<T: IntoFrame> {
     /// Create a [`Frame`] with the given name from `fields`.
-    fn from_fields(name: impl Into<String>, fields: T) -> Frame<Unchecked>;
+    fn from_fields(name: impl Into<String>, fields: T) -> Frame;
 }
 
-impl<T: IntoFrame> FromFields<T> for Frame<Unchecked> {
-    fn from_fields(name: impl Into<String>, fields: T) -> Frame<Unchecked> {
+impl<T: IntoFrame> FromFields<T> for Frame {
+    fn from_fields(name: impl Into<String>, fields: T) -> Frame {
         fields.into_frame(name)
     }
 }

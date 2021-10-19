@@ -1,13 +1,10 @@
-//! Conversion of [`Frame`]s to the Arrow IPC format.
+//! Conversion of [`Frame`][crate::data::Frame]s to the Arrow IPC format.
 use std::{collections::HashMap, sync::Arc};
 
 use arrow2::{datatypes::Schema, io::ipc::write::FileWriter, record_batch::RecordBatch};
 use thiserror::Error;
 
-use crate::data::{
-    field::Field,
-    frame::{Checked, Frame},
-};
+use crate::data::{field::Field, frame::CheckedFrame};
 
 /// Errors occurring when serializing a [`Frame`] to the Arrow IPC format.
 #[derive(Debug, Error)]
@@ -23,26 +20,33 @@ pub enum Error {
     WriteBuffer(arrow2::error::ArrowError),
 }
 
-impl Frame<Checked> {
+impl CheckedFrame<'_> {
     /// Create an Arrow [`Schema`] for this Frame.
     ///
     /// If `ref_id` is provided, it is passed down to the various conversion
     /// function and takes precedence over the `ref_id` set on the frame.
     fn arrow_schema(&self, ref_id: Option<String>) -> Result<Schema, serde_json::Error> {
         let fields: Vec<_> = self
+            .0
             .fields
             .iter()
             .map(Field::to_arrow_field)
             .collect::<Result<_, _>>()?;
         let mut metadata: HashMap<String, String> = IntoIterator::into_iter([
-            ("name".to_string(), self.name.clone()),
+            ("name".to_string(), self.0.name.to_string()),
             (
                 "refId".to_string(),
-                ref_id.unwrap_or_else(|| self.ref_id.clone().unwrap_or_default()),
+                ref_id.unwrap_or_else(|| {
+                    self.0
+                        .ref_id
+                        .as_ref()
+                        .map(|x| x.to_string())
+                        .unwrap_or_default()
+                }),
             ),
         ])
         .collect();
-        if let Some(meta) = &self.meta {
+        if let Some(meta) = &self.0.meta {
             metadata.insert("meta".to_string(), serde_json::to_string(&meta)?);
         }
         Ok(Schema::new_from(fields, metadata))
@@ -56,7 +60,11 @@ impl Frame<Checked> {
         let schema: Arc<Schema> = Arc::new(self.arrow_schema(ref_id)?);
         let records = RecordBatch::try_new(
             Arc::clone(&schema),
-            self.fields.iter().map(|f| Arc::clone(&f.values)).collect(),
+            self.0
+                .fields
+                .iter()
+                .map(|f| Arc::clone(&f.values))
+                .collect(),
         )
         .map_err(Error::CreateRecordBatch)?;
 
