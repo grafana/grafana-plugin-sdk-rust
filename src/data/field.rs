@@ -80,17 +80,95 @@ impl Field {
         })
     }
 
+    /// Return a new field with the given name.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use grafana_plugin_sdk::prelude::*;
+    ///
+    /// let field = ["a", "b", "c"]
+    ///     .into_field("x")
+    ///     .with_name("other name");
+    /// assert_eq!(&field.name, "other name");
+    /// ```
+    pub fn with_name(mut self, name: impl Into<String>) -> Self {
+        self.name = name.into();
+        self
+    }
+
+    /// Return a new field with the given labels.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use std::collections::BTreeMap;
+    /// use grafana_plugin_sdk::prelude::*;
+    ///
+    /// let mut labels = BTreeMap::default();
+    /// labels.insert("some".to_string(), "value".to_string());
+    /// let field = ["a", "b", "c"]
+    ///     .into_field("x")
+    ///     .with_labels(labels);
+    /// assert_eq!(field.labels["some"], "value");
+    /// ```
+    pub fn with_labels(mut self, labels: BTreeMap<String, String>) -> Self {
+        self.labels = labels;
+        self
+    }
+
+    /// Return a new field with the given config.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use grafana_plugin_sdk::{data::FieldConfig, prelude::*};
+    ///
+    /// let field = ["a", "b", "c"]
+    ///     .into_field("x")
+    ///     .with_config(FieldConfig {
+    ///         display_name_from_ds: Some("X".to_string()),
+    ///         ..Default::default()
+    ///     });
+    /// assert_eq!(&field.config.unwrap().display_name_from_ds.unwrap(), "X");
+    /// ```
+    pub fn with_config(mut self, config: impl Into<Option<FieldConfig>>) -> Self {
+        self.config = config.into();
+        self
+    }
+
     /// Get the values of this field as a [`&dyn Array`].
     pub fn values(&self) -> &dyn Array {
         &*self.values
     }
 
-    /// Set the values of this frame using an iterator of values.
+    /// Set the values of this field using an iterator of values.
     ///
     /// # Errors
     ///
     /// Returns an [`Error::DataTypeMismatch`][error::Error::DataTypeMismatch] if the types of the new data
     /// do not match the types of the existing data.
+    ///
+    /// ```rust
+    /// use arrow2::array::Utf8Array;
+    /// use grafana_plugin_sdk::prelude::*;
+    ///
+    /// let mut field = ["a", "b", "c"]
+    ///     .into_field("x");
+    /// assert!(field.set_values(["d", "e", "f", "g"]).is_ok());
+    /// assert_eq!(
+    ///     field
+    ///         .values()
+    ///         .as_any()
+    ///         .downcast_ref::<Utf8Array<i32>>()
+    ///         .unwrap()
+    ///         .iter()
+    ///         .collect::<Vec<_>>(),
+    ///     vec![Some("d"), Some("e"), Some("f"), Some("g")],
+    /// );
+    ///
+    /// assert!(field.set_values([1u32, 2, 3]).is_err());
+    /// ```
     pub fn set_values<T, U, V>(&mut self, values: T) -> Result<(), crate::data::error::Error>
     where
         T: IntoIterator<Item = U>,
@@ -117,12 +195,33 @@ impl Field {
         Ok(())
     }
 
-    /// Set the values of this frame using an iterator of optional values.
+    /// Set the values of this field using an iterator of optional values.
     ///
     /// # Errors
     ///
     /// Returns an [`Error::DataTypeMismatch`][error::Error::DataTypeMismatch] if the types of the new data
     /// do not match the types of the existing data.
+    ///
+    /// ```rust
+    /// use arrow2::array::Utf8Array;
+    /// use grafana_plugin_sdk::prelude::*;
+    ///
+    /// let mut field = ["a", "b", "c"]
+    ///     .into_field("x");
+    /// assert!(field.set_values_opt([Some("d"), Some("e"), None, None]).is_ok());
+    /// assert_eq!(
+    ///     field
+    ///         .values()
+    ///         .as_any()
+    ///         .downcast_ref::<Utf8Array<i32>>()
+    ///         .unwrap()
+    ///         .iter()
+    ///         .collect::<Vec<_>>(),
+    ///     vec![Some("d"), Some("e"), None, None],
+    /// );
+    ///
+    /// assert!(field.set_values([Some(1u32), Some(2), None]).is_err());
+    /// ```
     pub fn set_values_opt<T, U, V>(&mut self, values: T) -> Result<(), crate::data::error::Error>
     where
         T: IntoIterator<Item = Option<U>>,
@@ -146,6 +245,50 @@ impl Field {
             new_data_type,
         ));
         self.type_info.nullable = Some(true);
+        Ok(())
+    }
+
+    /// Set the values of this field using an [`Array`].
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`Error::DataTypeMismatch`][error::Error::DataTypeMismatch] if the types of the new data
+    /// do not match the types of the existing data.
+    ///
+    /// ```rust
+    /// use arrow2::array::{PrimitiveArray, Utf8Array};
+    /// use grafana_plugin_sdk::prelude::*;
+    ///
+    /// let mut field = ["a", "b", "c"]
+    ///     .into_field("x");
+    /// let new_values = Utf8Array::<i32>::from(["d", "e", "f"].map(Some));
+    /// assert!(field.set_values_array(new_values).is_ok());
+    /// assert_eq!(
+    ///     field
+    ///         .values()
+    ///         .as_any()
+    ///         .downcast_ref::<Utf8Array<i32>>()
+    ///         .unwrap()
+    ///         .iter()
+    ///         .collect::<Vec<_>>(),
+    ///     vec![Some("d"), Some("e"), Some("f")],
+    /// );
+    ///
+    /// let bad_values = PrimitiveArray::<u32>::from([1, 2, 3].map(Some));
+    /// assert!(field.set_values_array(bad_values).is_err());
+    /// ```
+    pub fn set_values_array<T>(&mut self, values: T) -> Result<(), crate::data::error::Error>
+    where
+        T: Array + 'static,
+    {
+        if self.values.data_type() != values.data_type() {
+            return Err(crate::data::error::Error::DataTypeMismatch {
+                existing: self.values.data_type().clone(),
+                new: values.data_type().clone(),
+                field: self.name.clone(),
+            });
+        }
+        self.values = Arc::new(values);
         Ok(())
     }
 }
