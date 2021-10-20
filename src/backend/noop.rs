@@ -55,12 +55,7 @@ impl DiagnosticsService for NoopService {
 
 #[tonic::async_trait]
 impl ResourceService for NoopService {
-    /// The error type that can be returned by individual responses.
     type Error = Infallible;
-    /// The type of stream returned by `run_stream`.
-    ///
-    /// This will generally be impossible to name directly, so returning the
-    /// [`BoxResourceStream`] type alias will probably be more convenient.
     type Stream = BoxResourceStream<Self::Error>;
 
     /// Handle a resource request.
@@ -69,7 +64,10 @@ impl ResourceService for NoopService {
     ///
     /// A stream of responses can be returned. A simple way to return just a single response
     /// is to use `futures_util::stream::once`.
-    async fn call_resource(&self, _request: CallResourceRequest) -> Self::Stream {
+    async fn call_resource(
+        &self,
+        _request: CallResourceRequest,
+    ) -> (Result<http::Response<Vec<u8>>, Self::Error>, Self::Stream) {
         unreachable!()
     }
 }
