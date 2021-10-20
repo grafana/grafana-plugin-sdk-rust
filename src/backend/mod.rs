@@ -721,7 +721,7 @@ pub struct AppInstanceSettings {
     /// This data is not accessible to the Grafana frontend after it has been set, and should
     /// be used for any secrets (such as API keys or passwords).
     pub decrypted_secure_json_data: HashMap<String, String>,
-    /// The last time the configuratino for the app plugin instance was updated.
+    /// The last time the configuration for the app plugin instance was updated.
     pub updated: DateTime<Utc>,
 }
 
