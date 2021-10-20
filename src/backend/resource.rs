@@ -92,9 +92,22 @@ impl TryFrom<Response<Vec<u8>>> for pluginv2::CallResourceResponse {
     }
 }
 
+fn body_to_response(body: Vec<u8>) -> pluginv2::CallResourceResponse {
+    pluginv2::CallResourceResponse {
+        code: 200,
+        headers: std::collections::HashMap::new(),
+        body,
+    }
+}
+
+/// Type alias for a pinned, boxed future with a fallible HTTP response as output, with a custom error type.
+pub type BoxResourceFuture<E> = Pin<
+    Box<dyn std::future::Future<Output = Result<Response<Vec<u8>>, E>> + Send + Sync + 'static>,
+>;
+
 /// Type alias for a pinned, boxed stream of HTTP responses with a custom error type.
 pub type BoxResourceStream<E> =
-    Pin<Box<dyn futures_core::Stream<Item = Result<Response<Vec<u8>>, E>> + Send + Sync + 'static>>;
+    Pin<Box<dyn futures_core::Stream<Item = Result<Vec<u8>, E>> + Send + Sync + 'static>>;
 
 /// Trait for plugins that can handle arbitrary resource requests.
 ///
@@ -136,26 +149,39 @@ pub type BoxResourceStream<E> =
 /// impl backend::ResourceService for Plugin {
 ///     type Error = http::Error;
 ///     type Stream = backend::BoxResourceStream<Self::Error>;
-///     async fn call_resource(&self, r: backend::CallResourceRequest) -> Self::Stream {
+///     async fn call_resource(&self, r: backend::CallResourceRequest) -> (Result<http::Response<Vec<u8>>, Self::Error>, Self::Stream) {
 ///         let count = Arc::clone(&self.0);
-///         Box::pin(stream! {
-///             match r.request.uri().path() {
-///                 "/echo" => {
-///                     // Note these are three separate responses!
-///                     yield Ok(Response::new(r.request.uri().to_string().into_bytes()));
-///                     yield Ok(Response::new(format!("{:?}", r.request.headers()).into_bytes()));
-///                     yield Ok(Response::new(r.request.into_body()));
-///                 },
-///                 "/count" => {
-///                     yield Ok(Response::new(
-///                         count.fetch_add(1, Ordering::SeqCst)
+///         let (response, stream): (_, Self::Stream) = match r.request.uri().path() {
+///             // Just send back a single response.
+///             "/echo" => (
+///                 Ok(Response::new(r.request.into_body())),
+///                 Box::pin(futures::stream::empty()),
+///             ),
+///             // Send an initial response with the current count, then stream the gradually
+///             // incrementing count back to the client.
+///             "/count" => (
+///                 Ok(Response::new(
+///                     count
+///                         .fetch_add(1, Ordering::SeqCst)
 ///                         .to_string()
-///                         .into_bytes()
-///                     ))
-///                 },
-///                 _ => yield Response::builder().status(404).body(vec![]),
-///             }
-///         })
+///                         .into_bytes(),
+///                 )),
+///                 Box::pin(async_stream::try_stream! {
+///                     loop {
+///                         let body = count
+///                             .fetch_add(1, Ordering::SeqCst)
+///                             .to_string()
+///                             .into_bytes();
+///                         yield body;
+///                     }
+///                 }),
+///             ),
+///             _ => (
+///                 Response::builder().status(404).body(vec![]),
+///                 Box::pin(futures::stream::empty()),
+///             ),
+///         };
+///         (response, stream)
 ///     }
 /// }
 /// ```
@@ -163,11 +189,12 @@ pub type BoxResourceStream<E> =
 pub trait ResourceService {
     /// The error type that can be returned by individual responses.
     type Error: std::error::Error;
-    /// The type of stream returned by `run_stream`.
+
+    /// The type of stream of optional additional data returned by `run_stream`.
     ///
     /// This will generally be impossible to name directly, so returning the
     /// [`BoxResourceStream`] type alias will probably be more convenient.
-    type Stream: futures_core::Stream<Item = Result<Response<Vec<u8>>, Self::Error>> + Send + Sync;
+    type Stream: futures_core::Stream<Item = Result<Vec<u8>, Self::Error>> + Send + Sync;
 
     /// Handle a resource request.
     ///
@@ -175,7 +202,10 @@ pub trait ResourceService {
     ///
     /// A stream of responses can be returned. A simple way to return just a single response
     /// is to use `futures_util::stream::once`.
-    async fn call_resource(&self, request: CallResourceRequest) -> Self::Stream;
+    async fn call_resource(
+        &self,
+        request: CallResourceRequest,
+    ) -> (Result<http::Response<Vec<u8>>, Self::Error>, Self::Stream);
 }
 
 #[tonic::async_trait]
@@ -199,15 +229,20 @@ where
             .into_inner()
             .try_into()
             .map_err(ConversionError::into_tonic_status)?;
-        let stream = ResourceService::call_resource(self, request)
-            .await
-            .map(
-                |response| match response.map(pluginv2::CallResourceResponse::try_from) {
-                    Ok(Ok(x)) => Ok(x),
-                    Ok(Err(e)) => Err(tonic::Status::internal(e.to_string())),
-                    Err(e) => Err(tonic::Status::internal(e.to_string())),
-                },
-            );
+        let (initial_response, stream) = ResourceService::call_resource(self, request).await;
+        let initial_response_converted = initial_response
+            .map_err(|e| tonic::Status::internal(e.to_string()))
+            .and_then(|response| {
+                pluginv2::CallResourceResponse::try_from(response)
+                    .map_err(|e| tonic::Status::internal(e.to_string()))
+            });
+        let stream =
+            futures_util::stream::once(futures_util::future::ready(initial_response_converted))
+                .chain(stream.map(|response| {
+                    response
+                        .map(body_to_response)
+                        .map_err(|e| tonic::Status::internal(e.to_string()))
+                }));
         Ok(tonic::Response::new(Box::pin(stream)))
     }
 }

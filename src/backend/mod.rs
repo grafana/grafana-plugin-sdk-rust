@@ -161,7 +161,7 @@ pub use diagnostics::{
     CheckHealthRequest, CheckHealthResponse, CollectMetricsRequest, CollectMetricsResponse,
     DiagnosticsService, HealthStatus,
 };
-pub use resource::{BoxResourceStream, CallResourceRequest, ResourceService};
+pub use resource::{BoxResourceFuture, BoxResourceStream, CallResourceRequest, ResourceService};
 pub use stream::{
     BoxRunStream, InitialData, PublishStreamRequest, PublishStreamResponse, RunStreamRequest,
     StreamPacket, StreamService, SubscribeStreamRequest, SubscribeStreamResponse,

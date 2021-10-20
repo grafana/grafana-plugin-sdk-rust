@@ -133,25 +133,42 @@ impl backend::StreamService for MyPluginService {
 impl backend::ResourceService for MyPluginService {
     type Error = http::Error;
     type Stream = backend::BoxResourceStream<Self::Error>;
-    async fn call_resource(&self, r: backend::CallResourceRequest) -> Self::Stream {
+    async fn call_resource(
+        &self,
+        r: backend::CallResourceRequest,
+    ) -> (Result<http::Response<Vec<u8>>, Self::Error>, Self::Stream) {
         let count = Arc::clone(&self.0);
-        Box::pin(async_stream::stream! {
-            match r.request.uri().path() {
-                "/echo" => {
-                    yield Ok(Response::new(r.request.uri().to_string().into_bytes()));
-                    yield Ok(Response::new(format!("{:?}", r.request.headers()).into_bytes()));
-                    yield Ok(Response::new(r.request.into_body()));
-                },
-                "/count" => {
-                    yield Ok(Response::new(
-                        count.fetch_add(1, Ordering::SeqCst)
+        let (response, stream): (_, Self::Stream) = match r.request.uri().path() {
+            // Just send back a single response.
+            "/echo" => (
+                Ok(Response::new(r.request.into_body())),
+                Box::pin(futures::stream::empty()),
+            ),
+            // Send an initial response with the current count, then stream the gradually
+            // incrementing count back to the client.
+            "/count" => (
+                Ok(Response::new(
+                    count
+                        .fetch_add(1, Ordering::SeqCst)
                         .to_string()
-                        .into_bytes()
-                    ))
-                },
-                _ => yield Response::builder().status(404).body(vec![]),
-            }
-        })
+                        .into_bytes(),
+                )),
+                Box::pin(async_stream::try_stream! {
+                    loop {
+                        let body = count
+                            .fetch_add(1, Ordering::SeqCst)
+                            .to_string()
+                            .into_bytes();
+                        yield body;
+                    }
+                }),
+            ),
+            _ => (
+                Response::builder().status(404).body(vec![]),
+                Box::pin(futures::stream::empty()),
+            ),
+        };
+        (response, stream)
     }
 }
 
