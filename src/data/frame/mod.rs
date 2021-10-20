@@ -119,7 +119,7 @@ impl Frame {
     /// };
     ///
     /// let frame = Frame::new("frame");
-    /// assert_eq!(frame.name, "frame".to_string());
+    /// assert_eq!(&frame.name, "frame");
     /// ```
     #[must_use]
     pub fn new(name: impl Into<String>) -> Self {
@@ -279,15 +279,11 @@ impl Frame {
     ///
     /// let frame = Frame::new("frame")
     ///     .with_name("other name");
-    /// assert_eq!(frame.name, "other name".to_string());
+    /// assert_eq!(&frame.name, "other name");
     /// ```
-    pub fn with_name(self, name: impl Into<String>) -> Self {
-        Self {
-            name: name.into(),
-            fields: self.fields,
-            meta: self.meta,
-            ref_id: self.ref_id,
-        }
+    pub fn with_name(mut self, name: impl Into<String>) -> Self {
+        self.name = name.into();
+        self
     }
 
     /// Return a new frame with the given metadata.
@@ -309,13 +305,9 @@ impl Frame {
     /// assert_eq!(frame.meta.unwrap().path, Some("a path".to_string()));
     /// ```
     #[must_use]
-    pub fn with_metadata(self, metadata: impl Into<Option<Metadata>>) -> Self {
-        Self {
-            name: self.name,
-            fields: self.fields,
-            meta: metadata.into(),
-            ref_id: self.ref_id,
-        }
+    pub fn with_metadata(mut self, metadata: impl Into<Option<Metadata>>) -> Self {
+        self.meta = metadata.into();
+        self
     }
 
     /// Return a new frame with an added field.
@@ -335,12 +327,7 @@ impl Frame {
     #[must_use]
     pub fn with_field(mut self, field: Field) -> Self {
         self.fields.push(field);
-        Self {
-            name: self.name,
-            fields: self.fields,
-            meta: self.meta,
-            ref_id: self.ref_id,
-        }
+        self
     }
 
     /// Return a new frame with added fields.
@@ -362,12 +349,7 @@ impl Frame {
     #[must_use]
     pub fn with_fields(mut self, fields: impl IntoIterator<Item = Field>) -> Self {
         self.fields.extend(fields);
-        Self {
-            name: self.name,
-            fields: self.fields,
-            meta: self.meta,
-            ref_id: self.ref_id,
-        }
+        self
     }
 
     /// Set the channel of the frame.
