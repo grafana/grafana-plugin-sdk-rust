@@ -165,7 +165,7 @@ pub use data::{
 };
 pub use diagnostics::{
     CheckHealthRequest, CheckHealthResponse, CollectMetricsRequest, CollectMetricsResponse,
-    DiagnosticsService, HealthStatus,
+    DiagnosticsService, HealthStatus, Payload as MetricsPayload,
 };
 pub use resource::{
     BoxResourceFuture, BoxResourceStream, CallResourceRequest, IntoHttpResponse, ResourceService,

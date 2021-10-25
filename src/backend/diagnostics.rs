@@ -133,6 +133,51 @@ impl From<CollectMetricsResponse> for pluginv2::CollectMetricsResponse {
 /// trait is implemented, and will call the `collect_metrics` function to get metrics
 /// for the plugin in text-based Prometheus exposition format. This allows plugins to be
 /// instrumented in detail.
+///
+/// # Example
+///
+/// ```rust
+/// use grafana_plugin_sdk::backend;
+/// use prometheus::{Encoder, TextEncoder};
+///
+/// struct MyPlugin {
+///     metrics: prometheus::Registry,
+/// }
+///
+/// #[backend::async_trait]
+/// impl backend::DiagnosticsService for MyPlugin {
+///     type CheckHealthError = std::convert::Infallible;
+///
+///     async fn check_health(
+///         &self,
+///         request: backend::CheckHealthRequest,
+///     ) -> Result<backend::CheckHealthResponse, Self::CheckHealthError> {
+///         // A real plugin may ensure it could e.g. connect to a database, was configured
+///         // correctly, etc.
+///         Ok(backend::CheckHealthResponse {
+///             status: backend::HealthStatus::Ok,
+///             message: "Ok".to_string(),
+///             json_details: serde_json::json!({}),
+///         })
+///     }
+///
+///     type CollectMetricsError = prometheus::Error;
+///
+///     async fn collect_metrics(
+///         &self,
+///         request: backend::CollectMetricsRequest,
+///     ) -> Result<backend::CollectMetricsResponse, Self::CollectMetricsError> {
+///         let mut buffer = vec![];
+///         let encoder = TextEncoder::new();
+///         encoder.encode(&self.metrics.gather(), &mut buffer)?;
+///         Ok(backend::CollectMetricsResponse {
+///             metrics: Some(backend::MetricsPayload {
+///                 prometheus: buffer,
+///             })
+///         })
+///     }
+/// }
+/// ```
 #[tonic::async_trait]
 pub trait DiagnosticsService {
     /// The type of error that can occur when performing a health check request.
