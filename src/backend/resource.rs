@@ -211,7 +211,7 @@ pub trait ResourceService {
 #[tonic::async_trait]
 impl<T> pluginv2::resource_server::Resource for T
 where
-    T: std::fmt::Debug + ResourceService + Send + Sync + 'static,
+    T: ResourceService + Send + Sync + 'static,
 {
     type CallResourceStream = Pin<
         Box<
@@ -220,7 +220,7 @@ where
                 + Sync,
         >,
     >;
-    #[tracing::instrument(level = "debug")]
+    #[tracing::instrument(skip(self), level = "debug")]
     async fn call_resource(
         &self,
         request: tonic::Request<pluginv2::CallResourceRequest>,

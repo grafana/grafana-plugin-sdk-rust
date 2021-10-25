@@ -400,9 +400,9 @@ pub trait StreamService {
 #[tonic::async_trait]
 impl<T> pluginv2::stream_server::Stream for T
 where
-    T: std::fmt::Debug + Send + Sync + StreamService + 'static,
+    T: Send + Sync + StreamService + 'static,
 {
-    #[tracing::instrument(level = "debug")]
+    #[tracing::instrument(skip(self), level = "debug")]
     async fn subscribe_stream(
         &self,
         request: tonic::Request<pluginv2::SubscribeStreamRequest>,
@@ -424,7 +424,7 @@ where
         >,
     >;
 
-    #[tracing::instrument(level = "debug")]
+    #[tracing::instrument(skip(self), level = "debug")]
     async fn run_stream(
         &self,
         request: tonic::Request<pluginv2::RunStreamRequest>,
@@ -444,7 +444,7 @@ where
         Ok(tonic::Response::new(Box::pin(stream)))
     }
 
-    #[tracing::instrument(level = "debug")]
+    #[tracing::instrument(skip(self), level = "debug")]
     async fn publish_stream(
         &self,
         request: tonic::Request<pluginv2::PublishStreamRequest>,

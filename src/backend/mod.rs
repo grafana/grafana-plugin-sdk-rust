@@ -240,7 +240,6 @@ impl ShutdownHandler {
 /// use grafana_plugin_sdk::{backend, prelude::*};
 /// use thiserror::Error;
 ///
-/// #[derive(Debug)]
 /// struct MyPlugin;
 ///
 /// /// An error that may occur during a query.
@@ -387,7 +386,7 @@ impl<D, Q, R, S> Plugin<D, Q, R, S> {
     /// Add a data service to this plugin.
     pub fn data_service<T>(self, service: T) -> Plugin<D, T, R, S>
     where
-        T: DataService + Debug + Send + Sync + 'static,
+        T: DataService + Send + Sync + 'static,
     {
         Plugin {
             data_service: Some(service),
@@ -402,7 +401,7 @@ impl<D, Q, R, S> Plugin<D, Q, R, S> {
     /// Add a diagnostics service to this plugin.
     pub fn diagnostics_service<T>(self, service: T) -> Plugin<T, Q, R, S>
     where
-        T: DiagnosticsService + Debug + Send + Sync + 'static,
+        T: DiagnosticsService + Send + Sync + 'static,
     {
         Plugin {
             diagnostics_service: Some(service),
@@ -417,7 +416,7 @@ impl<D, Q, R, S> Plugin<D, Q, R, S> {
     /// Add a resource service to this plugin.
     pub fn resource_service<T>(self, service: T) -> Plugin<D, Q, T, S>
     where
-        T: ResourceService + Debug + Send + Sync + 'static,
+        T: ResourceService + Send + Sync + 'static,
     {
         Plugin {
             resource_service: Some(service),
@@ -432,7 +431,7 @@ impl<D, Q, R, S> Plugin<D, Q, R, S> {
     /// Add a streaming service to this plugin.
     pub fn stream_service<T>(self, service: T) -> Plugin<D, Q, R, T>
     where
-        T: StreamService + Debug + Send + Sync + 'static,
+        T: StreamService + Send + Sync + 'static,
     {
         Plugin {
             stream_service: Some(service),
@@ -447,10 +446,10 @@ impl<D, Q, R, S> Plugin<D, Q, R, S> {
 
 impl<D, Q, R, S> Plugin<D, Q, R, S>
 where
-    D: DiagnosticsService + Debug + Send + Sync + 'static,
-    Q: DataService + Debug + Send + Sync + 'static,
-    R: ResourceService + Debug + Send + Sync + 'static,
-    S: StreamService + Debug + Send + Sync + 'static,
+    D: DiagnosticsService + Send + Sync + 'static,
+    Q: DataService + Send + Sync + 'static,
+    R: ResourceService + Send + Sync + 'static,
+    S: StreamService + Send + Sync + 'static,
 {
     /// Start the plugin.
     ///

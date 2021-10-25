@@ -248,9 +248,9 @@ pub(crate) fn to_arrow<'a>(
 #[tonic::async_trait]
 impl<T> pluginv2::data_server::Data for T
 where
-    T: DataService + std::fmt::Debug + Send + Sync + 'static,
+    T: DataService + Send + Sync + 'static,
 {
-    #[tracing::instrument(level = "debug")]
+    #[tracing::instrument(skip(self), level = "debug")]
     async fn query_data(
         &self,
         request: tonic::Request<pluginv2::QueryDataRequest>,
