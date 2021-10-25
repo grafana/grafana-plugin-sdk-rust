@@ -56,6 +56,7 @@ impl DiagnosticsService for NoopService {
 #[tonic::async_trait]
 impl ResourceService for NoopService {
     type Error = Infallible;
+    type InitialResponse = Vec<u8>;
     type Stream = BoxResourceStream<Self::Error>;
 
     /// Handle a resource request.
@@ -67,7 +68,7 @@ impl ResourceService for NoopService {
     async fn call_resource(
         &self,
         _request: CallResourceRequest,
-    ) -> (Result<http::Response<Vec<u8>>, Self::Error>, Self::Stream) {
+    ) -> (Result<Self::InitialResponse, Self::Error>, Self::Stream) {
         unreachable!()
     }
 }
