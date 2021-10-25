@@ -176,8 +176,7 @@ impl<J> StreamPacket<J> {
 }
 
 /// Type alias for a pinned, boxed stream of stream packets with a custom error type.
-pub type BoxRunStream<E, T = ()> =
-    Pin<Box<dyn Stream<Item = Result<StreamPacket<T>, E>> + Send + Sync + 'static>>;
+pub type BoxRunStream<E, T = ()> = Pin<Box<dyn Stream<Item = Result<StreamPacket<T>, E>> + Send>>;
 
 /// A request to publish data to a stream.
 pub struct PublishStreamRequest {
@@ -368,19 +367,17 @@ pub trait StreamService {
     /// If the implementation does not intend to return JSON variants, this
     /// can be set to `()`. If the structure of the returned JSON is not statically known, this
     /// should be set to [`serde_json::Value`].
-    type JsonValue: Serialize + Send + Sync;
+    type JsonValue: Serialize;
 
     /// The type of error that can occur while fetching a stream packet.
-    type StreamError: std::error::Error + Send + Sync;
+    type StreamError: std::error::Error;
 
     /// The type of stream returned by `run_stream`.
     ///
     /// This will generally be impossible to name directly, so returning the
     /// [`BoxRunStream`] type alias will probably be more convenient.
     type Stream: futures_core::Stream<Item = Result<StreamPacket<Self::JsonValue>, Self::StreamError>>
-        + Send
-        + Sync
-        + 'static;
+        + Send;
 
     /// Begin sending stream packets to a client.
     ///
@@ -416,12 +413,7 @@ where
     }
 
     type RunStreamStream = Pin<
-        Box<
-            dyn futures_core::Stream<Item = Result<pluginv2::StreamPacket, tonic::Status>>
-                + Send
-                + Sync
-                + 'static,
-        >,
+        Box<dyn futures_core::Stream<Item = Result<pluginv2::StreamPacket, tonic::Status>> + Send>,
     >;
 
     #[tracing::instrument(skip(self), level = "debug")]

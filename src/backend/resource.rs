@@ -103,11 +103,10 @@ fn body_to_response(body: Bytes) -> pluginv2::CallResourceResponse {
 
 /// Type alias for a pinned, boxed future with a fallible HTTP response as output, with a custom error type.
 pub type BoxResourceFuture<E> =
-    Pin<Box<dyn std::future::Future<Output = Result<Response<Bytes>, E>> + Send + Sync + 'static>>;
+    Pin<Box<dyn std::future::Future<Output = Result<Response<Bytes>, E>>>>;
 
 /// Type alias for a pinned, boxed stream of HTTP responses with a custom error type.
-pub type BoxResourceStream<E> =
-    Pin<Box<dyn futures_core::Stream<Item = Result<Bytes, E>> + Send + Sync + 'static>>;
+pub type BoxResourceStream<E> = Pin<Box<dyn futures_core::Stream<Item = Result<Bytes, E>> + Send>>;
 
 /// Trait for plugins that can handle arbitrary resource requests.
 ///
@@ -122,7 +121,7 @@ pub type BoxResourceStream<E> =
 /// ## Simple function
 ///
 /// This trait has a blanket impl for async functions taking a `CallResourceRequest` and
-/// returning a `Result<T, E> where T: IntoHttpResponse + Send + Sync, E: std::error::Error + Send + Sync`.
+/// returning a `Result<T, E> where T: IntoHttpResponse + Send, E: std::error::Error + Send`.
 /// [`IntoHttpResponse`] is implemented for some types already - see its docs for details.
 #[cfg_attr(
     feature = "reqwest",
@@ -219,18 +218,18 @@ let plugin = backend::Plugin::new().resource_service(respond);
 #[tonic::async_trait]
 pub trait ResourceService {
     /// The error type that can be returned by individual responses.
-    type Error: std::error::Error + Send + Sync;
+    type Error: std::error::Error + Send;
 
     /// The type returned as the initial response returned back to Grafana.
     ///
     /// This must be convertable into a `http::Response<Bytes>`.
-    type InitialResponse: IntoHttpResponse + Send + Sync;
+    type InitialResponse: IntoHttpResponse + Send;
 
     /// The type of stream of optional additional data returned by `run_stream`.
     ///
     /// This will generally be impossible to name directly, so returning the
     /// [`BoxResourceStream`] type alias will probably be more convenient.
-    type Stream: futures_core::Stream<Item = Result<Bytes, Self::Error>> + Send + Sync;
+    type Stream: futures_core::Stream<Item = Result<Bytes, Self::Error>> + Send;
 
     /// Handle a resource request.
     ///
@@ -252,10 +251,10 @@ where
     type CallResourceStream = Pin<
         Box<
             dyn futures_core::Stream<Item = Result<pluginv2::CallResourceResponse, tonic::Status>>
-                + Send
-                + Sync,
+                + Send,
         >,
     >;
+
     #[tracing::instrument(skip(self), level = "debug")]
     async fn call_resource(
         &self,

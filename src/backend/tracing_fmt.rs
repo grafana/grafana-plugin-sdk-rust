@@ -11,7 +11,9 @@ use tracing_core::{
 };
 use tracing_log::NormalizeEvent;
 use tracing_serde::AsSerde;
-use tracing_subscriber::fmt::{FmtContext, FormatEvent, FormatFields, FormattedFields};
+use tracing_subscriber::fmt::{
+    format::Writer, FmtContext, FormatEvent, FormatFields, FormattedFields,
+};
 use tracing_subscriber::registry::LookupSpan;
 
 /// A [`tracing`] event formatter which writes events in a format compatible with [hclog].
@@ -39,7 +41,7 @@ where
     fn format_event(
         &self,
         ctx: &FmtContext<'_, S, N>,
-        writer: &mut dyn fmt::Write,
+        mut writer: Writer<'_>,
         event: &Event<'_>,
     ) -> fmt::Result
     where
@@ -53,7 +55,7 @@ where
         let meta = normalized_meta.as_ref().unwrap_or_else(|| event.metadata());
 
         let mut visit = || {
-            let mut serializer = Serializer::new(WriteAdaptor::new(writer));
+            let mut serializer = Serializer::new(WriteAdaptor::new(&mut writer));
 
             let mut serializer = serializer.serialize_map(None)?;
 

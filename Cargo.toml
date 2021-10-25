@@ -3,47 +3,46 @@ name = "grafana-plugin-sdk"
 version = "0.1.0"
 authors = ["Ben Sully <ben@bsull.io>"]
 license = "MIT/Apache-2.0"
-edition = "2018"
+edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-arrow2 = { version = "0.6.1", features = ["io_ipc"] }
+arrow2 = { version = "0.6.2", features = ["io_ipc"] }
 chrono = "0.4.19"
 futures-core = "0.3.17"
 futures-util = "0.3.17"
 http = "0.2.5"
 itertools = "0.10.1"
 num-traits = "0.2.14"
-prost = "0.8.0"
+prost = "0.9.0"
 reqwest_lib = { package = "reqwest", version = "0.11.6", optional = true }
 serde = { version = "1.0.130", features = ["derive"] }
 serde_json = { version = "1.0.68", features = ["float_roundtrip", "raw_value"] }
-serde_with = "1.10.0"
-thiserror = "1.0.29"
+serde_with = "1.11.0"
+thiserror = "1.0.30"
+time = { version = "0.3.3", features = ["formatting", "macros"] }
 tokio = "1.12.0"
 tokio-stream = { version = "0.1.7", features = ["net"] }
-tonic = "0.5.2"
-tonic-health = "0.4.1"
+tonic = "0.6.0"
+tonic-health = "0.5.0"
 tracing = "0.1.29"
 tracing-core = "0.1.21"
 tracing-log = "0.1.2"
 tracing-serde = "0.1.2"
-tracing-subscriber = "0.2.25"
+tracing-subscriber = { version = "0.3.0", features = ["env-filter", "json", "time"] }
 
 [dev-dependencies]
 async-stream = "0.3.2"
 bytes = "1.1.0"
 futures = "0.3.17"
 pretty_assertions = "1.0.0"
-thiserror = "1.0.29"
 tokio = { version = "1.12.0", features = ["rt-multi-thread"] }
 tokio-stream = "0.1.7"
-tonic-health = "0.4.1"
 
 [build-dependencies]
-prost-build = "0.8.0"
-tonic-build = "0.5.2"
+prost-build = "0.9.0"
+tonic-build = "0.6.0"
 
 # docs.rs-specific configuration
 [package.metadata.docs.rs]

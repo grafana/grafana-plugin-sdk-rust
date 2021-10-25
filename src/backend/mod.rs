@@ -139,7 +139,7 @@ use thiserror::Error;
 use tokio::net::TcpListener;
 use tokio_stream::wrappers::TcpListenerStream;
 use tracing_subscriber::{
-    fmt::{format::JsonFields, time::ChronoUtc},
+    fmt::{format::JsonFields, time::UtcTime},
     prelude::*,
     registry::LookupSpan,
     EnvFilter,
@@ -167,7 +167,9 @@ pub use diagnostics::{
     CheckHealthRequest, CheckHealthResponse, CollectMetricsRequest, CollectMetricsResponse,
     DiagnosticsService, HealthStatus,
 };
-pub use resource::{BoxResourceFuture, BoxResourceStream, CallResourceRequest, IntoHttpResponse, ResourceService};
+pub use resource::{
+    BoxResourceFuture, BoxResourceStream, CallResourceRequest, IntoHttpResponse, ResourceService,
+};
 pub use stream::{
     BoxRunStream, InitialData, PublishStreamRequest, PublishStreamResponse, RunStreamRequest,
     StreamPacket, StreamService, SubscribeStreamRequest, SubscribeStreamResponse,
@@ -532,6 +534,10 @@ pub async fn initialize() -> Result<TcpListener, io::Error> {
     Ok(listener)
 }
 
+const HCLOG_TIME_FORMAT: &[time::format_description::FormatItem] = time::macros::format_description!(
+    "[year]-[month]-[day]T[hour]:[minute]:[second].[subsecond digits:6]+00:00"
+);
+
 /// Create a `tracing` [`Layer`][tracing_subscriber::Layer] configured to log events in a format understood by Grafana.
 ///
 /// The returned layer should be installed into the tracing subscriber registry, with an optional env filter.
@@ -552,9 +558,7 @@ pub async fn initialize() -> Result<TcpListener, io::Error> {
 pub fn layer<S: tracing::Subscriber + for<'a> LookupSpan<'a>>(
 ) -> tracing_subscriber::fmt::Layer<S, JsonFields, tracing_fmt::HCLogJson, fn() -> io::Stderr> {
     tracing_subscriber::fmt::layer()
-        .with_timer(ChronoUtc::with_format(
-            "%Y-%m-%dT%H:%M:%S.%6f+00:00".to_string(),
-        ))
+        .with_timer(UtcTime::new(HCLOG_TIME_FORMAT))
         .with_writer(io::stderr as fn() -> std::io::Stderr)
         .event_format(tracing_fmt::HCLogJson::default())
         .fmt_fields(JsonFields::new())
