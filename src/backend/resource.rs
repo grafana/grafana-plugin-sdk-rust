@@ -10,6 +10,7 @@ use http::{
     Request, Response,
 };
 use itertools::Itertools;
+use prost::bytes::Bytes;
 
 use crate::{
     backend::{ConversionError, PluginContext},
@@ -18,7 +19,7 @@ use crate::{
 
 /// A request for a resource call.
 #[derive(Debug)]
-pub struct CallResourceRequest<T = Vec<u8>> {
+pub struct CallResourceRequest<T = Bytes> {
     /// Details of the plugin instance from which the request originated.
     pub plugin_context: Option<PluginContext>,
     /// The HTTP request.
@@ -60,9 +61,9 @@ impl TryFrom<pluginv2::CallResourceRequest> for CallResourceRequest {
     }
 }
 
-impl TryFrom<Response<Vec<u8>>> for pluginv2::CallResourceResponse {
+impl TryFrom<Response<Bytes>> for pluginv2::CallResourceResponse {
     type Error = ConversionError;
-    fn try_from(mut other: Response<Vec<u8>>) -> Result<Self, Self::Error> {
+    fn try_from(mut other: Response<Bytes>) -> Result<Self, Self::Error> {
         let grouped_headers = other.headers_mut().drain().group_by(|x| x.0.clone());
         let headers = grouped_headers
             .into_iter()
@@ -92,7 +93,7 @@ impl TryFrom<Response<Vec<u8>>> for pluginv2::CallResourceResponse {
     }
 }
 
-fn body_to_response(body: Vec<u8>) -> pluginv2::CallResourceResponse {
+fn body_to_response(body: Bytes) -> pluginv2::CallResourceResponse {
     pluginv2::CallResourceResponse {
         code: 200,
         headers: std::collections::HashMap::new(),
@@ -101,13 +102,12 @@ fn body_to_response(body: Vec<u8>) -> pluginv2::CallResourceResponse {
 }
 
 /// Type alias for a pinned, boxed future with a fallible HTTP response as output, with a custom error type.
-pub type BoxResourceFuture<E> = Pin<
-    Box<dyn std::future::Future<Output = Result<Response<Vec<u8>>, E>> + Send + Sync + 'static>,
->;
+pub type BoxResourceFuture<E> =
+    Pin<Box<dyn std::future::Future<Output = Result<Response<Bytes>, E>> + Send + Sync + 'static>>;
 
 /// Type alias for a pinned, boxed stream of HTTP responses with a custom error type.
 pub type BoxResourceStream<E> =
-    Pin<Box<dyn futures_core::Stream<Item = Result<Vec<u8>, E>> + Send + Sync + 'static>>;
+    Pin<Box<dyn futures_core::Stream<Item = Result<Bytes, E>> + Send + Sync + 'static>>;
 
 /// Trait for plugins that can handle arbitrary resource requests.
 ///
@@ -117,7 +117,33 @@ pub type BoxResourceStream<E> =
 /// See <https://grafana.com/docs/grafana/latest/developers/plugins/backend/#resources> for
 /// some examples of how this can be used.
 ///
-/// # Example
+/// # Examples
+///
+/// ## Simple function
+///
+/// This trait has a blanket impl for async functions taking a `CallResourceRequest` and
+/// returning a `Result<T, E> where T: IntoHttpResponse + Send + Sync, E: std::error::Error + Send + Sync`.
+/// [`IntoHttpResponse`] is implemented for some types already - see its docs for details.
+#[cfg_attr(
+    feature = "reqwest",
+    doc = r##"
+Note that this example requires the `reqwest` feature.
+
+```rust
+# extern crate reqwest_lib as reqwest;
+use bytes::Bytes;
+use grafana_plugin_sdk::{backend, prelude::*};
+use reqwest::{Error, Response};
+
+async fn respond(req: backend::CallResourceRequest) -> Result<Response, Error> {
+    reqwest::get("https://www.rust-lang.org").await
+}
+
+let plugin = backend::Plugin::new().resource_service(respond);
+```
+"##
+)]
+/// ## Stateful service
 ///
 /// The following shows an example implementation of [`ResourceService`] which handles
 /// two endpoints:
@@ -128,6 +154,7 @@ pub type BoxResourceStream<E> =
 /// use std::sync::{atomic::{AtomicUsize, Ordering}, Arc};
 ///
 /// use async_stream::stream;
+/// use bytes::Bytes;
 /// use grafana_plugin_sdk::backend;
 /// use http::Response;
 ///
@@ -135,12 +162,13 @@ pub type BoxResourceStream<E> =
 ///
 /// impl Plugin {
 ///     // Increment the counter and return the stringified result in a `Response`.
-///     fn inc_and_respond(&self) -> Response<Vec<u8>> {
+///     fn inc_and_respond(&self) -> Response<Bytes> {
 ///         Response::new(
 ///             self.0
 ///                 .fetch_add(1, Ordering::SeqCst)
 ///                 .to_string()
 ///                 .into_bytes()
+///                 .into()
 ///         )
 ///     }
 /// }
@@ -148,13 +176,14 @@ pub type BoxResourceStream<E> =
 /// #[backend::async_trait]
 /// impl backend::ResourceService for Plugin {
 ///     type Error = http::Error;
+///     type InitialResponse = Response<Bytes>;
 ///     type Stream = backend::BoxResourceStream<Self::Error>;
-///     async fn call_resource(&self, r: backend::CallResourceRequest) -> (Result<http::Response<Vec<u8>>, Self::Error>, Self::Stream) {
+///     async fn call_resource(&self, r: backend::CallResourceRequest) -> (Result<Self::InitialResponse, Self::Error>, Self::Stream) {
 ///         let count = Arc::clone(&self.0);
 ///         let (response, stream): (_, Self::Stream) = match r.request.uri().path() {
 ///             // Just send back a single response.
 ///             "/echo" => (
-///                 Ok(Response::new(r.request.into_body())),
+///                 Ok(Response::new(r.request.into_body().into())),
 ///                 Box::pin(futures::stream::empty()),
 ///             ),
 ///             // Send an initial response with the current count, then stream the gradually
@@ -164,20 +193,22 @@ pub type BoxResourceStream<E> =
 ///                     count
 ///                         .fetch_add(1, Ordering::SeqCst)
 ///                         .to_string()
-///                         .into_bytes(),
+///                         .into_bytes()
+///                         .into(),
 ///                 )),
 ///                 Box::pin(async_stream::try_stream! {
 ///                     loop {
 ///                         let body = count
 ///                             .fetch_add(1, Ordering::SeqCst)
 ///                             .to_string()
-///                             .into_bytes();
+///                             .into_bytes()
+///                             .into();
 ///                         yield body;
 ///                     }
 ///                 }),
 ///             ),
 ///             _ => (
-///                 Response::builder().status(404).body(vec![]),
+///                 Response::builder().status(404).body(Bytes::new()),
 ///                 Box::pin(futures::stream::empty()),
 ///             ),
 ///         };
@@ -188,24 +219,29 @@ pub type BoxResourceStream<E> =
 #[tonic::async_trait]
 pub trait ResourceService {
     /// The error type that can be returned by individual responses.
-    type Error: std::error::Error;
+    type Error: std::error::Error + Send + Sync;
+
+    /// The type returned as the initial response returned back to Grafana.
+    ///
+    /// This must be convertable into a `http::Response<Bytes>`.
+    type InitialResponse: IntoHttpResponse + Send + Sync;
 
     /// The type of stream of optional additional data returned by `run_stream`.
     ///
     /// This will generally be impossible to name directly, so returning the
     /// [`BoxResourceStream`] type alias will probably be more convenient.
-    type Stream: futures_core::Stream<Item = Result<Vec<u8>, Self::Error>> + Send + Sync;
+    type Stream: futures_core::Stream<Item = Result<Bytes, Self::Error>> + Send + Sync;
 
     /// Handle a resource request.
     ///
     /// It is completely up to the implementor how to handle the incoming request.
     ///
     /// A stream of responses can be returned. A simple way to return just a single response
-    /// is to use `futures_util::stream::once`.
+    /// is to use [`futures_util::stream::once`].
     async fn call_resource(
         &self,
         request: CallResourceRequest,
-    ) -> (Result<http::Response<Vec<u8>>, Self::Error>, Self::Stream);
+    ) -> (Result<Self::InitialResponse, Self::Error>, Self::Stream);
 }
 
 #[tonic::async_trait]
@@ -230,12 +266,17 @@ where
             .try_into()
             .map_err(ConversionError::into_tonic_status)?;
         let (initial_response, stream) = ResourceService::call_resource(self, request).await;
-        let initial_response_converted = initial_response
-            .map_err(|e| tonic::Status::internal(e.to_string()))
-            .and_then(|response| {
-                pluginv2::CallResourceResponse::try_from(response)
-                    .map_err(|e| tonic::Status::internal(e.to_string()))
-            });
+        let initial_response_converted = match initial_response {
+            Ok(resp) => resp
+                .into_http_response()
+                .await
+                .map_err(|e| tonic::Status::internal(e.to_string())),
+            Err(e) => Err(tonic::Status::internal(e.to_string())),
+        }
+        .and_then(|response| {
+            pluginv2::CallResourceResponse::try_from(response)
+                .map_err(|e| tonic::Status::internal(e.to_string()))
+        });
         let stream =
             futures_util::stream::once(futures_util::future::ready(initial_response_converted))
                 .chain(stream.map(|response| {
@@ -244,5 +285,69 @@ where
                         .map_err(|e| tonic::Status::internal(e.to_string()))
                 }));
         Ok(tonic::Response::new(Box::pin(stream)))
+    }
+}
+
+#[tonic::async_trait]
+impl<T, F, R, E> ResourceService for T
+where
+    T: Fn(CallResourceRequest) -> F + Sync,
+    F: std::future::Future<Output = Result<R, E>> + Send,
+    R: IntoHttpResponse + Send + Sync,
+    E: std::error::Error + Send + Sync,
+{
+    type Error = E;
+    type InitialResponse = R;
+    type Stream = futures_util::stream::Empty<Result<Bytes, Self::Error>>;
+    async fn call_resource(
+        &self,
+        request: CallResourceRequest,
+    ) -> (Result<Self::InitialResponse, Self::Error>, Self::Stream) {
+        let response = self(request).await;
+        (response, futures_util::stream::empty())
+    }
+}
+
+/// Trait indicating that a type can be fallibly converted into a `http::Response<Bytes>`.
+///
+/// This is a separate trait (rather than using `TryFrom`/`TryInto`) because it may
+/// need to be async.
+#[tonic::async_trait]
+pub trait IntoHttpResponse {
+    /// Performs the conversion.
+    async fn into_http_response(self) -> Result<http::Response<Bytes>, Box<dyn std::error::Error>>;
+}
+
+#[tonic::async_trait]
+impl IntoHttpResponse for http::Response<Bytes> {
+    async fn into_http_response(self) -> Result<http::Response<Bytes>, Box<dyn std::error::Error>> {
+        Ok(self)
+    }
+}
+
+#[cfg(feature = "reqwest")]
+#[tonic::async_trait]
+impl IntoHttpResponse for reqwest::Response {
+    async fn into_http_response(self) -> Result<http::Response<Bytes>, Box<dyn std::error::Error>> {
+        self.bytes()
+            .await
+            .map(http::Response::new)
+            .map_err(|e| -> Box<dyn std::error::Error> { Box::new(e) })
+    }
+}
+
+#[tonic::async_trait]
+impl IntoHttpResponse for Vec<u8> {
+    async fn into_http_response(self) -> Result<http::Response<Bytes>, Box<dyn std::error::Error>> {
+        Ok(http::Response::new(self.into()))
+    }
+}
+
+#[tonic::async_trait]
+impl IntoHttpResponse for serde_json::Value {
+    async fn into_http_response(self) -> Result<http::Response<Bytes>, Box<dyn std::error::Error>> {
+        serde_json::to_vec(&self)
+            .map(|v| http::Response::new(v.into()))
+            .map_err(|e| -> Box<dyn std::error::Error> { Box::new(e) })
     }
 }

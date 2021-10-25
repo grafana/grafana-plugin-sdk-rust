@@ -26,6 +26,10 @@ the [crate examples] or [sample app repo] to get started with writing a backend 
 */
 #![cfg_attr(docsrs, feature(doc_notable_trait))]
 #![deny(missing_docs)]
+
+#[cfg(feature = "reqwest")]
+extern crate reqwest_lib as reqwest;
+
 #[allow(missing_docs, clippy::all, clippy::nursery, clippy::pedantic)]
 pub mod pluginv2 {
     //! The low-level structs generated from protocol definitions.

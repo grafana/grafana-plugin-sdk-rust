@@ -1,3 +1,12 @@
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    Ok(tonic_build::compile_protos("vendor/proto/backend.proto")?)
+    let mut config = prost_build::Config::new();
+    config.bytes(&[
+        "CallResourceRequest",
+        "CallResourceResponse",
+    ]);
+    Ok(tonic_build::configure().compile_with_config(
+        config,
+        &["./vendor/proto/backend.proto"],
+        &["./vendor/proto"],
+    )?)
 }

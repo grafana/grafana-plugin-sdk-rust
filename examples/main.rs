@@ -6,6 +6,7 @@ use std::{
     time::Duration,
 };
 
+use bytes::Bytes;
 use chrono::prelude::*;
 use http::Response;
 use thiserror::Error;
@@ -148,16 +149,17 @@ impl backend::StreamService for MyPluginService {
 #[tonic::async_trait]
 impl backend::ResourceService for MyPluginService {
     type Error = http::Error;
+    type InitialResponse = http::Response<Bytes>;
     type Stream = backend::BoxResourceStream<Self::Error>;
     async fn call_resource(
         &self,
         r: backend::CallResourceRequest,
-    ) -> (Result<http::Response<Vec<u8>>, Self::Error>, Self::Stream) {
+    ) -> (Result<Self::InitialResponse, Self::Error>, Self::Stream) {
         let count = Arc::clone(&self.0);
         let (response, stream): (_, Self::Stream) = match r.request.uri().path() {
             // Just send back a single response.
             "/echo" => (
-                Ok(Response::new(r.request.into_body())),
+                Ok(Response::new(r.request.into_body().into())),
                 Box::pin(futures::stream::empty()),
             ),
             // Send an initial response with the current count, then stream the gradually
@@ -167,20 +169,22 @@ impl backend::ResourceService for MyPluginService {
                     count
                         .fetch_add(1, Ordering::SeqCst)
                         .to_string()
-                        .into_bytes(),
+                        .into_bytes()
+                        .into(),
                 )),
                 Box::pin(async_stream::try_stream! {
                     loop {
                         let body = count
                             .fetch_add(1, Ordering::SeqCst)
                             .to_string()
-                            .into_bytes();
+                            .into_bytes()
+                            .into();
                         yield body;
                     }
                 }),
             ),
             _ => (
-                Response::builder().status(404).body(vec![]),
+                Response::builder().status(404).body(Bytes::new()),
                 Box::pin(futures::stream::empty()),
             ),
         };
