@@ -21,13 +21,13 @@ jobs:
     - name: Install Rust toolchain
       uses: actions-rs/toolchain@v1
       with:
-        toolchain: stable
+        toolchain: nightly
         profile: minimal
         override: true
         components: rustfmt, rust-src
 
     - name: Build Documentation
-      run: cargo doc --all --no-deps
+      run: RUSTDOCFLAGS="--cfg docsrs" cargo doc --all-features
 
     - name: Deploy Docs
       uses: peaceiris/actions-gh-pages@364c31d33bb99327c77b3a5438a83a357a6729ad # v3.4.0
