@@ -37,4 +37,3 @@ jobs:
         publish_dir: ./target/doc
         force_orphan: true
         external_repository: sd2k/sd2k.github.io
-        destination_dir: grafana-plugin-sdk-rust
