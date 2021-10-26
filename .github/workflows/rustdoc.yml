@@ -32,7 +32,7 @@ jobs:
     - name: Deploy Docs
       uses: peaceiris/actions-gh-pages@v3.7.3
       with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
+        personal_token: ${{ secrets.PERSONAL_TOKEN }}
         publish_branch: gh-pages
         publish_dir: ./target/doc
         force_orphan: true
