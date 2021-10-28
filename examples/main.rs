@@ -37,13 +37,15 @@ impl backend::DataQueryError for QueryError {
     }
 }
 
+type QueryDataIter = std::iter::Map<
+    std::vec::IntoIter<backend::DataQuery>,
+    fn(backend::DataQuery) -> Result<backend::DataResponse, QueryError>,
+>;
+
 #[tonic::async_trait]
 impl backend::DataService for MyPluginService {
     type QueryError = QueryError;
-    type Iter = std::iter::Map<
-        std::vec::IntoIter<backend::DataQuery>,
-        fn(backend::DataQuery) -> Result<backend::DataResponse, Self::QueryError>,
-    >;
+    type Iter = QueryDataIter;
     async fn query_data(&self, request: backend::QueryDataRequest) -> Self::Iter {
         request.queries.into_iter().map(|x| {
             // Here we create a single response Frame for each query.
@@ -146,7 +148,7 @@ impl backend::ResourceService for MyPluginService {
         let (response, stream): (_, Self::Stream) = match r.request.uri().path() {
             // Just send back a single response.
             "/echo" => (
-                Ok(Response::new(r.request.into_body().into())),
+                Ok(Response::new(r.request.into_body())),
                 Box::pin(futures::stream::empty()),
             ),
             // Send an initial response with the current count, then stream the gradually
