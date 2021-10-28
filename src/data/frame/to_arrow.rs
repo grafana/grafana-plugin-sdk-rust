@@ -32,7 +32,7 @@ impl CheckedFrame<'_> {
             .iter()
             .map(Field::to_arrow_field)
             .collect::<Result<_, _>>()?;
-        let mut metadata: HashMap<String, String> = IntoIterator::into_iter([
+        let mut metadata: HashMap<String, String> = [
             ("name".to_string(), self.0.name.to_string()),
             (
                 "refId".to_string(),
@@ -44,7 +44,8 @@ impl CheckedFrame<'_> {
                         .unwrap_or_default()
                 }),
             ),
-        ])
+        ]
+        .into_iter()
         .collect();
         if let Some(meta) = &self.0.meta {
             metadata.insert("meta".to_string(), serde_json::to_string(&meta)?);

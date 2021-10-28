@@ -1,5 +1,4 @@
 //! SDK types and traits for checking health and collecting metrics from plugins.
-use std::convert::{TryFrom, TryInto};
 
 use serde_json::Value;
 

@@ -1,11 +1,5 @@
 //! Deserialization of [`Frame`]s from the JSON format.
-use std::{
-    collections::BTreeMap,
-    convert::{TryFrom, TryInto},
-    fmt,
-    marker::PhantomData,
-    sync::Arc,
-};
+use std::{collections::BTreeMap, fmt, marker::PhantomData, sync::Arc};
 
 use arrow2::{
     array::{

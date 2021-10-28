@@ -1,7 +1,6 @@
 //! Contains the `Field` struct, which holds actual data in the form of Arrow arrays, as well as column-specific metadata.
 use std::{
     collections::{BTreeMap, HashMap},
-    convert::{TryFrom, TryInto},
     iter::FromIterator,
     sync::Arc,
 };
@@ -52,21 +51,21 @@ impl Field {
         let metadata = match (self.labels.is_empty(), self.config.as_ref()) {
             (true, None) => None,
             (false, None) => Some(
-                IntoIterator::into_iter([(
-                    "labels".to_string(),
-                    serde_json::to_string(&self.labels)?,
-                )])
-                .collect(),
+                [("labels".to_string(), serde_json::to_string(&self.labels)?)]
+                    .into_iter()
+                    .collect(),
             ),
             (false, Some(c)) => Some(
-                IntoIterator::into_iter([("config".to_string(), serde_json::to_string(&c)?)])
+                [("config".to_string(), serde_json::to_string(&c)?)]
+                    .into_iter()
                     .collect(),
             ),
             (true, Some(c)) => Some(
-                IntoIterator::into_iter([
+                [
                     ("labels".to_string(), serde_json::to_string(&self.labels)?),
                     ("config".to_string(), serde_json::to_string(&c)?),
-                ])
+                ]
+                .into_iter()
                 .collect(),
             ),
         };

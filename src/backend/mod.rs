@@ -123,14 +123,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 [tonic]: https://github.com/hyperium/tonic
 */
-use std::{
-    collections::HashMap,
-    convert::{TryFrom, TryInto},
-    fmt::Debug,
-    io,
-    net::SocketAddr,
-    str::FromStr,
-};
+use std::{collections::HashMap, fmt::Debug, io, net::SocketAddr, str::FromStr};
 
 use chrono::prelude::*;
 use futures_util::FutureExt;
