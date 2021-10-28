@@ -45,7 +45,7 @@ struct MyPlugin;
 #[derive(Debug, Error)]
 #[error("Error querying backend for query {ref_id}: {source}")]
 struct QueryError {
-    source: data::FrameError,
+    source: data::Error,
     ref_id: String,
 }
 
@@ -565,17 +565,15 @@ pub fn layer<S: tracing::Subscriber + for<'a> LookupSpan<'a>>(
 }
 
 /// Errors returned by plugin backends.
-///
-/// This is very subject to change and should not be relied upon.
 #[derive(Debug, Error)]
 #[non_exhaustive]
 pub enum Error {
-    /// An error occurred converting data to/from protobufs.
-    #[error("error converting to or from proto: {0}")]
-    Conversion(#[from] ConversionError),
-    /// An error occurred while starting the plugin.
-    #[error("error starting plugin: {0}")]
-    Start(#[from] io::Error),
+    /// An error occurred converting data from Grafana.
+    #[error("error converting from Grafana: {0}")]
+    ConvertFrom(#[from] ConvertFromError),
+    /// An error occurred converting data to Grafana.
+    #[error("error converting to Grafana: {0}")]
+    ConvertTo(#[from] ConvertToError),
     /// An error occurred while starting the plugin.
     #[error("error serving plugin: {0}")]
     Serve(#[from] tonic::transport::Error),
@@ -584,11 +582,9 @@ pub enum Error {
 /// Errors occurring when trying to interpret data passed from Grafana to this SDK.
 ///
 /// Generally any errors should be considered a bug and should be reported.
-///
-/// This is very subject to change and should not be relied upon.
 #[derive(Debug, Error)]
 #[non_exhaustive]
-pub enum ConversionError {
+pub enum ConvertFromError {
     /// The `time_range` was missing from the query.
     #[error("time_range missing from query")]
     MissingTimeRange,
@@ -600,7 +596,7 @@ pub enum ConversionError {
     InvalidJson {
         /// The underlying JSON error.
         err: serde_json::Error,
-        /// The JSON for which (de)serialization was attempted.
+        /// The JSON for which deserialization was attempted.
         json: String,
     },
     /// The frame provided by Grafana was malformed.
@@ -615,34 +611,55 @@ pub enum ConversionError {
         /// The underlying `http` error.
         source: http::Error,
     },
-    /// The resource response was not a valid HTTP response.
-    #[error("invalid HTTP response")]
-    InvalidResponse,
     /// The role string provided by Grafana didn't match the roles known by the SDK.
     #[error("Unknown role: {0}")]
     UnknownRole(String),
 }
 
-impl From<ConversionError> for tonic::Status {
-    fn from(other: ConversionError) -> Self {
+impl From<ConvertFromError> for tonic::Status {
+    fn from(other: ConvertFromError) -> Self {
         Self::invalid_argument(other.to_string())
     }
 }
 
-impl ConversionError {
+impl ConvertFromError {
     fn into_tonic_status(self) -> tonic::Status {
         self.into()
     }
 }
 
-type ConversionResult<T> = std::result::Result<T, ConversionError>;
+/// Errors occurring when trying to convert data into a format understood by Grafana.
+///
+/// If these errors occur it probably means something invalid was passed to the SDK
+/// somehow, such as a `HashMap` with numeric keys passed as a JSON value.
+#[derive(Debug, Error)]
+#[non_exhaustive]
+pub enum ConvertToError {
+    /// The resource response was not a valid HTTP response.
+    #[error("invalid HTTP response")]
+    InvalidResponse,
+    /// The JSON provided was invalid.
+    #[error("invalid JSON: {err}")]
+    InvalidJson {
+        /// The underlying JSON error.
+        err: serde_json::Error,
+    },
+    /// The frame provided could not be serialized.
+    #[error("invalid frame: {source}")]
+    InvalidFrame {
+        /// The underlying JSON error.
+        source: serde_json::Error,
+    },
+}
 
-pub(self) fn read_json(jdoc: &[u8]) -> ConversionResult<Value> {
+type ConvertFromResult<T> = std::result::Result<T, ConvertFromError>;
+
+pub(self) fn read_json(jdoc: &[u8]) -> ConvertFromResult<Value> {
     // Grafana sometimes sends an empty string instead of an empty map, probably
     // because of some zero value Golang stuff?
     (!jdoc.is_empty())
         .then(|| {
-            serde_json::from_slice(jdoc).map_err(|err| ConversionError::InvalidJson {
+            serde_json::from_slice(jdoc).map_err(|err| ConvertFromError::InvalidJson {
                 err,
                 json: String::from_utf8(jdoc.to_vec()).unwrap_or_else(|_| {
                     format!("non-utf8 string: {}", String::from_utf8_lossy(jdoc))
@@ -682,13 +699,13 @@ pub enum Role {
 }
 
 impl FromStr for Role {
-    type Err = ConversionError;
+    type Err = ConvertFromError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(match s {
             "Admin" => Self::Admin,
             "Editor" => Self::Editor,
             "Viewer" => Self::Viewer,
-            _ => return Err(ConversionError::UnknownRole(s.to_string())),
+            _ => return Err(ConvertFromError::UnknownRole(s.to_string())),
         })
     }
 }
@@ -707,7 +724,7 @@ pub struct User {
 }
 
 impl TryFrom<pluginv2::User> for User {
-    type Error = ConversionError;
+    type Error = ConvertFromError;
     fn try_from(other: pluginv2::User) -> Result<Self, Self::Error> {
         Ok(Self {
             login: other.login,
@@ -737,7 +754,7 @@ pub struct AppInstanceSettings {
 }
 
 impl TryFrom<pluginv2::AppInstanceSettings> for AppInstanceSettings {
-    type Error = ConversionError;
+    type Error = ConvertFromError;
     fn try_from(other: pluginv2::AppInstanceSettings) -> Result<Self, Self::Error> {
         Ok(Self {
             decrypted_secure_json_data: other.decrypted_secure_json_data,
@@ -798,7 +815,7 @@ pub struct DataSourceInstanceSettings {
 }
 
 impl TryFrom<pluginv2::DataSourceInstanceSettings> for DataSourceInstanceSettings {
-    type Error = ConversionError;
+    type Error = ConvertFromError;
     fn try_from(other: pluginv2::DataSourceInstanceSettings) -> Result<Self, Self::Error> {
         Ok(Self {
             id: other.id,
@@ -851,7 +868,7 @@ pub struct PluginContext {
 }
 
 impl TryFrom<pluginv2::PluginContext> for PluginContext {
-    type Error = ConversionError;
+    type Error = ConvertFromError;
     fn try_from(other: pluginv2::PluginContext) -> Result<Self, Self::Error> {
         Ok(Self {
             org_id: other.org_id,

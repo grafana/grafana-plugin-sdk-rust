@@ -8,7 +8,7 @@ use std::{
 use serde_json::Value;
 
 use crate::{
-    backend::{self, ConversionError, TimeRange},
+    backend::{self, ConvertFromError, TimeRange},
     data, pluginv2,
 };
 
@@ -35,12 +35,12 @@ pub struct QueryDataRequest {
 }
 
 impl TryFrom<pluginv2::QueryDataRequest> for QueryDataRequest {
-    type Error = ConversionError;
+    type Error = ConvertFromError;
     fn try_from(other: pluginv2::QueryDataRequest) -> Result<Self, Self::Error> {
         Ok(Self {
             plugin_context: other
                 .plugin_context
-                .ok_or(ConversionError::MissingPluginContext)
+                .ok_or(ConvertFromError::MissingPluginContext)
                 .and_then(TryInto::try_into)?,
             headers: other.headers,
             queries: other
@@ -83,7 +83,7 @@ pub struct DataQuery {
 }
 
 impl TryFrom<pluginv2::DataQuery> for DataQuery {
-    type Error = ConversionError;
+    type Error = ConvertFromError;
     fn try_from(other: pluginv2::DataQuery) -> Result<Self, Self::Error> {
         Ok(Self {
             ref_id: other.ref_id,
@@ -93,7 +93,7 @@ impl TryFrom<pluginv2::DataQuery> for DataQuery {
             time_range: other
                 .time_range
                 .map(TimeRange::from)
-                .ok_or(ConversionError::MissingTimeRange)?,
+                .ok_or(ConvertFromError::MissingTimeRange)?,
             json: backend::read_json(&other.json)?,
         })
     }
@@ -150,7 +150,7 @@ pub trait DataQueryError: std::error::Error {
 /// #[derive(Debug, Error)]
 /// #[error("Error querying backend for query {ref_id}: {source}")]
 /// struct QueryError {
-///     source: data::FrameError,
+///     source: data::Error,
 ///     ref_id: String,
 /// }
 ///
@@ -260,7 +260,7 @@ where
             request
                 .into_inner()
                 .try_into()
-                .map_err(ConversionError::into_tonic_status)?,
+                .map_err(ConvertFromError::into_tonic_status)?,
         )
         .await
         .map(|resp| match resp {

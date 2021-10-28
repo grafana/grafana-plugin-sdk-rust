@@ -2,12 +2,11 @@ use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use serde_with::{serde_as, skip_serializing_none};
-use thiserror::Error;
 
 use crate::{
     data::{
         field::{Field, FieldConfig},
-        ConfFloat64,
+        ConfFloat64, Error,
     },
     live::Channel,
 };
@@ -27,21 +26,6 @@ pub const VALUE_FIELD_NAME: &str = "Value";
 
 mod sealed {
     pub trait Sealed {}
-}
-
-/// An error occurring when handling a `Frame`.
-#[derive(Debug, Error)]
-#[non_exhaustive]
-pub enum FrameError {
-    /// Occurs when a frame had mismatched field lengths while checking.
-    #[error(
-        "Mismatched frame field lengths: {}",
-        .lengths.iter().map(|x| format!("{} ({})", x.0, x.1)).join(", ")
-    )]
-    MismatchedFieldLengths {
-        /// The names and lengths of the fields in the `Frame`.
-        lengths: Vec<(String, usize)>,
-    },
 }
 
 /// A structured, two-dimensional data frame.
@@ -256,11 +240,11 @@ impl Frame {
     ///     .is_err()
     /// );
     /// ```
-    pub fn check(&self) -> Result<CheckedFrame<'_>, FrameError> {
+    pub fn check(&self) -> Result<CheckedFrame<'_>, Error> {
         if self.fields.iter().map(|x| x.values.len()).all_equal() {
             Ok(CheckedFrame(self))
         } else {
-            Err(FrameError::MismatchedFieldLengths {
+            Err(Error::FieldLengthMismatch {
                 lengths: self
                     .fields
                     .iter()

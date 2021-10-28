@@ -13,7 +13,7 @@ use itertools::Itertools;
 use prost::bytes::Bytes;
 
 use crate::{
-    backend::{ConversionError, PluginContext},
+    backend::{ConvertFromError, ConvertToError, PluginContext},
     pluginv2,
 };
 
@@ -27,7 +27,7 @@ pub struct CallResourceRequest<T = Bytes> {
 }
 
 impl TryFrom<pluginv2::CallResourceRequest> for CallResourceRequest {
-    type Error = ConversionError;
+    type Error = ConvertFromError;
     fn try_from(other: pluginv2::CallResourceRequest) -> Result<Self, Self::Error> {
         let mut request = Request::builder();
         {
@@ -37,12 +37,12 @@ impl TryFrom<pluginv2::CallResourceRequest> for CallResourceRequest {
             for (k, vs) in other.headers.iter() {
                 let header_name =
                     k.parse::<HeaderName>()
-                        .map_err(|source| ConversionError::InvalidRequest {
+                        .map_err(|source| ConvertFromError::InvalidRequest {
                             source: source.into(),
                         })?;
                 for v in &vs.values {
                     let header_val = v.parse::<HeaderValue>().map_err(|source| {
-                        ConversionError::InvalidRequest {
+                        ConvertFromError::InvalidRequest {
                             source: source.into(),
                         }
                     })?;
@@ -56,13 +56,13 @@ impl TryFrom<pluginv2::CallResourceRequest> for CallResourceRequest {
                 .method(other.method.as_str())
                 .uri(other.url)
                 .body(other.body)
-                .map_err(|source| ConversionError::InvalidRequest { source })?,
+                .map_err(|source| ConvertFromError::InvalidRequest { source })?,
         })
     }
 }
 
 impl TryFrom<Response<Bytes>> for pluginv2::CallResourceResponse {
-    type Error = ConversionError;
+    type Error = ConvertToError;
     fn try_from(mut other: Response<Bytes>) -> Result<Self, Self::Error> {
         let grouped_headers = other.headers_mut().drain().group_by(|x| x.0.clone());
         let headers = grouped_headers
@@ -71,13 +71,13 @@ impl TryFrom<Response<Bytes>> for pluginv2::CallResourceResponse {
                 Ok((
                     k.as_ref()
                         .map(|h| h.to_string())
-                        .ok_or(ConversionError::InvalidResponse)?,
+                        .ok_or(ConvertToError::InvalidResponse)?,
                     pluginv2::StringList {
                         values: values
                             .map(|v| {
                                 v.1.to_str()
                                     .map(|s| s.to_string())
-                                    .map_err(|_| ConversionError::InvalidResponse)
+                                    .map_err(|_| ConvertToError::InvalidResponse)
                             })
                             .collect::<Result<_, _>>()?,
                     },
@@ -263,7 +263,7 @@ where
         let request = request
             .into_inner()
             .try_into()
-            .map_err(ConversionError::into_tonic_status)?;
+            .map_err(ConvertFromError::into_tonic_status)?;
         let (initial_response, stream) = ResourceService::call_resource(self, request).await;
         let initial_response_converted = match initial_response {
             Ok(resp) => resp

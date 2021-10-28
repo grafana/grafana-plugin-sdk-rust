@@ -8,7 +8,7 @@ use futures_util::{Stream, StreamExt, TryStreamExt};
 use serde::Serialize;
 
 use crate::{
-    backend::{ConversionError, PluginContext},
+    backend::{ConvertFromError, ConvertToError, PluginContext},
     data, pluginv2,
 };
 
@@ -27,12 +27,12 @@ pub struct SubscribeStreamRequest {
 }
 
 impl TryFrom<pluginv2::SubscribeStreamRequest> for SubscribeStreamRequest {
-    type Error = ConversionError;
+    type Error = ConvertFromError;
     fn try_from(other: pluginv2::SubscribeStreamRequest) -> Result<Self, Self::Error> {
         Ok(Self {
             plugin_context: other
                 .plugin_context
-                .ok_or(ConversionError::MissingPluginContext)
+                .ok_or(ConvertFromError::MissingPluginContext)
                 .and_then(TryInto::try_into)?,
             path: other.path,
         })
@@ -71,16 +71,18 @@ impl InitialData {
     pub fn from_frame(
         frame: data::CheckedFrame<'_>,
         include: data::FrameInclude,
-    ) -> Result<Self, serde_json::Error> {
+    ) -> Result<Self, ConvertToError> {
         Ok(Self {
-            data: frame.to_json(include)?,
+            data: frame
+                .to_json(include)
+                .map_err(|source| ConvertToError::InvalidFrame { source })?,
         })
     }
 
     /// Create some initial data representing some JSON.
-    pub fn from_json(json: serde_json::Value) -> Result<Self, serde_json::Error> {
+    pub fn from_json(json: serde_json::Value) -> Result<Self, ConvertToError> {
         Ok(Self {
-            data: serde_json::to_vec(&json)?,
+            data: serde_json::to_vec(&json).map_err(|err| ConvertToError::InvalidJson { err })?,
         })
     }
 }
@@ -123,12 +125,12 @@ pub struct RunStreamRequest {
 }
 
 impl TryFrom<pluginv2::RunStreamRequest> for RunStreamRequest {
-    type Error = ConversionError;
+    type Error = ConvertFromError;
     fn try_from(other: pluginv2::RunStreamRequest) -> Result<Self, Self::Error> {
         Ok(Self {
             plugin_context: other
                 .plugin_context
-                .ok_or(ConversionError::MissingPluginContext)
+                .ok_or(ConvertFromError::MissingPluginContext)
                 .and_then(TryInto::try_into)?,
             path: other.path,
         })
@@ -152,26 +154,36 @@ pub struct StreamPacket<J = ()> {
 
 impl<J> StreamPacket<J> {
     /// Create a StreamPacket representing a `Frame`.
-    pub fn from_frame(frame: data::CheckedFrame<'_>) -> Result<Self, serde_json::Error> {
+    pub fn from_frame(frame: data::CheckedFrame<'_>) -> Result<Self, ConvertToError> {
         Ok(Self {
-            data: frame.to_json(data::FrameInclude::All)?,
+            data: frame
+                .to_json(data::FrameInclude::All)
+                .map_err(|source| ConvertToError::InvalidFrame { source })?,
             _p: std::marker::PhantomData,
         })
     }
 
     /// Create a StreamPacket representing some JSON.
-    pub fn from_json(json: &J) -> Result<Self, serde_json::Error>
+    pub fn from_json(json: &J) -> Result<Self, ConvertToError>
     where
         J: Serialize,
     {
         Ok(Self {
-            data: serde_json::to_vec(json)?,
+            data: serde_json::to_vec(json).map_err(|err| ConvertToError::InvalidJson { err })?,
             _p: std::marker::PhantomData,
         })
     }
 
-    fn into_plugin_packet(self) -> Result<pluginv2::StreamPacket, serde_json::Error> {
-        Ok(pluginv2::StreamPacket { data: self.data })
+    /// Create a StreamPacket from arbitrary bytes.
+    pub fn from_bytes(data: Vec<u8>) -> Self {
+        Self {
+            data,
+            _p: std::marker::PhantomData,
+        }
+    }
+
+    fn into_plugin_packet(self) -> pluginv2::StreamPacket {
+        pluginv2::StreamPacket { data: self.data }
     }
 }
 
@@ -193,12 +205,12 @@ pub struct PublishStreamRequest {
 }
 
 impl TryFrom<pluginv2::PublishStreamRequest> for PublishStreamRequest {
-    type Error = ConversionError;
+    type Error = ConvertFromError;
     fn try_from(other: pluginv2::PublishStreamRequest) -> Result<Self, Self::Error> {
         Ok(Self {
             plugin_context: other
                 .plugin_context
-                .ok_or(ConversionError::MissingPluginContext)
+                .ok_or(ConvertFromError::MissingPluginContext)
                 .and_then(TryInto::try_into)?,
             path: other.path,
             data: super::read_json(&other.data)?,
@@ -234,14 +246,14 @@ pub struct PublishStreamResponse {
     pub data: serde_json::Value,
 }
 
-impl TryInto<pluginv2::PublishStreamResponse> for PublishStreamResponse {
+impl TryFrom<PublishStreamResponse> for pluginv2::PublishStreamResponse {
     type Error = serde_json::Error;
-    fn try_into(self) -> Result<pluginv2::PublishStreamResponse, Self::Error> {
+    fn try_from(other: PublishStreamResponse) -> Result<Self, Self::Error> {
         let mut response = pluginv2::PublishStreamResponse {
             status: 0,
-            data: serde_json::to_vec(&self.data)?,
+            data: serde_json::to_vec(&other.data)?,
         };
-        response.set_status(self.status.into());
+        response.set_status(other.status.into());
         Ok(response)
     }
 }
@@ -265,20 +277,14 @@ impl TryInto<pluginv2::PublishStreamResponse> for PublishStreamResponse {
 /// #[error("Error streaming data")]
 /// struct StreamError;
 ///
-/// impl From<data::FrameError> for StreamError {
-///     fn from(_other: data::FrameError) -> StreamError {
-///         StreamError
-///     }
-/// }
-///
 /// impl From<data::Error> for StreamError {
 ///     fn from(_other: data::Error) -> StreamError {
 ///         StreamError
 ///     }
 /// }
 ///
-/// impl From<serde_json::Error> for StreamError {
-///     fn from(_other: serde_json::Error) -> StreamError {
+/// impl From<backend::ConvertToError> for StreamError {
+///     fn from(_other: backend::ConvertToError) -> StreamError {
 ///         StreamError
 ///     }
 /// }
@@ -407,7 +413,7 @@ where
         let request = request
             .into_inner()
             .try_into()
-            .map_err(ConversionError::into_tonic_status)?;
+            .map_err(ConvertFromError::into_tonic_status)?;
         let response = StreamService::subscribe_stream(self, request).await.into();
         Ok(tonic::Response::new(response))
     }
@@ -424,13 +430,12 @@ where
         let request = request
             .into_inner()
             .try_into()
-            .map_err(ConversionError::into_tonic_status)?;
+            .map_err(ConvertFromError::into_tonic_status)?;
         let stream = StreamService::run_stream(self, request)
             .await
             .map_ok(|packet: StreamPacket<T::JsonValue>| packet.into_plugin_packet())
             .map(|res| match res {
-                Ok(Ok(x)) => Ok(x),
-                Ok(Err(e)) => Err(tonic::Status::internal(e.to_string())),
+                Ok(x) => Ok(x),
                 Err(e) => Err(tonic::Status::internal(e.to_string())),
             });
         Ok(tonic::Response::new(Box::pin(stream)))
@@ -444,7 +449,7 @@ where
         let request = request
             .into_inner()
             .try_into()
-            .map_err(ConversionError::into_tonic_status)?;
+            .map_err(ConvertFromError::into_tonic_status)?;
         let response = StreamService::publish_stream(self, request)
             .await
             .try_into()

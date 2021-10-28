@@ -27,7 +27,7 @@ impl MyPluginService {
 #[derive(Debug, Error)]
 #[error("Error querying backend for query {ref_id}: {source}")]
 struct QueryError {
-    source: data::FrameError,
+    source: data::Error,
     ref_id: String,
 }
 
@@ -75,24 +75,11 @@ impl backend::DataService for MyPluginService {
 
 #[derive(Debug, Error)]
 #[error("Error streaming data")]
-struct StreamError;
-
-impl From<data::Error> for StreamError {
-    fn from(_other: data::Error) -> StreamError {
-        StreamError
-    }
-}
-
-impl From<data::FrameError> for StreamError {
-    fn from(_other: data::FrameError) -> StreamError {
-        StreamError
-    }
-}
-
-impl From<serde_json::Error> for StreamError {
-    fn from(_other: serde_json::Error) -> StreamError {
-        StreamError
-    }
+enum StreamError {
+    #[error("Error converting frame: {0}")]
+    Conversion(#[from] backend::ConvertToError),
+    #[error("Invalid frame returned: {0}")]
+    InvalidFrame(#[from] data::Error),
 }
 
 #[tonic::async_trait]

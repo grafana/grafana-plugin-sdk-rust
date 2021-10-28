@@ -4,7 +4,7 @@ use std::convert::{TryFrom, TryInto};
 use serde_json::Value;
 
 use crate::{
-    backend::{ConversionError, PluginContext},
+    backend::{ConvertFromError, PluginContext},
     pluginv2,
 };
 
@@ -37,7 +37,7 @@ pub struct CheckHealthRequest {
 }
 
 impl TryFrom<pluginv2::CheckHealthRequest> for CheckHealthRequest {
-    type Error = ConversionError;
+    type Error = ConvertFromError;
     fn try_from(other: pluginv2::CheckHealthRequest) -> Result<Self, Self::Error> {
         Ok(Self {
             plugin_context: other.plugin_context.map(TryInto::try_into).transpose()?,
@@ -86,7 +86,7 @@ pub struct CollectMetricsRequest {
 }
 
 impl TryFrom<pluginv2::CollectMetricsRequest> for CollectMetricsRequest {
-    type Error = ConversionError;
+    type Error = ConvertFromError;
     fn try_from(other: pluginv2::CollectMetricsRequest) -> Result<Self, Self::Error> {
         Ok(Self {
             plugin_context: other.plugin_context.map(TryInto::try_into).transpose()?,
@@ -224,7 +224,7 @@ where
             request
                 .into_inner()
                 .try_into()
-                .map_err(ConversionError::into_tonic_status)?,
+                .map_err(ConvertFromError::into_tonic_status)?,
         )
         .await
         .map_err(|e| tonic::Status::internal(e.to_string()))?;
@@ -239,7 +239,7 @@ where
         let request = request
             .into_inner()
             .try_into()
-            .map_err(ConversionError::into_tonic_status)?;
+            .map_err(ConvertFromError::into_tonic_status)?;
         let response = DiagnosticsService::collect_metrics(self, request)
             .await
             .map_err(|e| tonic::Status::internal(e.to_string()))?;
