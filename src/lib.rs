@@ -51,3 +51,6 @@ pub mod live;
 pub mod prelude {
     pub use crate::data::{ArrayIntoField, FromFields, IntoField, IntoFrame, IntoOptField};
 }
+
+#[doc(inline)]
+pub use grafana_plugin_sdk_macros::*;
