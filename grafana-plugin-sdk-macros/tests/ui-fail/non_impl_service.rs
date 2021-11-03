@@ -1,3 +1,5 @@
+#![allow(dead_code, unused_variables)]
+
 mod a {
     #[derive(Clone)]
     struct MyPlugin;
@@ -7,3 +9,7 @@ mod a {
         MyPlugin
     }
 }
+
+fn main() {}
+
+

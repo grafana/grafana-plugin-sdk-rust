@@ -1,0 +1,7 @@
+error: At least one service must be specified in `services`
+ --> tests/ui-fail/missing_services.rs:7:5
+  |
+7 |     #[grafana_plugin_sdk::main]
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: this error originates in the attribute macro `grafana_plugin_sdk::main` (in Nightly builds, run with -Z macro-backtrace for more info)
