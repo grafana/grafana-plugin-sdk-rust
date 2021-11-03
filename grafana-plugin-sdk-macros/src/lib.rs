@@ -32,15 +32,27 @@ impl Configuration {
         let mut cfg_services = Services::default();
         for service in services {
             if service.as_str() == "data" {
+                if cfg_services.data == true {
+                    return Err(syn::Error::new(span, "`data` set multiple times."));
+                }
                 cfg_services.data = true;
             }
             if service.as_str() == "diagnostics" {
+                if cfg_services.data == true {
+                    return Err(syn::Error::new(span, "`diagnostics` set multiple times."));
+                }
                 cfg_services.diagnostics = true;
             }
             if service.as_str() == "resource" {
+                if cfg_services.data == true {
+                    return Err(syn::Error::new(span, "`resource` set multiple times."));
+                }
                 cfg_services.resource = true;
             }
             if service.as_str() == "stream" {
+                if cfg_services.data == true {
+                    return Err(syn::Error::new(span, "`stream` set multiple times."));
+                }
                 cfg_services.stream = true;
             }
         }
@@ -128,7 +140,7 @@ fn build_config(input: syn::ItemFn, args: AttributeArgs) -> Result<FinalConfig, 
         return Err(syn::Error::new_spanned(input.sig.fn_token, msg));
     }
     let mut config = Configuration::new();
-    for arg in args {
+    for arg in &args {
         match arg {
             syn::NestedMeta::Meta(syn::Meta::NameValue(namevalue)) => {
                 let ident = namevalue
@@ -167,6 +179,15 @@ fn build_config(input: syn::ItemFn, args: AttributeArgs) -> Result<FinalConfig, 
                 match ident.as_str() {
                     "services" => config
                         .set_services(&list.nested, syn::spanned::Spanned::span(&list.nested))?,
+                    name @ "init_subscriber" | name @ "shutdown_handler" => {
+                        let val = &list.nested;
+                        let msg = format!(
+                            "`{0}` attribute should be specified as `{0} = {1}`",
+                            name,
+                            quote! { #val },
+                        );
+                        return Err(syn::Error::new_spanned(list, msg));
+                    }
                     name => {
                         let msg = format!(
                             "Unknown attribute {} is specified; expected one of: `services`, `init_subscriber`, `shutdown_handler`",
@@ -184,11 +205,11 @@ fn build_config(input: syn::ItemFn, args: AttributeArgs) -> Result<FinalConfig, 
             }
         }
     }
-    config.build(syn::spanned::Spanned::span(&input))
+    config.build(syn::spanned::Spanned::span(&args))
 }
 
-fn parse_string(int: syn::Lit, span: Span, field: &str) -> Result<String, syn::Error> {
-    match int {
+fn parse_string(val: syn::Lit, span: Span, field: &str) -> Result<String, syn::Error> {
+    match val {
         syn::Lit::Str(s) => Ok(s.value()),
         syn::Lit::Verbatim(s) => Ok(s.to_string()),
         _ => Err(syn::Error::new(
@@ -261,23 +282,24 @@ fn parse_knobs(input: syn::ItemFn, config: FinalConfig) -> TokenStream {
         ::grafana_plugin_sdk::backend::Plugin::new()
     };
     if config.services.data {
-        plugin = quote! { #plugin.data_service(service.clone()) };
+        plugin = quote! { #plugin.data_service(std::clone::Clone::clone(&service)) };
     }
     if config.services.diagnostics {
-        plugin = quote! { #plugin.diagnostics_service(service.clone()) };
+        plugin = quote! { #plugin.diagnostics_service(std::clone::Clone::clone(&service)) };
     }
     if config.services.resource {
-        plugin = quote! { #plugin.resource_service(service.clone()) };
+        plugin = quote! { #plugin.resource_service(std::clone::Clone::clone(&service)) };
     }
     if config.services.stream {
-        plugin = quote! { #plugin.stream_service(service.clone()) };
+        plugin = quote! { #plugin.stream_service(std::clone::Clone::clone(&service)) };
     }
     let init_subscriber = config.init_subscriber;
     if init_subscriber {
         plugin = quote! { #plugin.init_subscriber(#init_subscriber) };
     }
     if let Some(x) = config.shutdown_handler {
-        let shutdown_handler = quote! { #x.parse()? };
+        let shutdown_handler =
+            quote! { #x.parse().expect("could not parse shutdown handler as SocketAddr") };
         plugin = quote! { #plugin.shutdown_handler(#shutdown_handler) };
     }
 
