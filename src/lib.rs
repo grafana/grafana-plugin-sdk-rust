@@ -19,6 +19,13 @@ accommodate your needs in the next release of the high-level SDK.
 See the docs on [backend plugins on grafana.com] for an introduction to backend Grafana plugins, or check out
 the [crate examples] or [sample app repo] to get started with writing a backend plugin in Rust.
 
+# Feature flags
+
+The following feature flags enable additional functionality for this crate:
+
+- `reqwest` - adds an [`IntoHttpResponse`][crate::backend::IntoHttpResponse] implementation for
+    [`reqwest::Response`]
+
 [Backend plugins on grafana.com]: https://grafana.com/docs/grafana/latest/developers/plugins/backend/
 [Grafana Live]: https://grafana.com/docs/grafana/latest/live/
 [crate examples]: https://github.com/sd2k/grafana-plugin-sdk-rust/tree/main/examples

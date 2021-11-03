@@ -120,6 +120,8 @@ pub type BoxResourceStream<E> = Pin<Box<dyn futures_core::Stream<Item = Result<B
 /// This trait has a blanket impl for async functions taking a `CallResourceRequest` and
 /// returning a `Result<T, E> where T: IntoHttpResponse + Send, E: std::error::Error + Send`.
 /// [`IntoHttpResponse`] is implemented for some types already - see its docs for details.
+/// Note that the `reqwest` feature of this crate is required for the `IntoHttpResponse`
+/// implementation to be enabled for [`reqwest::Response`].
 #[cfg_attr(
     feature = "reqwest",
     doc = r##"
