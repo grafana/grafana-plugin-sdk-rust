@@ -28,7 +28,7 @@ The following feature flags enable additional functionality for this crate:
 
 [Backend plugins on grafana.com]: https://grafana.com/docs/grafana/latest/developers/plugins/backend/
 [Grafana Live]: https://grafana.com/docs/grafana/latest/live/
-[crate examples]: https://github.com/sd2k/grafana-plugin-sdk-rust/tree/main/examples
+[crate examples]: https://github.com/grafana/grafana-plugin-sdk-rust/tree/main/examples
 [sample app repo]: https://github.com/sd2k/grafana-sample-backend-plugin-rust/
 */
 #![cfg_attr(docsrs, feature(doc_notable_trait))]
