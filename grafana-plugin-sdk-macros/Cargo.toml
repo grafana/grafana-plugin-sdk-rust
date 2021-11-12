@@ -2,6 +2,7 @@
 name = "grafana-plugin-sdk-macros"
 version = "0.1.0"
 edition = "2018"
+repository = "https://github.com/grafana/grafana-plugin-sdk-rust"
 
 [lib]
 proc-macro = true
