@@ -317,6 +317,270 @@ fn parse_knobs(input: syn::ItemFn, config: FinalConfig) -> TokenStream {
     TokenStream::from(expanded)
 }
 
+/**
+Generates a `main` function that starts a [`Plugin`](../grafana_plugin_sdk/backend/struct.Plugin.html) with the returned service struct.
+
+When applied to a function that returns a struct implementing one or more of the various
+`Service` traits, `#[main]` will create an async runtime and a [`Plugin`](../grafana_plugin_sdk/backend/struct.Plugin.html),
+then attach the desired services
+
+The returned struct _must_ be `Clone` so that it can be used to handle multiple
+services.
+
+# Attributes
+
+## `services`
+
+The `services` attribute takes a list of services that the plugin should expose.
+At least one service must be specified. Possible options are:
+
+- `data` (registers a [`DataService`](../grafana_plugin_sdk/backend/trait.DataService.html) using [`Plugin::data_service`](../grafana_plugin_sdk/backend/struct.Plugin.html#method.data_service))
+- `diagnostics` (registers a [`DiagnosticsService`](../grafana_plugin_sdk/backend/trait.DiagnosticsService.html) using [`Plugin::data_service`](../grafana_plugin_sdk/backend/struct.Plugin.html#method.diagnostics_service))
+- `resource` (registers a [`ResourceService`](../grafana_plugin_sdk/backend/trait.ResourceService.html) using [`Plugin::data_service`](../grafana_plugin_sdk/backend/struct.Plugin.html#method.resource_service))
+- `stream` (registers a [`StreamService`](../grafana_plugin_sdk/backend/trait.StreamService.html) using [`Plugin::data_service`](../grafana_plugin_sdk/backend/struct.Plugin.html#method.stream_service))
+
+### Example:
+
+```rust
+# use std::sync::Arc;
+#
+# use grafana_plugin_sdk::{backend, data};
+#
+# #[derive(Clone)]
+# struct Plugin;
+#
+# #[derive(Debug)]
+# struct QueryError {
+#     source: data::Error,
+#     ref_id: String,
+# }
+#
+# impl std::fmt::Display for QueryError {
+#     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+#         write!(f, "Error in query {}: {}", self.ref_id, self.source)
+#     }
+# }
+#
+# impl std::error::Error for QueryError {}
+#
+# impl backend::DataQueryError for QueryError {
+#     fn ref_id(self) -> String {
+#         self.ref_id
+#     }
+# }
+#
+# #[backend::async_trait]
+# impl backend::DataService for Plugin {
+#     type QueryError = QueryError;
+#     type Iter = backend::BoxDataResponseIter<Self::QueryError>;
+#     async fn query_data(&self, request: backend::QueryDataRequest) -> Self::Iter {
+#         todo!()
+#     }
+# }
+#
+# #[backend::async_trait]
+# impl backend::DiagnosticsService for Plugin {
+#     type CheckHealthError = std::convert::Infallible;
+#
+#     async fn check_health(
+#         &self,
+#         request: backend::CheckHealthRequest,
+#     ) -> Result<backend::CheckHealthResponse, Self::CheckHealthError> {
+#         todo!()
+#     }
+#
+#     type CollectMetricsError = Arc<dyn std::error::Error + Send + Sync>;
+#
+#     async fn collect_metrics(
+#         &self,
+#         request: backend::CollectMetricsRequest,
+#     ) -> Result<backend::CollectMetricsResponse, Self::CollectMetricsError> {
+#         todo!()
+#     }
+# }
+#
+# #[backend::async_trait]
+# impl backend::ResourceService for Plugin {
+#     type Error = Arc<dyn std::error::Error + Send + Sync>;
+#     type InitialResponse = Vec<u8>;
+#     type Stream = backend::BoxResourceStream<Self::Error>;
+#     async fn call_resource(&self, r: backend::CallResourceRequest) -> (Result<Self::InitialResponse, Self::Error>, Self::Stream) {
+#         todo!()
+#     }
+# }
+#
+# #[backend::async_trait]
+# impl backend::StreamService for Plugin {
+#     type JsonValue = ();
+#     async fn subscribe_stream(
+#         &self,
+#         request: backend::SubscribeStreamRequest,
+#     ) -> backend::SubscribeStreamResponse {
+#         todo!()
+#     }
+#     type StreamError = Arc<dyn std::error::Error>;
+#     type Stream = backend::BoxRunStream<Self::StreamError>;
+#     async fn run_stream(&self, _request: backend::RunStreamRequest) -> Self::Stream {
+#         todo!()
+#     }
+#     async fn publish_stream(
+#         &self,
+#         _request: backend::PublishStreamRequest,
+#     ) -> backend::PublishStreamResponse {
+#         todo!()
+#     }
+# }
+#[grafana_plugin_sdk::main(
+    services(data, diagnostics, resource, stream),
+)]
+async fn plugin() -> Plugin {
+    Plugin
+}
+```
+
+## `init_subscriber`
+
+The `init_subscriber` attribute indicates whether a tracing subscriber should be
+initialized automatically using
+[`Plugin::init_subscriber`](../grafana_plugin_sdk/backend/struct.Plugin.html#method.init_subscriber).
+Unless this is being done in the annotated plugin function, this should
+generally be set to `true`.
+
+This must be a boolean.
+
+### Example
+
+```
+# use std::sync::Arc;
+#
+# use grafana_plugin_sdk::backend;
+#
+# #[derive(Clone)]
+# struct Plugin;
+#
+# #[backend::async_trait]
+# impl backend::ResourceService for Plugin {
+#     type Error = Arc<dyn std::error::Error + Send + Sync>;
+#     type InitialResponse = Vec<u8>;
+#     type Stream = backend::BoxResourceStream<Self::Error>;
+#     async fn call_resource(&self, r: backend::CallResourceRequest) -> (Result<Self::InitialResponse, Self::Error>, Self::Stream) {
+#         todo!()
+#     }
+# }
+#
+#[grafana_plugin_sdk::main(
+    services(resource),
+    init_subscriber = true,
+)]
+async fn plugin() -> Plugin {
+    Plugin
+}
+```
+
+## `shutdown_handler`
+
+The `shutdown_handler` attribute indicates that a shutdown handler should be exposed using
+[`Plugin::shutdown_handler`](../grafana_plugin_sdk/backend/struct.Plugin.html#method.shutdown_handler)
+
+This must be a string which can be parsed as a [`SocketAddr`][std::net::SocketAddr] using `SocketAddr::parse`.
+
+### Example
+
+```
+# use std::sync::Arc;
+#
+# use grafana_plugin_sdk::backend;
+#
+# #[derive(Clone)]
+# struct Plugin;
+#
+# #[backend::async_trait]
+# impl backend::ResourceService for Plugin {
+#     type Error = Arc<dyn std::error::Error + Send + Sync>;
+#     type InitialResponse = Vec<u8>;
+#     type Stream = backend::BoxResourceStream<Self::Error>;
+#     async fn call_resource(&self, r: backend::CallResourceRequest) -> (Result<Self::InitialResponse, Self::Error>, Self::Stream) {
+#         todo!()
+#     }
+# }
+#
+#[grafana_plugin_sdk::main(
+    services(resource),
+    shutdown_handler = "127.0.0.1:10001",
+)]
+async fn plugin() -> Plugin {
+    Plugin
+}
+```
+
+# Macro expansion
+
+The following example shows what the `#[main]` macro expands to:
+
+```rust
+use std::sync::Arc;
+
+use grafana_plugin_sdk::backend;
+
+#[derive(Clone)]
+struct Plugin;
+
+#[backend::async_trait]
+impl backend::ResourceService for Plugin {
+    type Error = Arc<dyn std::error::Error + Send + Sync>;
+    type InitialResponse = Vec<u8>;
+    type Stream = backend::BoxResourceStream<Self::Error>;
+    async fn call_resource(&self, r: backend::CallResourceRequest) -> (Result<Self::InitialResponse, Self::Error>, Self::Stream) {
+        todo!()
+    }
+}
+
+#[grafana_plugin_sdk::main(
+    services(resource),
+    init_subscriber = true,
+    shutdown_handler = "127.0.0.1:10001",
+)]
+async fn plugin() -> Plugin {
+    Plugin
+}
+```
+
+expands to:
+
+```rust
+# use std::sync::Arc;
+#
+# use grafana_plugin_sdk::backend;
+#
+# #[derive(Clone)]
+# struct Plugin;
+#
+# #[backend::async_trait]
+# impl backend::ResourceService for Plugin {
+#     type Error = Arc<dyn std::error::Error + Send + Sync>;
+#     type InitialResponse = Vec<u8>;
+#     type Stream = backend::BoxResourceStream<Self::Error>;
+#     async fn call_resource(&self, r: backend::CallResourceRequest) -> (Result<Self::InitialResponse, Self::Error>, Self::Stream) {
+#         todo!()
+#     }
+# }
+#
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let listener = ::grafana_plugin_sdk::backend::initialize().await?;
+    let service = Plugin;
+#   if false {
+    let plugin = ::grafana_plugin_sdk::backend::Plugin::new()
+        .resource_service(service.clone())
+        .init_subscriber(true)
+        .shutdown_handler("127.0.0.1:10001".parse().expect("could not parse shutdown handler as SocketAddr"))
+        .start(listener)
+        .await?;
+#   }
+    Ok(())
+}
+```
+*/
 #[proc_macro_attribute]
 pub fn main(args: TokenStream, item: TokenStream) -> TokenStream {
     // If any of the steps for this macro fail, we still want to expand to an item that is as close

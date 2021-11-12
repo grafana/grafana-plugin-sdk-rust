@@ -36,7 +36,7 @@ use thiserror::Error;
 use tonic::transport::Server;
 use tracing::info;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 struct MyPlugin;
 
 /// An error that may occur during a query.
@@ -102,22 +102,11 @@ impl backend::DataService for MyPlugin {
     }
 }
 
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Initialize the plugin. This **must** be done first!
-    let listener = backend::initialize().await?;
-
+#[grafana_plugin_sdk::main(services(data))]
+async fn plugin() -> MyPlugin {
     // Create our plugin struct. Any state, such as a database connection, should be
     // held here, perhaps inside an `Arc` if required.
-    let plugin = MyPlugin;
-
-    // Start the plugin executable using the `backend::Plugin`.
-    backend::Plugin::new()
-        .data_service(plugin)
-        .start(listener)
-        .await?;
-
-    Ok(())
+    MyPlugin
 }
 ```
 
@@ -235,6 +224,7 @@ impl ShutdownHandler {
 /// use grafana_plugin_sdk::{backend, prelude::*};
 /// use thiserror::Error;
 ///
+/// #[derive(Clone)]
 /// struct MyPlugin;
 ///
 /// /// An error that may occur during a query.
@@ -296,23 +286,12 @@ impl ShutdownHandler {
 ///     }
 /// }
 ///
-/// #[tokio::main]
-/// async fn main() -> Result<(), Box<dyn std::error::Error>> {
-///     // Initialize the plugin. This **must** be done first!
-///     let listener = backend::initialize().await?;
-///
-///     /// Create our plugin struct. A real implementation may wish to establish connections
-///     /// to a database or initialize some state here.
-///     let plugin = MyPlugin;
-///
-///     /// Hand our plugin off to the `backend::Plugin` struct, which will communicate with Grafana
-///     /// and call our plugin's implementation when required.
-///     backend::Plugin::new()
-///         .data_service(plugin)
-///         .shutdown_handler(([0, 0, 0, 0], 10001).into())
-///         .start(listener)
-///         .await?;
-///     Ok(())
+/// #[grafana_plugin_sdk::main(
+///     services(data),
+///     shutdown_handler = "0.0.0.0:10001",
+/// )]
+/// async fn plugin() -> MyPlugin {
+///     MyPlugin
 /// }
 /// ```
 pub struct Plugin<D, Q, R, S> {
