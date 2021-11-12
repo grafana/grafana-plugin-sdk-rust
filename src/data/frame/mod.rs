@@ -347,7 +347,7 @@ impl Frame {
     }
 }
 
-/// A reference to a checked and verified `Frame`, which is ready for serialization.
+/// A reference to a checked and verified [`Frame`], which is ready for serialization.
 pub struct CheckedFrame<'a>(&'a Frame);
 
 impl CheckedFrame<'_> {
