@@ -181,22 +181,6 @@ impl backend::ResourceService for MyPluginService {
     }
 }
 
-// #[tokio::main]
-// async fn main() -> Result<(), Box<dyn std::error::Error>> {
-//     let listener = backend::initialize().await?;
-//     let plugin = MyPluginService::new();
-
-//     backend::Plugin::new()
-//         .data_service(plugin.clone())
-//         .stream_service(plugin)
-//         .init_subscriber(true)
-//         .shutdown_handler(([0, 0, 0, 0], 10001).into())
-//         .start(listener)
-//         .await?;
-
-//     Ok(())
-// }
-
 #[grafana_plugin_sdk::main(
     services(data, stream),
     init_subscriber = true,
