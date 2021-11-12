@@ -38,19 +38,19 @@ impl Configuration {
                 cfg_services.data = true;
             }
             if service.as_str() == "diagnostics" {
-                if cfg_services.data == true {
+                if cfg_services.diagnostics == true {
                     return Err(syn::Error::new(span, "`diagnostics` set multiple times."));
                 }
                 cfg_services.diagnostics = true;
             }
             if service.as_str() == "resource" {
-                if cfg_services.data == true {
+                if cfg_services.resource == true {
                     return Err(syn::Error::new(span, "`resource` set multiple times."));
                 }
                 cfg_services.resource = true;
             }
             if service.as_str() == "stream" {
-                if cfg_services.data == true {
+                if cfg_services.stream == true {
                     return Err(syn::Error::new(span, "`stream` set multiple times."));
                 }
                 cfg_services.stream = true;
