@@ -28,29 +28,29 @@ impl Configuration {
         if self.services.is_some() {
             return Err(syn::Error::new(span, "`services` set multiple times."));
         }
-        let services = parse_services(&services)?;
+        let services = parse_services(services)?;
         let mut cfg_services = Services::default();
         for service in services {
             if service.as_str() == "data" {
-                if cfg_services.data == true {
+                if cfg_services.data {
                     return Err(syn::Error::new(span, "`data` set multiple times."));
                 }
                 cfg_services.data = true;
             }
             if service.as_str() == "diagnostics" {
-                if cfg_services.diagnostics == true {
+                if cfg_services.diagnostics {
                     return Err(syn::Error::new(span, "`diagnostics` set multiple times."));
                 }
                 cfg_services.diagnostics = true;
             }
             if service.as_str() == "resource" {
-                if cfg_services.resource == true {
+                if cfg_services.resource {
                     return Err(syn::Error::new(span, "`resource` set multiple times."));
                 }
                 cfg_services.resource = true;
             }
             if service.as_str() == "stream" {
-                if cfg_services.stream == true {
+                if cfg_services.stream {
                     return Err(syn::Error::new(span, "`stream` set multiple times."));
                 }
                 cfg_services.stream = true;
@@ -248,9 +248,7 @@ fn parse_services(list: &AttributeArgs) -> Result<Vec<String>, syn::Error> {
                 Ok(svc)
             },
             other => {
-                let msg = format!(
-                    "invalid service specification: must contain one or more of `data`, `diagnostics`, `resource`, `stream`",
-                );
+                let msg = "invalid service specification: must contain one or more of `data`, `diagnostics`, `resource`, `stream`";
                 Err(syn::Error::new_spanned(other, msg))
             }
         })
