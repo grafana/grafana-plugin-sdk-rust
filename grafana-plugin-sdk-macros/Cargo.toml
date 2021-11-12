@@ -13,7 +13,7 @@ syn = { version = "1.0.80", features = ["full"] }
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 
 [dev-dependencies]
-grafana-plugin-sdk = { path = ".." }
+grafana-plugin-sdk = { version = "0.1.0", path = ".." }
 trybuild = "1.0"
 
 [package.metadata.docs.rs]
