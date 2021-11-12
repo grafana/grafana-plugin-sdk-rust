@@ -10,16 +10,13 @@ This is a Rust implementation of the Grafana Plugin SDK for Rust, similar to the
 
 This SDK is still in development. The protocol between the Grafana server and the plugin SDK is considered stable, but the convenience functionality in the SDK may experience breaking changes.
 
-The Rust SDK is not officially maintained by Grafana Labs; if you need higher support and maintainability guarantees, the [Go SDK][go] is recommended instead. I do intend to keep this SDK up to date with the Go SDK, however!
+**Disclaimer**: this Rust SDK is not (yet) an official Grafana Labs project! Use the [Go SDK][go] if higher maintainability and support standards are required. That being said, this crate will adhere to semantic versioning, and the authors will aim to respond to issues as far as possible.
 
 ## Related projects
 
+The [grafana-sample-backend-plugin-rust][sample-plugin] repository contains a sample backend plugin with a backend written in Rust, along with a docker-compose setup with automatic plugin reloading.
 
 The [grafana-rs-datasource] also makes use of the Grafana Plugin SDK protobufs and implements a DataFusion datasource in Rust.
-
-[backend plugins]: https://grafana.com/docs/grafana/latest/developers/plugins/backend/
-[go]: https://pkg.go.dev/github.com/grafana/grafana-plugin-sdk-go
-[grafana-rs-datasource]: https://github.com/toddtreece/grafana-rs-datasource
 
 ## License
 
@@ -27,3 +24,8 @@ The Rust SDK is licensed under either of the following, at your option:
 
 - Apache License, Version 2.0, (LICENSE-APACHE or https://www.apache.org/licenses/LICENSE-2.0)
 - MIT License (LICENSE-MIT or https://opensource.org/licenses/MIT)
+
+[backend plugins]: https://grafana.com/docs/grafana/latest/developers/plugins/backend/
+[go]: https://pkg.go.dev/github.com/grafana/grafana-plugin-sdk-go
+[grafana-rs-datasource]: https://github.com/toddtreece/grafana-rs-datasource
+[sample-plugin]: https://github.com/sd2k/grafana-sample-backend-plugin-rust/
