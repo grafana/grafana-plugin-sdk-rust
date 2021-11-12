@@ -302,13 +302,16 @@ fn parse_knobs(input: syn::ItemFn, config: FinalConfig) -> TokenStream {
     }
 
     let expanded = quote! {
-        #[tokio::main]
-        async fn main() -> Result<(), Box<dyn std::error::Error>> {
-            let listener = ::grafana_plugin_sdk::backend::initialize().await?;
-            let service = #body;
-            let plugin = #plugin
-                .start(listener)
-                .await?;
+        fn main() -> Result<(), Box<dyn std::error::Error>> {
+            let fut = async {
+                let listener = ::grafana_plugin_sdk::backend::initialize().await?;
+                let service = #body;
+                #plugin
+                    .start(listener)
+                    .await?;
+                Ok::<_, Box<dyn std::error::Error>>(())
+            };
+            ::grafana_plugin_sdk::async_main(fut)?;
             Ok(())
         }
     };
@@ -563,18 +566,26 @@ expands to:
 #     }
 # }
 #
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let listener = ::grafana_plugin_sdk::backend::initialize().await?;
-    let service = Plugin;
-#   if false {
-    let plugin = ::grafana_plugin_sdk::backend::Plugin::new()
-        .resource_service(service.clone())
-        .init_subscriber(true)
-        .shutdown_handler("127.0.0.1:10001".parse().expect("could not parse shutdown handler as SocketAddr"))
-        .start(listener)
-        .await?;
-#   }
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let fut = async {
+        let listener = ::grafana_plugin_sdk::backend::initialize().await?;
+        let service = Plugin;
+        ::grafana_plugin_sdk::backend::Plugin::new()
+            .resource_service(service.clone())
+            .init_subscriber(true)
+            .shutdown_handler("127.0.0.1:10001".parse().expect("could not parse shutdown handler as SocketAddr"))
+            .start(listener)
+            .await?;
+        Ok::<_, Box<dyn std::error::Error>>(())
+    };
+    # if false {
+    tokio::runtime::Builder::new_multi_thread()
+        .thread_name("grafana-plugin-worker-thread")
+        .enable_all()
+        .build()
+        .expect("create tokio runtime")
+        .block_on(fut)?;
+    # }
     Ok(())
 }
 ```

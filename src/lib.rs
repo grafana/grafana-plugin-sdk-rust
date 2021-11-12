@@ -54,3 +54,14 @@ pub mod prelude {
 
 #[doc(inline)]
 pub use grafana_plugin_sdk_macros::*;
+
+/// WARNING: Do not use this method outside of the SDK.
+#[doc(hidden)]
+pub fn async_main<R>(fut: impl std::future::Future<Output = R> + Send) -> R {
+    tokio::runtime::Builder::new_multi_thread()
+        .thread_name("grafana-plugin-worker-thread")
+        .enable_all()
+        .build()
+        .expect("create tokio runtime")
+        .block_on(fut)
+}
