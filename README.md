@@ -1,5 +1,9 @@
 # Grafana Plugin SDK for Rust
 
+[![Build Status](https://github.com/sd2k/grafana-plugin-sdk-rust/actions/workflows/rust.yml/badge.svg)](https://github.com/sd2k/grafana-plugin-sdk-rust/actions/workflows/rust.yml)
+[![docs.rs](https://docs.rs/grafana-plugin-sdk-rust/badge.svg)](https://docs.rs/grafana-plugin-sdk-rust)
+[![crates.io](https://img.shields.io/crates/v/grafana-plugin-sdk-rust.svg)](https://crates.io/crates/grafana-plugin-sdk-rust)
+
 This is a Rust implementation of the Grafana Plugin SDK for Rust, similar to the [Grafana Plugin SDK for Go][go]. It can be used to build [backend plugins][] for Grafana.
 
 ## Current state
