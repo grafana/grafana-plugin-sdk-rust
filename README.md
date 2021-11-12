@@ -16,8 +16,6 @@ This SDK is still in development. The protocol between the Grafana server and th
 
 The [grafana-sample-backend-plugin-rust][sample-plugin] repository contains a sample backend plugin with a backend written in Rust, along with a docker-compose setup with automatic plugin reloading.
 
-The [grafana-rs-datasource] also makes use of the Grafana Plugin SDK protobufs and implements a DataFusion datasource in Rust.
-
 ## License
 
 The Rust SDK is licensed under either of the following, at your option:
