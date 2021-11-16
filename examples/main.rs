@@ -109,7 +109,7 @@ impl backend::StreamService for MyPluginService {
         info!("Running stream");
         let mut x = 0u32;
         let n = 3;
-        let mut frame = data::Frame::new("foo");
+        let mut frame = data::Frame::new("foo").with_field((x..x + n).into_field("x"));
         Box::pin(
             async_stream::try_stream! {
                 loop {
