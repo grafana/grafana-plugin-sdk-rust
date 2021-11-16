@@ -325,13 +325,13 @@ impl TryFrom<PublishStreamResponse> for pluginv2::PublishStreamResponse {
 ///         info!("Running stream");
 ///         let mut x = 0u32;
 ///         let n = 3;
-///         let mut frame = data::Frame::new("foo");
+///         let mut frame = data::Frame::new("foo").with_field((x..x + n).into_field("x"));
 ///         Box::pin(
 ///             async_stream::try_stream! {
 ///                 loop {
-///                     frame.fields_mut()[0].set_values(x..x+n);
+///                     frame.fields_mut()[0].set_values(x..x + n);
 ///                     let packet = backend::StreamPacket::from_frame(frame.check()?)?;
-///                     debug!("Yielding frame from {} to {}", x, x+n);
+///                     debug!("Yielding frame from {} to {}", x, x + n);
 ///                     yield packet;
 ///                     x += n;
 ///                 }
@@ -356,10 +356,14 @@ impl TryFrom<PublishStreamResponse> for pluginv2::PublishStreamResponse {
 pub trait StreamService {
     /// Handle requests to begin a subscription to a plugin or datasource managed channel path.
     ///
-    /// Implementations should check the subscribe permissions of the incoming request, and can
-    /// choose to return some initial data to prepopulate the stream.
     ///
-    /// `run_stream` will be called shortly after returning a response with [`SubscribeStreamStatus::Ok`].
+    /// This function is called for _every_ subscriber to a stream.  Implementations should
+    /// check the subscribe permissions of the incoming request, and can choose to return some
+    /// initial data to prepopulate the stream.
+    ///
+    /// `run_stream` will generally be called shortly after returning a response with
+    /// [`SubscribeStreamStatus::Ok`]; this is responsible for streaming any data after
+    /// the [`initial_data`][SubscribeStreamResponse::initial_data].
     async fn subscribe_stream(&self, request: SubscribeStreamRequest) -> SubscribeStreamResponse;
 
     /// The type of JSON values returned by this stream service.
@@ -384,11 +388,14 @@ pub trait StreamService {
 
     /// Begin sending stream packets to a client.
     ///
-    /// This will be called by Grafana after a successful subscription to a channel path.
+    /// This will only be called once per channel, shortly after the first successful subscription
+    /// to that channel by the first client (after `subscribe_stream` returns a response with
+    /// [`SubscribeStreamStatus::Ok`] for a specific [`Channel`][crate::live::Channel]).
+    /// Grafana will then multiplex the returned stream to any future subscribers.
     ///
     /// When Grafana detects that there are no longer any subscribers to a channel, the stream
     /// will be terminated until the next active subscriber appears. Stream termination can
-    /// may be slightly delayed.
+    /// may be slightly delayed, generally by a few seconds.
     async fn run_stream(&self, request: RunStreamRequest) -> Self::Stream;
 
     /// Handle requests to publish to a plugin or datasource managed channel path (currently unimplemented).
