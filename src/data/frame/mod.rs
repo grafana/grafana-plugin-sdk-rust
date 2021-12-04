@@ -66,6 +66,29 @@ mod sealed {
 /// ]
 /// .into_frame("super convenient");
 /// ```
+///
+/// Fields can be accessed using either [`Frame::fields`] and [`Frame::fields_mut`], or
+/// by using the [`Index`][std::ops::Index] and [`IndexMut`][std::ops::IndexMut] implementations
+/// with field indexes or names:
+///
+/// ```rust
+/// use grafana_plugin_sdk::prelude::*;
+///
+/// let frame = [
+///     [1_u32, 2, 3].into_field("x"),
+///     ["a", "b", "c"].into_field("y"),
+/// ]
+/// .into_frame("frame");
+///
+/// assert_eq!(
+///     frame.fields()[0].name,
+///     "x",
+/// );
+/// assert_eq!(
+///     frame.fields()[1],
+///     frame["y"],
+/// );
+/// ```
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
 pub struct Frame {
@@ -344,6 +367,35 @@ impl Frame {
     pub fn set_channel(&mut self, channel: Channel) {
         self.meta = Some(std::mem::take(&mut self.meta).unwrap_or_default());
         self.meta.as_mut().unwrap().channel = Some(channel);
+    }
+}
+
+impl std::ops::Index<usize> for Frame {
+    type Output = Field;
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.fields()[index]
+    }
+}
+
+impl std::ops::IndexMut<usize> for Frame {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        &mut self.fields_mut()[index]
+    }
+}
+
+impl std::ops::Index<&str> for Frame {
+    type Output = Field;
+    fn index(&self, name: &str) -> &Self::Output {
+        self.fields().iter().find(|x| x.name == name).unwrap()
+    }
+}
+
+impl std::ops::IndexMut<&str> for Frame {
+    fn index_mut(&mut self, name: &str) -> &mut Self::Output {
+        self.fields_mut()
+            .iter_mut()
+            .find(|x| x.name == name)
+            .unwrap()
     }
 }
 
