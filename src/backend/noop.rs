@@ -75,16 +75,22 @@ impl ResourceService for NoopService {
 
 #[tonic::async_trait]
 impl StreamService for NoopService {
-    async fn subscribe_stream(&self, _request: SubscribeStreamRequest) -> SubscribeStreamResponse {
+    async fn subscribe_stream(
+        &self,
+        _request: SubscribeStreamRequest,
+    ) -> Result<SubscribeStreamResponse, Self::Error> {
         unreachable!()
     }
     type JsonValue = ();
-    type StreamError = Infallible;
-    type Stream = BoxRunStream<Self::StreamError>;
-    async fn run_stream(&self, _request: RunStreamRequest) -> Self::Stream {
+    type Error = Infallible;
+    type Stream = BoxRunStream<Self::Error>;
+    async fn run_stream(&self, _request: RunStreamRequest) -> Result<Self::Stream, Self::Error> {
         unreachable!()
     }
-    async fn publish_stream(&self, _request: PublishStreamRequest) -> PublishStreamResponse {
+    async fn publish_stream(
+        &self,
+        _request: PublishStreamRequest,
+    ) -> Result<PublishStreamResponse, Self::Error> {
         unreachable!()
     }
 }

@@ -90,27 +90,30 @@ impl backend::StreamService for MyPluginService {
     async fn subscribe_stream(
         &self,
         request: backend::SubscribeStreamRequest,
-    ) -> backend::SubscribeStreamResponse {
+    ) -> Result<backend::SubscribeStreamResponse, Self::Error> {
         let status = if request.path == "stream" {
             backend::SubscribeStreamStatus::Ok
         } else {
             backend::SubscribeStreamStatus::NotFound
         };
         info!(path = %request.path, "Subscribing to stream");
-        backend::SubscribeStreamResponse {
+        Ok(backend::SubscribeStreamResponse {
             status,
             initial_data: None,
-        }
+        })
     }
 
-    type StreamError = StreamError;
-    type Stream = backend::BoxRunStream<Self::StreamError>;
-    async fn run_stream(&self, _request: backend::RunStreamRequest) -> Self::Stream {
+    type Error = StreamError;
+    type Stream = backend::BoxRunStream<Self::Error>;
+    async fn run_stream(
+        &self,
+        _request: backend::RunStreamRequest,
+    ) -> Result<Self::Stream, Self::Error> {
         info!("Running stream");
         let mut x = 0u32;
         let n = 3;
         let mut frame = data::Frame::new("foo").with_field((x..x + n).into_field("x"));
-        Box::pin(
+        Ok(Box::pin(
             async_stream::try_stream! {
                 loop {
                     frame.fields_mut()[0].set_values(
@@ -123,13 +126,13 @@ impl backend::StreamService for MyPluginService {
                 }
             }
             .throttle(Duration::from_secs(1)),
-        )
+        ))
     }
 
     async fn publish_stream(
         &self,
         _request: backend::PublishStreamRequest,
-    ) -> backend::PublishStreamResponse {
+    ) -> Result<backend::PublishStreamResponse, Self::Error> {
         info!("Publishing to stream");
         todo!()
     }

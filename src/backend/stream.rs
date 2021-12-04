@@ -300,33 +300,33 @@ impl TryFrom<PublishStreamResponse> for pluginv2::PublishStreamResponse {
 ///     async fn subscribe_stream(
 ///         &self,
 ///         request: backend::SubscribeStreamRequest,
-///     ) -> backend::SubscribeStreamResponse {
+///     ) -> Result<backend::SubscribeStreamResponse, Self::Error> {
 ///         let status = if request.path == "stream" {
 ///             backend::SubscribeStreamStatus::Ok
 ///         } else {
 ///             backend::SubscribeStreamStatus::NotFound
 ///         };
 ///         info!(path = %request.path, "Subscribing to stream");
-///         backend::SubscribeStreamResponse {
+///         Ok(backend::SubscribeStreamResponse {
 ///             status,
 ///             initial_data: None,
-///         }
+///         })
 ///     }
 ///
-///     type StreamError = StreamError;
-///     type Stream = backend::BoxRunStream<Self::StreamError>;
+///     type Error = StreamError;
+///     type Stream = backend::BoxRunStream<Self::Error>;
 ///
 ///     /// Begin streaming data for a request.
 ///     ///
 ///     /// This example just creates an in-memory `Frame` in each loop iteration,
 ///     /// sends an updated version of the frame once per second, and updates a loop variable
 ///     /// so that each frame is different.
-///     async fn run_stream(&self, _request: backend::RunStreamRequest) -> Self::Stream {
+///     async fn run_stream(&self, _request: backend::RunStreamRequest) -> Result<Self::Stream, Self::Error> {
 ///         info!("Running stream");
 ///         let mut x = 0u32;
 ///         let n = 3;
 ///         let mut frame = data::Frame::new("foo").with_field((x..x + n).into_field("x"));
-///         Box::pin(
+///         Ok(Box::pin(
 ///             async_stream::try_stream! {
 ///                 loop {
 ///                     frame.fields_mut()[0].set_values(x..x + n);
@@ -337,7 +337,7 @@ impl TryFrom<PublishStreamResponse> for pluginv2::PublishStreamResponse {
 ///                 }
 ///             }
 ///             .throttle(Duration::from_secs(1)),
-///         )
+///         ))
 ///     }
 ///
 ///     /// Handle a request to publish data to a stream.
@@ -346,7 +346,7 @@ impl TryFrom<PublishStreamResponse> for pluginv2::PublishStreamResponse {
 ///     async fn publish_stream(
 ///         &self,
 ///         _request: backend::PublishStreamRequest,
-///     ) -> backend::PublishStreamResponse {
+///     ) -> Result<backend::PublishStreamResponse, Self::Error> {
 ///         info!("Publishing to stream");
 ///         todo!()
 ///     }
@@ -364,7 +364,10 @@ pub trait StreamService {
     /// `run_stream` will generally be called shortly after returning a response with
     /// [`SubscribeStreamStatus::Ok`]; this is responsible for streaming any data after
     /// the [`initial_data`][SubscribeStreamResponse::initial_data].
-    async fn subscribe_stream(&self, request: SubscribeStreamRequest) -> SubscribeStreamResponse;
+    async fn subscribe_stream(
+        &self,
+        request: SubscribeStreamRequest,
+    ) -> Result<SubscribeStreamResponse, Self::Error>;
 
     /// The type of JSON values returned by this stream service.
     ///
@@ -377,13 +380,13 @@ pub trait StreamService {
     type JsonValue: Serialize;
 
     /// The type of error that can occur while fetching a stream packet.
-    type StreamError: std::error::Error;
+    type Error: std::error::Error;
 
     /// The type of stream returned by `run_stream`.
     ///
     /// This will generally be impossible to name directly, so returning the
     /// [`BoxRunStream`] type alias will probably be more convenient.
-    type Stream: futures_core::Stream<Item = Result<StreamPacket<Self::JsonValue>, Self::StreamError>>
+    type Stream: futures_core::Stream<Item = Result<StreamPacket<Self::JsonValue>, Self::Error>>
         + Send;
 
     /// Begin sending stream packets to a client.
@@ -396,12 +399,15 @@ pub trait StreamService {
     /// When Grafana detects that there are no longer any subscribers to a channel, the stream
     /// will be terminated until the next active subscriber appears. Stream termination can
     /// may be slightly delayed, generally by a few seconds.
-    async fn run_stream(&self, request: RunStreamRequest) -> Self::Stream;
+    async fn run_stream(&self, request: RunStreamRequest) -> Result<Self::Stream, Self::Error>;
 
     /// Handle requests to publish to a plugin or datasource managed channel path (currently unimplemented).
     ///
     /// Implementations should check the publish permissions of the incoming request.
-    async fn publish_stream(&self, request: PublishStreamRequest) -> PublishStreamResponse;
+    async fn publish_stream(
+        &self,
+        request: PublishStreamRequest,
+    ) -> Result<PublishStreamResponse, Self::Error>;
 }
 
 #[tonic::async_trait]
@@ -418,7 +424,10 @@ where
             .into_inner()
             .try_into()
             .map_err(ConvertFromError::into_tonic_status)?;
-        let response = StreamService::subscribe_stream(self, request).await.into();
+        let response = StreamService::subscribe_stream(self, request)
+            .await
+            .map_err(|e| tonic::Status::internal(e.to_string()))?
+            .into();
         Ok(tonic::Response::new(response))
     }
 
@@ -437,6 +446,7 @@ where
             .map_err(ConvertFromError::into_tonic_status)?;
         let stream = StreamService::run_stream(self, request)
             .await
+            .map_err(|e| tonic::Status::internal(e.to_string()))?
             .map_ok(|packet: StreamPacket<T::JsonValue>| packet.into_plugin_packet())
             .map(|res| match res {
                 Ok(x) => Ok(x),
@@ -456,6 +466,7 @@ where
             .map_err(ConvertFromError::into_tonic_status)?;
         let response = StreamService::publish_stream(self, request)
             .await
+            .map_err(|e| tonic::Status::internal(e.to_string()))?
             .try_into()
             .map_err(|e: serde_json::Error| tonic::Status::internal(e.to_string()))?;
         Ok(tonic::Response::new(response))
