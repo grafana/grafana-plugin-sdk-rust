@@ -59,22 +59,42 @@ impl CheckedFrame<'_> {
     /// function and takes precedence over the `ref_id` set on the frame.
     pub(crate) fn to_arrow(&self, ref_id: Option<String>) -> Result<Vec<u8>, Error> {
         let schema: Arc<Schema> = Arc::new(self.arrow_schema(ref_id)?);
-        let records = RecordBatch::try_new(
-            Arc::clone(&schema),
-            self.0
-                .fields
-                .iter()
-                .map(|f| Arc::clone(&f.values))
-                .collect(),
-        )
-        .map_err(Error::CreateRecordBatch)?;
+
+        let records = if self.0.fields.is_empty() {
+            None
+        } else {
+            Some(
+                RecordBatch::try_new(
+                    Arc::clone(&schema),
+                    self.0
+                        .fields
+                        .iter()
+                        .map(|f| Arc::clone(&f.values))
+                        .collect(),
+                )
+                .map_err(Error::CreateRecordBatch)?,
+            )
+        };
 
         let mut buf = Vec::new();
         {
             let mut writer = FileWriter::try_new(&mut buf, &schema).map_err(Error::WriteBuffer)?;
-            writer.write(&records).map_err(Error::WriteBuffer)?;
+            if let Some(records) = records {
+                writer.write(&records).map_err(Error::WriteBuffer)?;
+            }
             writer.finish().map_err(Error::WriteBuffer)?;
         }
         Ok(buf)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::data;
+
+    #[test]
+    fn can_convert_frame_with_empty_schema() {
+        let frame = data::Frame::new("test");
+        assert!(frame.check().unwrap().to_arrow(None).is_ok());
     }
 }
