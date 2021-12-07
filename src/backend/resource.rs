@@ -51,7 +51,7 @@ impl TryFrom<pluginv2::CallResourceRequest> for CallResourceRequest {
             plugin_context: other.plugin_context.map(TryInto::try_into).transpose()?,
             request: request
                 .method(other.method.as_str())
-                .uri(other.url)
+                .uri(format!("/{}", other.url))
                 .body(other.body)
                 .map_err(|source| ConvertFromError::InvalidRequest { source })?,
         })
