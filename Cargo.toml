@@ -6,6 +6,7 @@ license = "MIT/Apache-2.0"
 edition = "2021"
 rust-version = "1.56"
 repository = "https://github.com/grafana/grafana-plugin-sdk-rust"
+description = "SDK for building Grafana backend plugins."
 
 [dependencies]
 arrow2 = { version = "0.7.0", features = ["io_ipc"] }
