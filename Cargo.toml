@@ -1,20 +1,18 @@
 [package]
 name = "grafana-plugin-sdk"
 version = "0.1.0"
-authors = ["Ben Sully <ben@bsull.io>"]
+authors = ["Ben Sully <ben.sully@grafana.com>"]
 license = "MIT/Apache-2.0"
 edition = "2021"
 rust-version = "1.56"
 repository = "https://github.com/grafana/grafana-plugin-sdk-rust"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 arrow2 = { version = "0.7.0", features = ["io_ipc"] }
 chrono = "0.4.19"
 futures-core = "0.3.17"
 futures-util = "0.3.17"
-grafana-plugin-sdk-macros = { path = "./grafana-plugin-sdk-macros" }
+grafana-plugin-sdk-macros = { version = "0.1.0", path = "./grafana-plugin-sdk-macros" }
 http = "0.2.5"
 itertools = "0.10.1"
 num-traits = "0.2.14"
