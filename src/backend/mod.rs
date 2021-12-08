@@ -150,7 +150,8 @@ pub use diagnostics::{
     DiagnosticsService, HealthStatus, Payload as MetricsPayload,
 };
 pub use resource::{
-    BoxResourceFuture, BoxResourceStream, CallResourceRequest, IntoHttpResponse, ResourceService,
+    BoxResourceFuture, BoxResourceStream, CallResourceRequest, ErrIntoHttpResponse,
+    IntoHttpResponse, ResourceService,
 };
 pub use stream::{
     BoxRunStream, InitialData, PublishStreamRequest, PublishStreamResponse, RunStreamRequest,

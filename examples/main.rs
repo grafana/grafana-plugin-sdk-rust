@@ -24,6 +24,8 @@ impl MyPluginService {
     }
 }
 
+// Data service implementation.
+
 #[derive(Debug, Error)]
 #[error("Error querying backend for query {ref_id}: {source}")]
 struct QueryError {
@@ -74,6 +76,8 @@ impl backend::DataService for MyPluginService {
         })
     }
 }
+
+// Stream service implementation.
 
 #[derive(Debug, Error)]
 #[error("Error streaming data")]
@@ -138,32 +142,58 @@ impl backend::StreamService for MyPluginService {
     }
 }
 
+// Resource service implementation.
+
+#[derive(Debug, Error)]
+enum ResourceError {
+    #[error("HTTP error: {0}")]
+    Http(#[from] http::Error),
+
+    #[error("Not found")]
+    NotFound,
+}
+
+impl backend::ErrIntoHttpResponse for ResourceError {
+    fn into_http_response(self) -> Result<http::Response<Bytes>, Box<dyn std::error::Error>> {
+        let status = match &self {
+            Self::Http(_) => http::StatusCode::INTERNAL_SERVER_ERROR,
+            Self::NotFound => http::StatusCode::NOT_FOUND,
+        };
+        Ok(Response::builder()
+            .status(status)
+            .header(http::header::CONTENT_TYPE, "application/json")
+            .body(Bytes::from(serde_json::to_vec(
+                &serde_json::json!({"error": self.to_string()}),
+            )?))?)
+    }
+}
+
 #[tonic::async_trait]
 impl backend::ResourceService for MyPluginService {
-    type Error = http::Error;
+    type Error = ResourceError;
     type InitialResponse = http::Response<Bytes>;
     type Stream = backend::BoxResourceStream<Self::Error>;
     async fn call_resource(
         &self,
         r: backend::CallResourceRequest,
-    ) -> (Result<Self::InitialResponse, Self::Error>, Self::Stream) {
+    ) -> Result<(Self::InitialResponse, Self::Stream), Self::Error> {
         let count = Arc::clone(&self.0);
-        let (response, stream): (_, Self::Stream) = match r.request.uri().path() {
+        let response_and_stream = match r.request.uri().path() {
             // Just send back a single response.
-            "/echo" => (
-                Ok(Response::new(r.request.into_body())),
-                Box::pin(futures::stream::empty()),
-            ),
+            "/echo" => Ok((
+                Response::new(r.request.into_body()),
+                Box::pin(futures::stream::empty()) as Self::Stream,
+            )),
             // Send an initial response with the current count, then stream the gradually
             // incrementing count back to the client.
-            "/count" => (
-                Ok(Response::new(
+            "/count" => Ok((
+                Response::new(
                     count
                         .fetch_add(1, Ordering::SeqCst)
                         .to_string()
                         .into_bytes()
                         .into(),
-                )),
+                ),
                 Box::pin(async_stream::try_stream! {
                     loop {
                         let body = count
@@ -173,19 +203,16 @@ impl backend::ResourceService for MyPluginService {
                             .into();
                         yield body;
                     }
-                }),
-            ),
-            _ => (
-                Response::builder().status(404).body(Bytes::new()),
-                Box::pin(futures::stream::empty()),
-            ),
+                }) as Self::Stream,
+            )),
+            _ => return Err(ResourceError::NotFound),
         };
-        (response, stream)
+        response_and_stream
     }
 }
 
 #[grafana_plugin_sdk::main(
-    services(data, stream),
+    services(data, resource, stream),
     init_subscriber = true,
     shutdown_handler = "0.0.0.0:10001"
 )]
