@@ -68,7 +68,7 @@ impl ResourceService for NoopService {
     async fn call_resource(
         &self,
         _request: CallResourceRequest,
-    ) -> (Result<Self::InitialResponse, Self::Error>, Self::Stream) {
+    ) -> Result<(Self::InitialResponse, Self::Stream), Self::Error> {
         unreachable!()
     }
 }
