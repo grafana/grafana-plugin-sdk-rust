@@ -16,6 +16,7 @@ use crate::{
 
 /// A request for a resource call.
 #[derive(Debug)]
+#[non_exhaustive]
 pub struct CallResourceRequest<T = Bytes> {
     /// Details of the plugin instance from which the request originated.
     pub plugin_context: Option<PluginContext>,

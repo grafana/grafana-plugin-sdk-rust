@@ -9,6 +9,7 @@ use crate::{
 
 /// The health status of a plugin.
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[non_exhaustive]
 pub enum HealthStatus {
     /// The plugin was unable to determine if it was healthy.
     Unknown,
@@ -30,6 +31,7 @@ impl From<HealthStatus> for pluginv2::check_health_response::HealthStatus {
 
 /// A request to check the health of a plugin.
 #[derive(Debug)]
+#[non_exhaustive]
 pub struct CheckHealthRequest {
     /// Details of the plugin instance from which the request originated.
     pub plugin_context: Option<PluginContext>,
@@ -46,6 +48,7 @@ impl TryFrom<pluginv2::CheckHealthRequest> for CheckHealthRequest {
 
 /// The response to a health check request.
 #[derive(Debug)]
+#[non_exhaustive]
 pub struct CheckHealthResponse {
     /// The status of the plugin.
     pub status: HealthStatus,
@@ -53,6 +56,17 @@ pub struct CheckHealthResponse {
     pub message: String,
     /// Any additional details to include with the response.
     pub json_details: Value,
+}
+
+impl CheckHealthResponse {
+    /// Create a new `CheckHealthResponse`.
+    pub fn new(status: HealthStatus, message: String, json_details: Value) -> Self {
+        Self {
+            status,
+            message,
+            json_details,
+        }
+    }
 }
 
 impl Default for CheckHealthResponse {
@@ -79,6 +93,8 @@ impl From<CheckHealthResponse> for pluginv2::CheckHealthResponse {
 }
 
 /// A request to collect metrics about a plugin.
+#[derive(Debug)]
+#[non_exhaustive]
 pub struct CollectMetricsRequest {
     /// Details of the plugin instance from which the request originated.
     pub plugin_context: Option<PluginContext>,
@@ -94,9 +110,18 @@ impl TryFrom<pluginv2::CollectMetricsRequest> for CollectMetricsRequest {
 }
 
 /// Metrics collected from a plugin as part of a collect metrics.
+#[derive(Debug)]
+#[non_exhaustive]
 pub struct Payload {
     /// The metrics, in Prometheus text exposition format.
     pub prometheus: Vec<u8>,
+}
+
+impl Payload {
+    /// Create a payload containing Prometheus metrics, in Prometheus text exposition format.
+    pub fn prometheus(bytes: Vec<u8>) -> Self {
+        Self { prometheus: bytes }
+    }
 }
 
 impl From<Payload> for pluginv2::collect_metrics_response::Payload {
@@ -108,11 +133,18 @@ impl From<Payload> for pluginv2::collect_metrics_response::Payload {
 }
 
 /// A response to a metric collection request.
-///
-/// This is unimplemented and subject to change.
+#[derive(Debug)]
+#[non_exhaustive]
 pub struct CollectMetricsResponse {
     /// The metrics collected from the plugin.
     pub metrics: Option<Payload>,
+}
+
+impl CollectMetricsResponse {
+    /// Create a new `CollectMetricsResponse`.
+    pub fn new(metrics: Option<Payload>) -> Self {
+        Self { metrics }
+    }
 }
 
 impl From<CollectMetricsResponse> for pluginv2::CollectMetricsResponse {
@@ -153,11 +185,11 @@ impl From<CollectMetricsResponse> for pluginv2::CollectMetricsResponse {
 ///     ) -> Result<backend::CheckHealthResponse, Self::CheckHealthError> {
 ///         // A real plugin may ensure it could e.g. connect to a database, was configured
 ///         // correctly, etc.
-///         Ok(backend::CheckHealthResponse {
-///             status: backend::HealthStatus::Ok,
-///             message: "Ok".to_string(),
-///             json_details: serde_json::json!({}),
-///         })
+///         Ok(backend::CheckHealthResponse::new(
+///             backend::HealthStatus::Ok,
+///             "Ok".to_string(),
+///             serde_json::json!({}),
+///         ))
 ///     }
 ///
 ///     type CollectMetricsError = prometheus::Error;
@@ -169,11 +201,7 @@ impl From<CollectMetricsResponse> for pluginv2::CollectMetricsResponse {
 ///         let mut buffer = vec![];
 ///         let encoder = TextEncoder::new();
 ///         encoder.encode(&self.metrics.gather(), &mut buffer)?;
-///         Ok(backend::CollectMetricsResponse {
-///             metrics: Some(backend::MetricsPayload {
-///                 prometheus: buffer,
-///             })
-///         })
+///         Ok(backend::CollectMetricsResponse::new(Some(backend::MetricsPayload::prometheus(buffer))))
 ///     }
 /// }
 /// ```

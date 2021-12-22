@@ -13,6 +13,7 @@ use crate::{
 /// Details of the request source can be found in `plugin_context`,
 /// while the actual plugins themselves are in `queries`.
 #[derive(Debug)]
+#[non_exhaustive]
 pub struct QueryDataRequest {
     /// Details of the plugin instance from which the request originated.
     ///
@@ -52,6 +53,7 @@ impl TryFrom<pluginv2::QueryDataRequest> for QueryDataRequest {
 ///
 /// The `json` field contains any fields set by the plugin's UI.
 #[derive(Debug)]
+#[non_exhaustive]
 pub struct DataQuery {
     /// The unique identifier of the query, set by the frontend call.
     ///
