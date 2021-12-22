@@ -101,10 +101,7 @@ impl backend::StreamService for MyPluginService {
             backend::SubscribeStreamStatus::NotFound
         };
         info!(path = %request.path, "Subscribing to stream");
-        Ok(backend::SubscribeStreamResponse {
-            status,
-            initial_data: None,
-        })
+        Ok(backend::SubscribeStreamResponse::new(status, None))
     }
 
     type Error = StreamError;

@@ -2,6 +2,7 @@
 use std::pin::Pin;
 
 use futures_util::{Stream, StreamExt, TryStreamExt};
+use prost::bytes::Bytes;
 use serde::Serialize;
 
 use crate::{
@@ -11,6 +12,7 @@ use crate::{
 
 /// A request to subscribe to a stream.
 #[derive(Debug)]
+#[non_exhaustive]
 pub struct SubscribeStreamRequest {
     /// Details of the plugin instance from which the request originated.
     ///
@@ -21,6 +23,13 @@ pub struct SubscribeStreamRequest {
 
     /// The subscription channel path that the request wishes to subscribe to.
     pub path: String,
+
+    /// Optional raw data.
+    ///
+    /// This may be used as an extra payload supplied upon subscription;
+    /// for example, this may contain a JSON query object. This will be
+    /// empty if not supplied in the query.
+    pub data: Bytes,
 }
 
 impl TryFrom<pluginv2::SubscribeStreamRequest> for SubscribeStreamRequest {
@@ -32,12 +41,14 @@ impl TryFrom<pluginv2::SubscribeStreamRequest> for SubscribeStreamRequest {
                 .ok_or(ConvertFromError::MissingPluginContext)
                 .and_then(TryInto::try_into)?,
             path: other.path,
+            data: other.data,
         })
     }
 }
 
 /// The status of a subscribe stream response.
 #[derive(Clone, Copy, Debug)]
+#[non_exhaustive]
 pub enum SubscribeStreamStatus {
     /// The request to subscribe was accepted.
     Ok,
@@ -91,11 +102,22 @@ impl InitialData {
 /// If `initial_data` is provided then the requirements in the [`InitialData`] documentation
 /// MUST be upheld.
 #[derive(Debug)]
+#[non_exhaustive]
 pub struct SubscribeStreamResponse {
     /// The status of the response.
     pub status: SubscribeStreamStatus,
     /// Optional initial data to return to the client, used to pre-populate the stream.
     pub initial_data: Option<InitialData>,
+}
+
+impl SubscribeStreamResponse {
+    /// Create a new `SubscribeStreamResponse `.
+    pub fn new(status: SubscribeStreamStatus, initial_data: Option<InitialData>) -> Self {
+        Self {
+            status,
+            initial_data,
+        }
+    }
 }
 
 impl From<SubscribeStreamResponse> for pluginv2::SubscribeStreamResponse {
@@ -114,11 +136,20 @@ impl From<SubscribeStreamResponse> for pluginv2::SubscribeStreamResponse {
 /// This is made by Grafana _after_ a stream subscription request has been accepted,
 /// and will include the same `path` as the subscription request.
 #[derive(Debug)]
+#[non_exhaustive]
 pub struct RunStreamRequest {
     /// Metadata about the plugin from which the request originated.
     pub plugin_context: PluginContext,
+
     /// The subscription path; see module level comments for details.
     pub path: String,
+
+    /// Optional raw data.
+    ///
+    /// This may be used as an extra payload supplied upon subscription;
+    /// for example, this may contain a JSON query object. This will be
+    /// empty if not supplied in the query.
+    pub data: Bytes,
 }
 
 impl TryFrom<pluginv2::RunStreamRequest> for RunStreamRequest {
@@ -130,6 +161,7 @@ impl TryFrom<pluginv2::RunStreamRequest> for RunStreamRequest {
                 .ok_or(ConvertFromError::MissingPluginContext)
                 .and_then(TryInto::try_into)?,
             path: other.path,
+            data: other.data,
         })
     }
 }
@@ -188,6 +220,7 @@ impl<J> StreamPacket<J> {
 pub type BoxRunStream<E, T = ()> = Pin<Box<dyn Stream<Item = Result<StreamPacket<T>, E>> + Send>>;
 
 /// A request to publish data to a stream.
+#[non_exhaustive]
 pub struct PublishStreamRequest {
     /// Details of the plugin instance from which the request originated.
     ///
@@ -216,6 +249,7 @@ impl TryFrom<pluginv2::PublishStreamRequest> for PublishStreamRequest {
 }
 
 /// The status of a publish stream response.
+#[non_exhaustive]
 pub enum PublishStreamStatus {
     /// The request to publish was accepted.
     Ok,
@@ -236,11 +270,19 @@ impl From<PublishStreamStatus> for pluginv2::publish_stream_response::Status {
 }
 
 /// The response to a stream publish request.
+#[non_exhaustive]
 pub struct PublishStreamResponse {
     /// The status of the response.
     pub status: PublishStreamStatus,
     /// Data returned in response to publishing.
     pub data: serde_json::Value,
+}
+
+impl PublishStreamResponse {
+    /// Create a new `PublishStreamResponse`.
+    pub fn new(status: PublishStreamStatus, data: serde_json::Value) -> Self {
+        Self { status, data }
+    }
 }
 
 impl TryFrom<PublishStreamResponse> for pluginv2::PublishStreamResponse {
@@ -307,10 +349,7 @@ impl TryFrom<PublishStreamResponse> for pluginv2::PublishStreamResponse {
 ///             backend::SubscribeStreamStatus::NotFound
 ///         };
 ///         info!(path = %request.path, "Subscribing to stream");
-///         Ok(backend::SubscribeStreamResponse {
-///             status,
-///             initial_data: None,
-///         })
+///         Ok(backend::SubscribeStreamResponse::new(status, None))
 ///     }
 ///
 ///     type Error = StreamError;
