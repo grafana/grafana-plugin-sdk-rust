@@ -34,6 +34,11 @@ The following feature flags enable additional functionality for this crate:
 #![cfg_attr(docsrs, feature(doc_notable_trait))]
 #![deny(missing_docs)]
 
+/// Re-export of the arrow2 crate depended on by this crate.
+///
+/// We recommend that you use this re-export rather than depending on arrow2
+/// directly to ensure compatibility; otherwise, rustc/cargo may emit mysterious
+/// error messages.
 pub use arrow2;
 
 #[cfg(feature = "reqwest")]
