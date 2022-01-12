@@ -78,7 +78,8 @@ impl CheckedFrame<'_> {
 
         let mut buf = Vec::new();
         {
-            let mut writer = FileWriter::try_new(&mut buf, &schema).map_err(Error::WriteBuffer)?;
+            let mut writer = FileWriter::try_new(&mut buf, &schema, Default::default())
+                .map_err(Error::WriteBuffer)?;
             if let Some(records) = records {
                 writer.write(&records).map_err(Error::WriteBuffer)?;
             }
