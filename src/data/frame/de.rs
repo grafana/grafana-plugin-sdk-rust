@@ -392,6 +392,6 @@ mod test {
     #[test]
     fn deserialize_golden() {
         let jdoc = include_str!("golden.json");
-        let _: Frame = serde_json::from_str(&jdoc).unwrap();
+        let _: Frame = serde_json::from_str(jdoc).unwrap();
     }
 }

@@ -288,6 +288,7 @@ impl Frame {
     ///     .with_name("other name");
     /// assert_eq!(&frame.name, "other name");
     /// ```
+    #[must_use]
     pub fn with_name(mut self, name: impl Into<String>) -> Self {
         self.name = name.into();
         self

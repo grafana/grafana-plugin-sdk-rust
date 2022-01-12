@@ -91,6 +91,7 @@ impl Field {
     ///     .with_name("other name");
     /// assert_eq!(&field.name, "other name");
     /// ```
+    #[must_use]
     pub fn with_name(mut self, name: impl Into<String>) -> Self {
         self.name = name.into();
         self
@@ -111,6 +112,7 @@ impl Field {
     ///     .with_labels(labels);
     /// assert_eq!(field.labels["some"], "value");
     /// ```
+    #[must_use]
     pub fn with_labels(mut self, labels: BTreeMap<String, String>) -> Self {
         self.labels = labels;
         self
@@ -131,6 +133,7 @@ impl Field {
     ///     });
     /// assert_eq!(&field.config.unwrap().display_name_from_ds.unwrap(), "X");
     /// ```
+    #[must_use]
     pub fn with_config(mut self, config: impl Into<Option<FieldConfig>>) -> Self {
         self.config = config.into();
         self
