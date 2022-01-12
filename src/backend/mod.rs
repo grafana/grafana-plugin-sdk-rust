@@ -167,6 +167,7 @@ struct ShutdownHandler {
 }
 
 impl ShutdownHandler {
+    #[must_use]
     fn new(address: SocketAddr) -> Self {
         Self { address }
     }
@@ -307,6 +308,7 @@ pub struct Plugin<D, Q, R, S> {
 
 impl Plugin<NoopService, NoopService, NoopService, NoopService> {
     /// Create a new `Plugin` with no registered services.
+    #[must_use]
     pub fn new() -> Self {
         Self {
             shutdown_handler: None,
@@ -330,6 +332,7 @@ impl<D, Q, R, S> Plugin<D, Q, R, S> {
     ///
     /// The shutdown handler waits for a TCP connection on the specified address
     /// and requests that the server gracefully shutdown when any connection is made.
+    #[must_use]
     pub fn shutdown_handler(mut self, address: SocketAddr) -> Self {
         self.shutdown_handler = Some(ShutdownHandler::new(address));
         self
@@ -353,6 +356,7 @@ impl<D, Q, R, S> Plugin<D, Q, R, S> {
     ///     .with(backend::layer())
     ///     .init()
     /// ```
+    #[must_use]
     pub fn init_subscriber(mut self, init_subscriber: bool) -> Self {
         self.init_subscriber = init_subscriber;
         self
