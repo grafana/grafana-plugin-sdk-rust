@@ -1,7 +1,7 @@
 //! Conversion of [`Frame`][crate::data::Frame]s to the Arrow IPC format.
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::BTreeMap, sync::Arc};
 
-use arrow2::{datatypes::Schema, io::ipc::write::FileWriter, record_batch::RecordBatch};
+use arrow2::{chunk::Chunk, datatypes::Schema, io::ipc::write::FileWriter};
 use thiserror::Error;
 
 use crate::data::{field::Field, frame::CheckedFrame};
@@ -32,7 +32,7 @@ impl CheckedFrame<'_> {
             .iter()
             .map(Field::to_arrow_field)
             .collect::<Result<_, _>>()?;
-        let mut metadata: HashMap<String, String> = [
+        let mut metadata: BTreeMap<String, String> = [
             ("name".to_string(), self.0.name.to_string()),
             (
                 "refId".to_string(),
@@ -50,7 +50,7 @@ impl CheckedFrame<'_> {
         if let Some(meta) = &self.0.meta {
             metadata.insert("meta".to_string(), serde_json::to_string(&meta)?);
         }
-        Ok(Schema::new_from(fields, metadata))
+        Ok(Schema::from(fields).with_metadata(metadata))
     }
 
     /// Convert this [`Frame`] to Arrow using the IPC format.
@@ -64,8 +64,7 @@ impl CheckedFrame<'_> {
             None
         } else {
             Some(
-                RecordBatch::try_new(
-                    Arc::clone(&schema),
+                Chunk::try_new(
                     self.0
                         .fields
                         .iter()
@@ -78,9 +77,10 @@ impl CheckedFrame<'_> {
 
         let mut buf = Vec::new();
         {
-            let mut writer = FileWriter::try_new(&mut buf, &schema).map_err(Error::WriteBuffer)?;
+            let mut writer = FileWriter::try_new(&mut buf, &schema, None, Default::default())
+                .map_err(Error::WriteBuffer)?;
             if let Some(records) = records {
-                writer.write(&records).map_err(Error::WriteBuffer)?;
+                writer.write(&records, None).map_err(Error::WriteBuffer)?;
             }
             writer.finish().map_err(Error::WriteBuffer)?;
         }

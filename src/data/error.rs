@@ -17,7 +17,7 @@ pub enum Error {
     /// This can happen when calling [`Field::set_values`][crate::data::Field::set_values] with an array whose datatype
     /// does not match the existing array.
     #[error(
-        "Data type mismatch in field {} (existing: {existing}, new: {new})",
+        "Data type mismatch in field {} (existing: {existing:?}, new: {new:?})",
         field
     )]
     DataTypeMismatch {
@@ -40,6 +40,6 @@ pub enum Error {
     },
 
     /// A field was created using an Arrow array with a datatype unsupported by Grafana.
-    #[error("Unsupported Arrow data type: {0}")]
+    #[error("Unsupported Arrow data type: {0:?}")]
     UnsupportedArrowDataType(DataType),
 }
