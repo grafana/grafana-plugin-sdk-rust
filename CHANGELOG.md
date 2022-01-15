@@ -7,7 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.1.0] - TBC
+### Added
+
+- Bump arrow2 dependency to 0.9.0, and re-export it as `grafana_plugin_sdk::arrow2`
+- Added new `data` field to `SubscribeStreamRequest` and `SubscribeStreamResponse`,
+  matching the latest release of the protobuf descriptors.
+
+### Changed
+
+- Mark the various `Request` and `Response` structs in the backend part of the SDK as
+  `#[non_exhaustive]` since changes to those structs are largely outside of our control;
+  the protobuf descriptors may add additional fields, and this allows us to include them
+  without breaking our API. Some `Response` types now have new constructors which should
+  be used.
+
+## [0.1.0] - 2021-12-08
 
 ### Added
 
