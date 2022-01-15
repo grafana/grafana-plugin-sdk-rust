@@ -49,32 +49,24 @@ pub struct Field {
 impl Field {
     pub(crate) fn to_arrow_field(&self) -> Result<ArrowField, serde_json::Error> {
         let metadata = match (self.labels.is_empty(), self.config.as_ref()) {
-            (true, None) => None,
-            (false, None) => Some(
-                [("labels".to_string(), serde_json::to_string(&self.labels)?)]
-                    .into_iter()
-                    .collect(),
-            ),
-            (false, Some(c)) => Some(
-                [("config".to_string(), serde_json::to_string(&c)?)]
-                    .into_iter()
-                    .collect(),
-            ),
-            (true, Some(c)) => Some(
-                [
-                    ("labels".to_string(), serde_json::to_string(&self.labels)?),
-                    ("config".to_string(), serde_json::to_string(&c)?),
-                ]
+            (true, None) => Default::default(),
+            (false, None) => [("labels".to_string(), serde_json::to_string(&self.labels)?)]
                 .into_iter()
                 .collect(),
-            ),
+            (false, Some(c)) => [("config".to_string(), serde_json::to_string(&c)?)]
+                .into_iter()
+                .collect(),
+            (true, Some(c)) => [
+                ("labels".to_string(), serde_json::to_string(&self.labels)?),
+                ("config".to_string(), serde_json::to_string(&c)?),
+            ]
+            .into_iter()
+            .collect(),
         };
         Ok(ArrowField {
             name: self.name.clone(),
             data_type: self.type_info.frame.into(),
-            nullable: self.type_info.nullable.unwrap_or_default(),
-            dict_id: 0,
-            dict_is_ordered: false,
+            is_nullable: self.type_info.nullable.unwrap_or_default(),
             metadata,
         })
     }
