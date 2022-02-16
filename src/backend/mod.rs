@@ -716,7 +716,6 @@ impl TryFrom<pluginv2::User> for User {
 ///
 /// An app instance is an app plugin of a certain type that has been configured
 /// and enabled in a Grafana organisation.
-#[derive(Debug)]
 pub struct AppInstanceSettings {
     /// Includes the non-secret settings of the app instance (excluding datasource config).
     pub json_data: Value,
@@ -728,6 +727,16 @@ pub struct AppInstanceSettings {
     pub decrypted_secure_json_data: HashMap<String, String>,
     /// The last time the configuration for the app plugin instance was updated.
     pub updated: DateTime<Utc>,
+}
+
+impl Debug for AppInstanceSettings {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("AppInstanceSettings")
+            .field("json_data", &self.json_data)
+            .field("decrypted_secure_json_data", &"<redacted>")
+            .field("updated", &self.updated)
+            .finish()
+    }
 }
 
 impl TryFrom<pluginv2::AppInstanceSettings> for AppInstanceSettings {
@@ -747,7 +756,6 @@ impl TryFrom<pluginv2::AppInstanceSettings> for AppInstanceSettings {
 /// and created in a Grafana organisation. For example, the 'datasource' may be
 /// the Prometheus datasource plugin, and there may be many configured Prometheus
 /// datasource instances configured in a Grafana organisation.
-#[derive(Debug)]
 pub struct DataSourceInstanceSettings {
     /// The Grafana assigned numeric identifier of the the datasource instance.
     pub id: i64,
@@ -789,6 +797,24 @@ pub struct DataSourceInstanceSettings {
 
     /// The last time the configuration for the datasource instance was updated.
     pub updated: DateTime<Utc>,
+}
+
+impl Debug for DataSourceInstanceSettings {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("DataSourceInstanceSettings")
+            .field("id", &self.id)
+            .field("uid", &self.uid)
+            .field("name", &self.name)
+            .field("url", &self.url)
+            .field("user", &self.user)
+            .field("database", &self.database)
+            .field("basic_auth_enabled", &self.basic_auth_enabled)
+            .field("basic_auth_user", &self.basic_auth_user)
+            .field("json_data", &self.json_data)
+            .field("decrypted_secure_json_data", &"<redacted>")
+            .field("updated", &self.updated)
+            .finish()
+    }
 }
 
 impl TryFrom<pluginv2::DataSourceInstanceSettings> for DataSourceInstanceSettings {
