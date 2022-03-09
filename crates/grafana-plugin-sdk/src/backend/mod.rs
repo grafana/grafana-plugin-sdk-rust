@@ -74,7 +74,7 @@ impl backend::DataService for MyPlugin {
     ///
     /// In general the concrete type will be impossible to name in advance,
     /// so the `backend::BoxDataResponseStream` type alias will be useful.
-    type Stream = backend::BoxDataResponseStream<Self::QueryError>;
+    type Stream<'a> = backend::BoxDataResponseStream<'a, Self::QueryError>;
 
     /// Respond to a request for data from Grafana.
     ///
@@ -279,7 +279,7 @@ impl ShutdownHandler {
 ///     ///
 ///     /// In general the concrete type will be impossible to name in advance,
 ///     /// so the `backend::BoxDataResponseStream` type alias will be useful.
-///     type Stream = backend::BoxDataResponseStream<Self::QueryError>;
+///     type Stream<'a> = backend::BoxDataResponseStream<'a, Self::QueryError>;
 ///
 ///     /// Respond to a request for data from Grafana.
 ///     ///

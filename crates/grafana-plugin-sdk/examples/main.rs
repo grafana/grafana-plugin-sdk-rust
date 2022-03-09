@@ -56,13 +56,16 @@ impl backend::DataQueryError for QueryError {
 impl backend::DataService for MyPluginService {
     type Query = Query;
     type QueryError = QueryError;
-    type Stream = backend::BoxDataResponseStream<Self::QueryError>;
-    async fn query_data(&self, request: backend::QueryDataRequest<Self::Query>) -> Self::Stream {
+    type Stream<'a> = backend::BoxDataResponseStream<'a, Self::QueryError>;
+    async fn query_data<'st, 'r: 'st, 's: 'r>(
+        &'s self,
+        request: &'r backend::QueryDataRequest<Self::Query>,
+    ) -> Self::Stream<'st> {
         Box::pin(
             request
                 .queries
-                .into_iter()
-                .map(|x: DataQuery<Self::Query>| async move {
+                .iter()
+                .map(|x: &DataQuery<Self::Query>| async move {
                     // We can see the user's query in `x.query`:
                     debug!(
                         expression = x.query.expression,
@@ -88,7 +91,7 @@ impl backend::DataService for MyPluginService {
                         .into_frame("foo")
                         .check()
                         .map_err(|source| QueryError {
-                            ref_id: x.ref_id,
+                            ref_id: x.ref_id.clone(),
                             source,
                         })?],
                     ))
