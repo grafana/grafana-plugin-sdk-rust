@@ -8,6 +8,7 @@ mod frame;
 
 pub use error::Error;
 pub use field::*;
+pub use field_type::{FieldType, IntoFieldType};
 pub use frame::*;
 
 /// A wrapper around an `Option<f64>` used in various backend data structures, with custom NaN and Infinity serialization.
