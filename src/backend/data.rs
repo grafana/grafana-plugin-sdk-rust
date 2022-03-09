@@ -1,6 +1,8 @@
 //! SDK types and traits relevant to plugins that query data.
-use std::{collections::HashMap, time::Duration};
+use std::{collections::HashMap, pin::Pin, time::Duration};
 
+use futures_core::Stream;
+use futures_util::StreamExt;
 use serde_json::Value;
 
 use crate::{
@@ -137,6 +139,7 @@ pub trait DataQueryError: std::error::Error {
 /// # Example
 ///
 /// ```rust
+/// use futures_util::stream::FuturesOrdered;
 /// use grafana_plugin_sdk::{backend, data, prelude::*};
 /// use thiserror::Error;
 ///
@@ -167,8 +170,8 @@ pub trait DataQueryError: std::error::Error {
 ///     /// The type of iterator we're returning.
 ///     ///
 ///     /// In general the concrete type will be impossible to name in advance,
-///     /// so the `backend::BoxDataResponseIter` type alias will be useful.
-///     type Iter = backend::BoxDataResponseIter<Self::QueryError>;
+///     /// so the `backend::BoxDataResponseStream` type alias will be useful.
+///     type Stream = backend::BoxDataResponseStream<Self::QueryError>;
 ///
 ///     /// Respond to a request for data from Grafana.
 ///     ///
@@ -178,17 +181,20 @@ pub trait DataQueryError: std::error::Error {
 ///     ///
 ///     /// Our plugin must respond to each query and return an iterator of `DataResponse`s,
 ///     /// which themselves can contain zero or more `Frame`s.
-///     async fn query_data(&self, request: backend::QueryDataRequest) -> Self::Iter {
-///         Box::new(
-///             request.queries.into_iter().map(|x| {
-///                 Ok(backend::DataResponse::new(
-///                     // Include the ID of the query in the response.
-///                     x.ref_id.clone(),
-///                     // Return zero or more frames.
-///                     // A real implementation would fetch this data from a database
-///                     // or something.
-///                     vec![
-///                         [
+///     async fn query_data(&self, request: backend::QueryDataRequest) -> Self::Stream {
+///         Box::pin(
+///             request
+///                 .queries
+///                 .into_iter()
+///                 .map(|x| async {
+///                     // Here we create a single response Frame for each query.
+///                     // Frames can be created from iterators of fields using [`IntoFrame`].
+///                     Ok(backend::DataResponse::new(
+///                         x.ref_id.clone(),
+///                         // Return zero or more frames.
+///                         // A real implementation would fetch this data from a database
+///                         // or something.
+///                         vec![[
 ///                             [1_u32, 2, 3].into_field("x"),
 ///                             ["a", "b", "c"].into_field("y"),
 ///                         ]
@@ -197,10 +203,10 @@ pub trait DataQueryError: std::error::Error {
 ///                         .map_err(|source| QueryError {
 ///                             ref_id: x.ref_id,
 ///                             source,
-///                         })?,
-///                     ],
-///                 ))
-///             })
+///                         })?],
+///                     ))
+///                 })
+///                 .collect::<FuturesOrdered<_>>(),
 ///         )
 ///     }
 /// }
@@ -213,21 +219,22 @@ pub trait DataService {
     /// align queries up with any failed requests.
     type QueryError: DataQueryError;
 
-    /// The type of iterator returned by the `query_data` method.
+    /// The type of stream returned by the `query_data` method.
     ///
     /// This will generally be impossible to name directly, so returning the
-    /// [`BoxDataResponseIter`] type alias will probably be more convenient.
-    type Iter: Iterator<Item = Result<DataResponse, Self::QueryError>>;
+    /// [`BoxDataResponseStream`] type alias will probably be more convenient.
+    type Stream: Stream<Item = Result<DataResponse, Self::QueryError>> + Send;
 
     /// Query data for an input request.
     ///
     /// The request will contain zero or more queries, as well as information about the
     /// origin of the queries (such as the datasource instance) in the `plugin_context` field.
-    async fn query_data(&self, request: QueryDataRequest) -> Self::Iter;
+    async fn query_data(&self, request: QueryDataRequest) -> Self::Stream;
 }
 
 /// Type alias for a boxed iterator of query responses, useful for returning from [`DataService::query_data`].
-pub type BoxDataResponseIter<E> = Box<dyn Iterator<Item = Result<backend::DataResponse, E>>>;
+pub type BoxDataResponseStream<E> =
+    Pin<Box<dyn Stream<Item = Result<backend::DataResponse, E>> + Send>>;
 
 /// Serialize a slice of frames to Arrow IPC format.
 ///
@@ -299,7 +306,8 @@ where
                 )
             }
         })
-        .collect();
+        .collect()
+        .await;
         Ok(tonic::Response::new(pluginv2::QueryDataResponse {
             responses,
         }))
