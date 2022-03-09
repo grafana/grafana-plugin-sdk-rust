@@ -8,6 +8,7 @@ use std::{
 
 use bytes::Bytes;
 use chrono::prelude::*;
+use futures_util::stream::FuturesOrdered;
 use http::Response;
 use thiserror::Error;
 use tokio_stream::StreamExt;
@@ -39,41 +40,42 @@ impl backend::DataQueryError for QueryError {
     }
 }
 
-type QueryDataIter = std::iter::Map<
-    std::vec::IntoIter<backend::DataQuery>,
-    fn(backend::DataQuery) -> Result<backend::DataResponse, QueryError>,
->;
-
 #[tonic::async_trait]
 impl backend::DataService for MyPluginService {
     type QueryError = QueryError;
-    type Iter = QueryDataIter;
-    async fn query_data(&self, request: backend::QueryDataRequest) -> Self::Iter {
-        request.queries.into_iter().map(|x| {
-            // Here we create a single response Frame for each query.
-            // Frames can be created from iterators of fields using [`IntoFrame`].
-            Ok(backend::DataResponse::new(
-                x.ref_id.clone(),
-                vec![[
-                    // Fields can be created from iterators of a variety of
-                    // relevant datatypes.
-                    [
-                        Utc.ymd(2021, 1, 1).and_hms(12, 0, 0),
-                        Utc.ymd(2021, 1, 1).and_hms(12, 0, 1),
-                        Utc.ymd(2021, 1, 1).and_hms(12, 0, 2),
-                    ]
-                    .into_field("time"),
-                    [1_u32, 2, 3].into_field("x"),
-                    ["a", "b", "c"].into_field("y"),
-                ]
-                .into_frame("foo")
-                .check()
-                .map_err(|source| QueryError {
-                    ref_id: x.ref_id,
-                    source,
-                })?],
-            ))
-        })
+    type Stream = backend::BoxDataResponseStream<Self::QueryError>;
+    async fn query_data(&self, request: backend::QueryDataRequest) -> Self::Stream {
+        Box::pin(
+            request
+                .queries
+                .into_iter()
+                .map(|x| async {
+                    // Here we create a single response Frame for each query.
+                    // Frames can be created from iterators of fields using [`IntoFrame`].
+                    Ok(backend::DataResponse::new(
+                        x.ref_id.clone(),
+                        vec![[
+                            // Fields can be created from iterators of a variety of
+                            // relevant datatypes.
+                            [
+                                Utc.ymd(2021, 1, 1).and_hms(12, 0, 0),
+                                Utc.ymd(2021, 1, 1).and_hms(12, 0, 1),
+                                Utc.ymd(2021, 1, 1).and_hms(12, 0, 2),
+                            ]
+                            .into_field("time"),
+                            [1_u32, 2, 3].into_field("x"),
+                            ["a", "b", "c"].into_field("y"),
+                        ]
+                        .into_frame("foo")
+                        .check()
+                        .map_err(|source| QueryError {
+                            ref_id: x.ref_id,
+                            source,
+                        })?],
+                    ))
+                })
+                .collect::<FuturesOrdered<_>>(),
+        )
     }
 }
 

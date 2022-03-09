@@ -31,6 +31,7 @@ will be emitted to Grafana.
 # Example
 
 ```rust,no_run
+use futures_util::stream::FuturesOrdered;
 use grafana_plugin_sdk::{backend, data, prelude::*};
 use thiserror::Error;
 use tonic::transport::Server;
@@ -64,8 +65,8 @@ impl backend::DataService for MyPlugin {
     /// The type of iterator we're returning.
     ///
     /// In general the concrete type will be impossible to name in advance,
-    /// so the `backend::BoxDataResponseIter` type alias will be useful.
-    type Iter = backend::BoxDataResponseIter<Self::QueryError>;
+    /// so the `backend::BoxDataResponseStream` type alias will be useful.
+    type Stream = backend::BoxDataResponseStream<Self::QueryError>;
 
     /// Respond to a request for data from Grafana.
     ///
@@ -75,17 +76,20 @@ impl backend::DataService for MyPlugin {
     ///
     /// Our plugin must respond to each query and return an iterator of `DataResponse`s,
     /// which themselves can contain zero or more `Frame`s.
-    async fn query_data(&self, request: backend::QueryDataRequest) -> Self::Iter {
-        Box::new(
-            request.queries.into_iter().map(|x| {
-                Ok(backend::DataResponse::new(
-                    // Include the ID of the query in the response.
-                    x.ref_id.clone(),
-                    // Return one or more frames.
-                    // A real implementation would fetch this data from a database
-                    // or something.
-                    vec![
-                        [
+    async fn query_data(&self, request: backend::QueryDataRequest) -> Self::Stream {
+        Box::pin(
+            request
+                .queries
+                .into_iter()
+                .map(|x| async {
+                    // Here we create a single response Frame for each query.
+                    // Frames can be created from iterators of fields using [`IntoFrame`].
+                    Ok(backend::DataResponse::new(
+                        x.ref_id.clone(),
+                        // Return zero or more frames.
+                        // A real implementation would fetch this data from a database
+                        // or something.
+                        vec![[
                             [1_u32, 2, 3].into_field("x"),
                             ["a", "b", "c"].into_field("y"),
                         ]
@@ -94,10 +98,10 @@ impl backend::DataService for MyPlugin {
                         .map_err(|source| QueryError {
                             ref_id: x.ref_id,
                             source,
-                        })?,
-                    ],
-                ))
-            })
+                        })?],
+                    ))
+                })
+                .collect::<FuturesOrdered<_>>(),
         )
     }
 }
@@ -143,7 +147,7 @@ mod stream;
 mod tracing_fmt;
 
 pub use data::{
-    BoxDataResponseIter, DataQuery, DataQueryError, DataResponse, DataService, QueryDataRequest,
+    BoxDataResponseStream, DataQuery, DataQueryError, DataResponse, DataService, QueryDataRequest,
 };
 pub use diagnostics::{
     CheckHealthRequest, CheckHealthResponse, CollectMetricsRequest, CollectMetricsResponse,
@@ -223,6 +227,7 @@ impl ShutdownHandler {
 /// # Example:
 ///
 /// ```rust
+/// use futures_util::stream::FuturesOrdered;
 /// use grafana_plugin_sdk::{backend, prelude::*};
 /// use thiserror::Error;
 ///
@@ -253,8 +258,8 @@ impl ShutdownHandler {
 ///     /// The type of iterator we're returning.
 ///     ///
 ///     /// In general the concrete type will be impossible to name in advance,
-///     /// so the `backend::BoxDataResponseIter` type alias will be useful.
-///     type Iter = backend::BoxDataResponseIter<Self::QueryError>;
+///     /// so the `backend::BoxDataResponseStream` type alias will be useful.
+///     type Stream = backend::BoxDataResponseStream<Self::QueryError>;
 ///
 ///     /// Respond to a request for data from Grafana.
 ///     ///
@@ -264,26 +269,31 @@ impl ShutdownHandler {
 ///     ///
 ///     /// Our plugin must respond to each query and return an iterator of `DataResponse`s,
 ///     /// which themselves can contain zero or more `Frame`s.
-///     async fn query_data(&self, request: backend::QueryDataRequest) -> Self::Iter {
-///         Box::new(
-///             request.queries.into_iter().map(|x| {
-///                 Ok(backend::DataResponse::new(
-///                     // Include the ID of the query in the response.
-///                     x.ref_id.clone(),
-///                     // Return zero or more frames.
-///                     // A real implementation would fetch this data from a database
-///                     // or something.
-///                     vec![
-///                         [
+///     async fn query_data(&self, request: backend::QueryDataRequest) -> Self::Stream {
+///         Box::pin(
+///             request
+///                 .queries
+///                 .into_iter()
+///                 .map(|x| async {
+///                     // Here we create a single response Frame for each query.
+///                     // Frames can be created from iterators of fields using [`IntoFrame`].
+///                     Ok(backend::DataResponse::new(
+///                         x.ref_id.clone(),
+///                         // Return zero or more frames.
+///                         // A real implementation would fetch this data from a database
+///                         // or something.
+///                         vec![[
 ///                             [1_u32, 2, 3].into_field("x"),
 ///                             ["a", "b", "c"].into_field("y"),
 ///                         ]
 ///                         .into_frame("foo")
 ///                         .check()
-///                         .map_err(|_| QueryError { ref_id: x.ref_id })?,
-///                     ],
-///                 ))
-///             })
+///                         .map_err(|source| QueryError {
+///                             ref_id: x.ref_id,
+///                         })?],
+///                     ))
+///                 })
+///                 .collect::<FuturesOrdered<_>>(),
 ///         )
 ///     }
 /// }
