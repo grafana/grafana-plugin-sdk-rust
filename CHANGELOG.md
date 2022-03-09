@@ -20,6 +20,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the protobuf descriptors may add additional fields, and this allows us to include them
   without breaking our API. Some `Response` types now have new constructors which should
   be used.
+- Derive `Clone` for various backend structs:
+  - `AppInstanceSettings`
+  - `DataSourceInstanceSettings`
+  - `PluginContext`
+  - `Role` (is also now `Copy`)
+  - `TimeRange`
+  - `User`
 
 ## [0.1.0] - 2021-12-08
 
