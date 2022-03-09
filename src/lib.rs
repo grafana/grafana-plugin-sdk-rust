@@ -33,6 +33,7 @@ The following feature flags enable additional functionality for this crate:
 */
 #![cfg_attr(docsrs, feature(doc_notable_trait))]
 #![deny(missing_docs)]
+#![feature(generic_associated_types)]
 
 /// Re-export of the arrow2 crate depended on by this crate.
 ///

@@ -29,8 +29,8 @@ impl DataQueryError for Infallible {
 #[tonic::async_trait]
 impl DataService for NoopService {
     type QueryError = Infallible;
-    type Stream = BoxDataResponseStream<Self::QueryError>;
-    async fn query_data(&self, _request: QueryDataRequest) -> Self::Stream {
+    type Stream<'a> = BoxDataResponseStream<'static, Self::QueryError>;
+    async fn query_data(&self, _request: QueryDataRequest) -> Self::Stream<'_> {
         unreachable!()
     }
 }

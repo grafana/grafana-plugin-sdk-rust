@@ -1,3 +1,5 @@
+#![feature(generic_associated_types)]
+
 use std::{
     sync::{
         atomic::{AtomicUsize, Ordering},
@@ -43,8 +45,8 @@ impl backend::DataQueryError for QueryError {
 #[tonic::async_trait]
 impl backend::DataService for MyPluginService {
     type QueryError = QueryError;
-    type Stream = backend::BoxDataResponseStream<Self::QueryError>;
-    async fn query_data(&self, request: backend::QueryDataRequest) -> Self::Stream {
+    type Stream<'a> = backend::BoxDataResponseStream<'a, Self::QueryError>;
+    async fn query_data(&self, request: backend::QueryDataRequest) -> Self::Stream<'_> {
         Box::pin(
             request
                 .queries

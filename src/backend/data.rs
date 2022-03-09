@@ -223,18 +223,20 @@ pub trait DataService {
     ///
     /// This will generally be impossible to name directly, so returning the
     /// [`BoxDataResponseStream`] type alias will probably be more convenient.
-    type Stream: Stream<Item = Result<DataResponse, Self::QueryError>> + Send;
+    type Stream<'a>: Stream<Item = Result<DataResponse, Self::QueryError>> + Send + 'a
+    where
+        Self: 'a;
 
     /// Query data for an input request.
     ///
     /// The request will contain zero or more queries, as well as information about the
     /// origin of the queries (such as the datasource instance) in the `plugin_context` field.
-    async fn query_data(&self, request: QueryDataRequest) -> Self::Stream;
+    async fn query_data(&self, request: QueryDataRequest) -> Self::Stream<'_>;
 }
 
 /// Type alias for a boxed iterator of query responses, useful for returning from [`DataService::query_data`].
-pub type BoxDataResponseStream<E> =
-    Pin<Box<dyn Stream<Item = Result<backend::DataResponse, E>> + Send>>;
+pub type BoxDataResponseStream<'a, E> =
+    Pin<Box<dyn Stream<Item = Result<backend::DataResponse, E>> + Send + 'a>>;
 
 /// Serialize a slice of frames to Arrow IPC format.
 ///
