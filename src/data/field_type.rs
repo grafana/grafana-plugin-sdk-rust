@@ -3,7 +3,7 @@ use arrow2::{
     array::{PrimitiveArray, Utf8Array},
     datatypes::{DataType, TimeUnit},
 };
-use chrono::{DateTime, Offset, TimeZone};
+use chrono::prelude::*;
 
 use crate::data::TypeInfoType;
 
@@ -11,6 +11,7 @@ use crate::data::TypeInfoType;
 ///
 /// TODO: are these logical or physical types?
 pub trait FieldType {
+    /// The type of arrow array this field type is stored in.
     type Array;
     /// The logical arrow data type that an arrow array of this data should have.
     const ARROW_DATA_TYPE: DataType;
@@ -102,6 +103,42 @@ impl<T> IntoFieldType for DateTime<T>
 where
     T: Offset + TimeZone,
 {
+    type ElementType = i64;
+    const TYPE_INFO_TYPE: TypeInfoType = TypeInfoType::Time;
+    fn into_field_type(self) -> Option<Self::ElementType> {
+        Some(self.timestamp_nanos())
+    }
+}
+
+impl FieldType for NaiveDate {
+    type Array = PrimitiveArray<i64>;
+    const ARROW_DATA_TYPE: DataType = DataType::Timestamp(TimeUnit::Nanosecond, None);
+
+    /// Convert the logical type of `Self::Array` to `DataType::Timestamp`.
+    fn convert_arrow_array(array: Self::Array, data_type: DataType) -> Self::Array {
+        array.to(data_type)
+    }
+}
+
+impl IntoFieldType for NaiveDate {
+    type ElementType = i64;
+    const TYPE_INFO_TYPE: TypeInfoType = TypeInfoType::Time;
+    fn into_field_type(self) -> Option<Self::ElementType> {
+        Some(self.and_hms(0, 0, 0).timestamp_nanos())
+    }
+}
+
+impl FieldType for NaiveDateTime {
+    type Array = PrimitiveArray<i64>;
+    const ARROW_DATA_TYPE: DataType = DataType::Timestamp(TimeUnit::Nanosecond, None);
+
+    /// Convert the logical type of `Self::Array` to `DataType::Timestamp`.
+    fn convert_arrow_array(array: Self::Array, data_type: DataType) -> Self::Array {
+        array.to(data_type)
+    }
+}
+
+impl IntoFieldType for NaiveDateTime {
     type ElementType = i64;
     const TYPE_INFO_TYPE: TypeInfoType = TypeInfoType::Time;
     fn into_field_type(self) -> Option<Self::ElementType> {
