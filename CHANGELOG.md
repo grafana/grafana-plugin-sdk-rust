@@ -12,6 +12,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bump arrow2 dependency to 0.9.0, and re-export it as `grafana_plugin_sdk::arrow2`
 - Added new `data` field to `SubscribeStreamRequest` and `SubscribeStreamResponse`,
   matching the latest release of the protobuf descriptors.
+- More types now impl `FieldType` and `IntoFieldType`:
+  - `bool`
+  - `SystemTime`
+  - `chrono::Date`
+  - `chrono::NaiveDate`
+  - `chrono::NaiveDateTime`
+- The `FieldType` and `IntoFieldType` traits are now public. These are useful when
+  writing generic functions to convert iterators, vecs, slices or arrays into `Field`s.
 
 ### Changed
 
