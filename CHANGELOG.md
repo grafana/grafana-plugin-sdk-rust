@@ -30,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Change the `Iter` associated type of `backend::DataService` to `Stream`, and update
   the return type of `query_data` accordingly. This allows each inner query to be handled
   asynchronously and concurrently in a simple way.
+- The `live::Error` type is now an enum and provides more detail on failures.
 
 ## [0.1.0] - 2021-12-08
 
