@@ -720,53 +720,116 @@ pub struct DataLink {
 #[cfg(test)]
 mod tests {
 
-    use chrono::prelude::*;
+    use std::time::UNIX_EPOCH;
 
-    use arrow2::array::PrimitiveArray;
+    use chrono::prelude::*;
+    use paste::paste;
 
     use super::*;
 
-    #[test]
-    fn create_field_from_primitive() {
-        let field = [1u32, 2, 3].into_field("yhat".to_string());
-        assert_eq!(field.name, "yhat");
+    macro_rules! test_create_field_from_type {
+        ($t:ty) => {
+            paste! {
+                #[test]
+                #[allow(non_snake_case)]
+                fn [< create_field_from_ $t >]() {
+                    let field = [<$t>::default()].into_field("x".to_string());
+                    assert_eq!(field.name, "x");
+                    assert_eq!(field.values.len(), 1)
+                }
+
+                #[test]
+                #[allow(non_snake_case)]
+                fn [< create_field_from_opt_ $t >]() {
+                    let field = [Some(<$t>::default()), None].into_opt_field("x".to_string());
+                    assert_eq!(field.name, "x");
+                    assert_eq!(field.values.len(), 2)
+                }
+
+                #[test]
+                #[allow(non_snake_case)]
+                fn [< create_field_from_iter_ $t >]() {
+                    let field = std::iter::once(<$t>::default()).into_field("x".to_string());
+                    assert_eq!(field.name, "x");
+                    assert_eq!(field.values.len(), 1)
+                }
+
+                #[test]
+                #[allow(non_snake_case)]
+                fn [< create_field_from_opt_iter_ $t >]() {
+                    let field = std::iter::once(Some(<$t>::default())).into_opt_field("x".to_string());
+                    assert_eq!(field.name, "x");
+                    assert_eq!(field.values.len(), 1)
+                }
+
+                #[test]
+                #[allow(non_snake_case)]
+                fn [< create_field_from_array_ $t >]() {
+                    let array = <$t as FieldType>::Array::from_slice([<$t>::default()]);
+                    let field = array.try_into_field("x".to_string()).unwrap();
+                    assert_eq!(field.name, "x");
+                    assert_eq!(field.values.len(), 1)
+                }
+            }
+        };
+        ($t:ty, $e: expr) => {
+            paste! {
+                #[test]
+                #[allow(non_snake_case)]
+                fn [< create_field_from_ $t >]() {
+                    let field = [$e].into_field("x".to_string());
+                    assert_eq!(field.name, "x");
+                    assert_eq!(field.values.len(), 1)
+                }
+
+                #[test]
+                #[allow(non_snake_case)]
+                fn [< create_field_from_opt_ $t >]() {
+                    let field = [Some($e), None].into_opt_field("x".to_string());
+                    assert_eq!(field.name, "x");
+                    assert_eq!(field.values.len(), 2)
+                }
+
+                #[test]
+                #[allow(non_snake_case)]
+                fn [< create_field_from_iter_ $t >]() {
+                    let field = std::iter::once($e).into_field("x".to_string());
+                    assert_eq!(field.name, "x");
+                    assert_eq!(field.values.len(), 1)
+                }
+
+                #[test]
+                #[allow(non_snake_case)]
+                fn [< create_field_from_opt_iter_ $t >]() {
+                    let field = std::iter::once(Some($e)).into_opt_field("x".to_string());
+                    assert_eq!(field.name, "x");
+                    assert_eq!(field.values.len(), 1)
+                }
+            }
+        };
     }
 
-    #[test]
-    fn create_field_from_opt_primitive() {
-        let field = [Some(1u32), None, None].into_opt_field("yhat".to_string());
-        assert_eq!(field.name, "yhat");
-    }
-
-    #[test]
-    fn create_field_from_array_primitive() {
-        let array = PrimitiveArray::<u32>::from_slice([1u32, 2, 3]);
-        let field = array.try_into_field("yhat".to_string()).unwrap();
-        assert_eq!(field.name, "yhat");
-    }
-
-    #[test]
-    fn create_field_from_iter_datetime_primitive() {
-        let field = [
-            Utc.ymd(2021, 1, 1).and_hms(0, 0, 0),
-            Utc.ymd(2021, 1, 1).and_hms(0, 0, 1),
-            Utc.ymd(2021, 1, 1).and_hms(0, 0, 2),
-        ]
-        .into_field("yhat".to_string());
-        assert_eq!(field.name, "yhat");
-    }
-
-    #[test]
-    fn create_field_from_iter_opt_datetime_primitive() {
-        let field = [
-            Utc.ymd(2021, 1, 1).and_hms(0, 0, 0),
-            Utc.ymd(2021, 1, 1).and_hms(0, 0, 1),
-            Utc.ymd(2021, 1, 1).and_hms(0, 0, 2),
-        ]
-        .map(Some)
-        .into_opt_field("yhat".to_string());
-        assert_eq!(field.name, "yhat");
-    }
+    test_create_field_from_type!(bool);
+    test_create_field_from_type!(i8);
+    test_create_field_from_type!(i16);
+    test_create_field_from_type!(i32);
+    test_create_field_from_type!(i64);
+    test_create_field_from_type!(u8);
+    test_create_field_from_type!(u16);
+    test_create_field_from_type!(u32);
+    test_create_field_from_type!(u64);
+    test_create_field_from_type!(f32);
+    test_create_field_from_type!(f64);
+    test_create_field_from_type!(String);
+    test_create_field_from_type!(str, "");
+    test_create_field_from_type!(SystemTime, UNIX_EPOCH);
+    test_create_field_from_type!(
+        NaiveDateTime,
+        NaiveDate::from_ymd(1970, 1, 1).and_hms(0, 0, 0)
+    );
+    test_create_field_from_type!(NaiveDate, NaiveDate::from_ymd(1970, 1, 1));
+    test_create_field_from_type!(DateTime, Utc.ymd(1970, 1, 1).and_hms(0, 0, 0));
+    test_create_field_from_type!(Date, Utc.ymd(1970, 1, 1));
 
     #[test]
     fn set_values_from_iter_primitive() {
