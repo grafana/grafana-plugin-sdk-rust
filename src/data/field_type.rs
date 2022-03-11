@@ -10,8 +10,6 @@ use chrono::prelude::*;
 use crate::data::TypeInfoType;
 
 /// Indicates that a type is can be stored in an Arrow array.
-///
-/// TODO: are these logical or physical types?
 pub trait FieldType {
     /// The type of arrow array this field type is stored in.
     type Array;
