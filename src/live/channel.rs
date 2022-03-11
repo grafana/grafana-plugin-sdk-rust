@@ -6,14 +6,51 @@ See the [channel guide] for more information.
 */
 use std::{fmt, str::FromStr};
 
+use itertools::Itertools;
 use thiserror::Error;
 
 const MAX_CHANNEL_LENGTH: usize = 160;
 
 /// The error returned when parsing a channel.
 #[derive(Debug, Error)]
-#[error("Invalid channel ID")]
-pub struct Error;
+pub enum Error {
+    /// The channel was empty.
+    #[error("Channel must not be empty")]
+    Empty,
+    /// The channel exceeded the maximum length of [`MAX_CHANNEL_LENGTH`].
+    #[error("Channel exceeds max length of {MAX_CHANNEL_LENGTH}")]
+    ExceedsMaxLength,
+    /// The channel did not contain a scope segment.
+    #[error("Missing scope")]
+    MissingScope,
+    /// The channel did not contain a namespace segment.
+    #[error("Missing namespace")]
+    MissingNamespace,
+    /// The channel did not contain a path segment.
+    #[error("Missing path")]
+    MissingPath,
+    /// The channel's scope was invalid.
+    #[error(r#"Invalid scope {0}; must be one of "grafana", "plugin", "ds", "stream""#)]
+    InvalidScope(String),
+    /// The channel's namespace was invalid.
+    #[error("Invalid namespace {full}; must only contain ASCII alphanumeric, hyphens, and underscores. Found {invalid}")]
+    InvalidNamespace {
+        /// The full namespace string supplied.
+        full: String,
+        /// The unique invalid characters detected in the invalid namespace.
+        invalid: String,
+    },
+    /// The channel's path was invalid.
+    #[error(
+        "Invalid path {full}; must only contain ASCII alphanumeric and any of '_-=/.'. Found {invalid}"
+    )]
+    InvalidPath {
+        /// The full namespace string supplied.
+        full: String,
+        /// The unique invalid characters detected in the invalid namespace.
+        invalid: String,
+    },
+}
 
 type Result<T> = std::result::Result<T, Error>;
 
@@ -40,7 +77,7 @@ impl FromStr for Scope {
             "plugin" => Self::Plugin,
             "ds" => Self::Datasource,
             "stream" => Self::Stream,
-            _ => return Err(Error),
+            invalid => return Err(Error::InvalidScope(invalid.to_string())),
         })
     }
 }
@@ -88,10 +125,16 @@ impl Namespace {
     ///
     /// Returns an [`struct@Error`] if the provided string contains invalid characters.
     pub fn new(s: String) -> Result<Self> {
-        s.chars()
-            .all(Self::is_valid_char)
-            .then(|| Self(s))
-            .ok_or(Error)
+        if s.chars().any(|c| !Self::is_valid_char(c)) {
+            let invalid = s
+                .chars()
+                .filter(|c| !Self::is_valid_char(*c))
+                .dedup()
+                .collect();
+            Err(Error::InvalidNamespace { full: s, invalid })
+        } else {
+            Ok(Self(s))
+        }
     }
 
     /// Access the inner namespace as a `&str`.
@@ -133,10 +176,16 @@ impl Path {
     ///
     /// Returns an [`struct@Error`] if the provided string contains invalid characters.
     pub fn new(s: String) -> Result<Self> {
-        s.chars()
-            .all(Self::is_valid_char)
-            .then(|| Self(s))
-            .ok_or(Error)
+        if s.chars().any(|c| !Self::is_valid_char(c)) {
+            let invalid = s
+                .chars()
+                .filter(|c| !Self::is_valid_char(*c))
+                .dedup()
+                .collect();
+            Err(Error::InvalidPath { full: s, invalid })
+        } else {
+            Ok(Self(s))
+        }
     }
 
     /// Access the inner path as a `&str`.
@@ -232,18 +281,23 @@ impl Channel {
 impl FromStr for Channel {
     type Err = Error;
     fn from_str(s: &str) -> Result<Self> {
-        if s.is_empty() || s.len() > MAX_CHANNEL_LENGTH {
-            return Err(Error);
+        if s.is_empty() {
+            return Err(Error::Empty);
+        } else if s.len() > MAX_CHANNEL_LENGTH {
+            return Err(Error::ExceedsMaxLength);
         }
         let mut parts = s.splitn(3, '/');
-        let scope = parts.next().ok_or(Error).and_then(|x| x.parse())?;
+        let scope = parts
+            .next()
+            .ok_or(Error::MissingScope)
+            .and_then(|x| x.parse())?;
         let namespace = parts
             .next()
-            .ok_or(Error)
+            .ok_or(Error::MissingNamespace)
             .and_then(|x| Namespace::new(x.to_string()))?;
         let path = parts
             .next()
-            .ok_or(Error)
+            .ok_or(Error::MissingPath)
             .and_then(|x| Path::new(x.to_string()))?;
         Ok(Self {
             scope,
