@@ -32,6 +32,8 @@ pub trait FieldType {
 /// [`TypeInfoType`] is stored here.
 ///
 /// This trait mainly exists to enable smoother APIs when creating [`Field`]s.
+///
+/// [`Field`]: crate::data::Field
 pub trait IntoFieldType {
     /// The type to which `Self` will be converted when storing values in a `Field`.
     type ElementType;
