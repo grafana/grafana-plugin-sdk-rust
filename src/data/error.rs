@@ -7,6 +7,7 @@ use super::frame::to_arrow;
 
 /// Errors that can occur when interacting with the Grafana plugin SDK.
 #[derive(Debug, Error)]
+#[non_exhaustive]
 pub enum Error {
     /// An error has occurred when serializing to Arrow IPC format.
     #[error("Arrow serialization error: {0}")]

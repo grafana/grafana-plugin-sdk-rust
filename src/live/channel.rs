@@ -14,6 +14,7 @@ pub const MAX_CHANNEL_LENGTH: usize = 160;
 
 /// The error returned when parsing a channel.
 #[derive(Debug, Error)]
+#[non_exhaustive]
 pub enum Error {
     /// The channel was empty.
     #[error("Channel must not be empty")]
@@ -124,7 +125,7 @@ impl Namespace {
     ///
     /// # Errors
     ///
-    /// Returns an [`struct@Error`] if the provided string contains invalid characters.
+    /// Returns an [`enum@Error`] if the provided string contains invalid characters.
     pub fn new(s: String) -> Result<Self> {
         if s.chars().any(|c| !Self::is_valid_char(c)) {
             let invalid = s
@@ -175,7 +176,7 @@ impl Path {
     ///
     /// # Errors
     ///
-    /// Returns an [`struct@Error`] if the provided string contains invalid characters.
+    /// Returns an [`enum@Error`] if the provided string contains invalid characters.
     pub fn new(s: String) -> Result<Self> {
         if s.chars().any(|c| !Self::is_valid_char(c)) {
             let invalid = s

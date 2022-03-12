@@ -117,12 +117,11 @@ impl Field {
     /// ```rust
     /// use grafana_plugin_sdk::{data::FieldConfig, prelude::*};
     ///
+    /// let mut config = FieldConfig::default();
+    /// config.display_name_from_ds = Some("X".to_string());
     /// let field = ["a", "b", "c"]
     ///     .into_field("x")
-    ///     .with_config(FieldConfig {
-    ///         display_name_from_ds: Some("X".to_string()),
-    ///         ..Default::default()
-    ///     });
+    ///     .with_config(config);
     /// assert_eq!(&field.config.unwrap().display_name_from_ds.unwrap(), "X");
     /// ```
     #[must_use]
@@ -517,6 +516,7 @@ impl TypeInfoType {
 /// The 'simple' type of this data.
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
+#[non_exhaustive]
 pub enum SimpleType {
     /// A number.
     Number,
@@ -531,12 +531,17 @@ pub enum SimpleType {
 /// The display properties for a [`Field`].
 ///
 /// These are used by the Grafana frontend to modify how the field is displayed.
+///
+/// Note that this struct, like most structs in this crate, is marked `#[non_exhaustive]` and
+/// therefore cannot be constructed using a struct expression. Instead, create a default
+/// value using `FieldConfig::default()` and modify any fields necessary.
 // This struct needs to match the frontend component defined in:
 // https://github.com/grafana/grafana/blob/master/packages/grafana-data/src/types/dataFrame.ts#L23
 // All properties are optional should be omitted from JSON when empty or not set.
 #[skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[non_exhaustive]
 pub struct FieldConfig {
     /// Overrides Grafana default naming.
     ///
@@ -613,6 +618,7 @@ pub struct FieldConfig {
 /// Special values that can be mapped to new text and colour values.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(untagged, rename_all = "camelCase")]
+#[non_exhaustive]
 pub enum SpecialValueMatch {
     /// Match `true`.
     True,
@@ -633,6 +639,7 @@ pub enum SpecialValueMatch {
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", content = "options", rename_all = "camelCase")]
+#[non_exhaustive]
 pub enum ValueMapping {
     /// Map strings to new strings directly.
     ValueMapper(HashMap<String, ValueMappingResult>),
@@ -657,8 +664,9 @@ pub enum ValueMapping {
 
 /// A new value to be displayed when a [`ValueMapping`] matches an input value.
 #[skip_serializing_none]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[non_exhaustive]
 pub struct ValueMappingResult {
     /// The text to display.
     #[serde(default)]
@@ -672,8 +680,9 @@ pub struct ValueMappingResult {
 }
 
 /// Configuration for thresholds for a field.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[non_exhaustive]
 pub struct ThresholdsConfig {
     /// How thresholds should be evaluated.
     pub mode: ThresholdsMode,
@@ -683,8 +692,9 @@ pub struct ThresholdsConfig {
 
 /// A single step on the threshold list.
 #[skip_serializing_none]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[non_exhaustive]
 pub struct Threshold {
     /// The upper bound of this threshold.
     pub value: Option<ConfFloat64>,
@@ -697,17 +707,27 @@ pub struct Threshold {
 /// How thresholds should be evaluated.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[non_exhaustive]
 pub enum ThresholdsMode {
     /// Pick thresholds based on the absolute value.
+    ///
+    /// This is the default value.
     Absolute,
     /// Thresholds should be treated as relative to the min/max.
     Percentage,
 }
 
+impl Default for ThresholdsMode {
+    fn default() -> Self {
+        Self::Absolute
+    }
+}
+
 /// Links to use when clicking on a result.
 #[skip_serializing_none]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[non_exhaustive]
 pub struct DataLink {
     /// The title text to display.
     pub title: Option<String>,
