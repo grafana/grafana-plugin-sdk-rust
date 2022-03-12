@@ -9,7 +9,8 @@ use std::{fmt, str::FromStr};
 use itertools::Itertools;
 use thiserror::Error;
 
-const MAX_CHANNEL_LENGTH: usize = 160;
+/// The maximum length of a channel when represented as a string.
+pub const MAX_CHANNEL_LENGTH: usize = 160;
 
 /// The error returned when parsing a channel.
 #[derive(Debug, Error)]

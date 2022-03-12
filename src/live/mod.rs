@@ -10,4 +10,4 @@ See the [Grafana Live documentation](https://grafana.com/docs/grafana/latest/liv
 */
 mod channel;
 
-pub use channel::{Channel, Error as ChannelError, Namespace, Path, Scope};
+pub use channel::{Channel, Error as ChannelError, Namespace, Path, Scope, MAX_CHANNEL_LENGTH};
