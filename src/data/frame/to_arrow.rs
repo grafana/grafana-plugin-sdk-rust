@@ -8,6 +8,7 @@ use crate::data::{field::Field, frame::CheckedFrame};
 
 /// Errors occurring when serializing a [`Frame`] to the Arrow IPC format.
 #[derive(Debug, Error)]
+#[non_exhaustive]
 pub enum Error {
     /// An error occurred converting the frame's metadata to JSON.
     #[error("Error serializing metadata")]

@@ -658,6 +658,7 @@ pub(self) fn read_json(jdoc: &[u8]) -> ConvertFromResult<Value> {
 
 /// The time range for a query.
 #[derive(Clone, Debug)]
+#[non_exhaustive]
 pub struct TimeRange {
     /// The start time of the query.
     pub from: DateTime<Utc>,
@@ -676,6 +677,7 @@ impl From<pluginv2::TimeRange> for TimeRange {
 
 /// A role within Grafana.
 #[derive(Clone, Copy, Debug)]
+#[non_exhaustive]
 pub enum Role {
     /// Admin users can perform any administrative action, such as adding and removing users and datasources.
     Admin,
@@ -699,6 +701,7 @@ impl FromStr for Role {
 
 /// A Grafana user.
 #[derive(Clone, Debug)]
+#[non_exhaustive]
 pub struct User {
     /// The user's login.
     pub login: String,
@@ -727,6 +730,7 @@ impl TryFrom<pluginv2::User> for User {
 /// An app instance is an app plugin of a certain type that has been configured
 /// and enabled in a Grafana organisation.
 #[derive(Clone)]
+#[non_exhaustive]
 pub struct AppInstanceSettings {
     /// Includes the non-secret settings of the app instance (excluding datasource config).
     pub json_data: Value,
@@ -768,6 +772,7 @@ impl TryFrom<pluginv2::AppInstanceSettings> for AppInstanceSettings {
 /// the Prometheus datasource plugin, and there may be many configured Prometheus
 /// datasource instances configured in a Grafana organisation.
 #[derive(Clone)]
+#[non_exhaustive]
 pub struct DataSourceInstanceSettings {
     /// The Grafana assigned numeric identifier of the the datasource instance.
     pub id: i64,
@@ -850,6 +855,7 @@ impl TryFrom<pluginv2::DataSourceInstanceSettings> for DataSourceInstanceSetting
 
 /// Holds contextual information about a plugin request: Grafana org, user, and plugin instance settings.
 #[derive(Clone, Debug)]
+#[non_exhaustive]
 pub struct PluginContext {
     /// The organisation ID from which the request originated.
     pub org_id: i64,

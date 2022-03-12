@@ -299,17 +299,14 @@ impl Frame {
     /// # Example
     ///
     /// ```rust
-    /// use grafana_plugin_sdk::data::{Frame, Metadata};
+    /// use grafana_plugin_sdk::data::{Frame, Metadata, Notice, Severity};
     ///
-    /// let frame = Frame::new("frame")
-    ///     .with_metadata(None);
-    /// assert_eq!(frame.meta, None);
-    ///
-    /// let frame = Frame::new("frame")
-    ///     .with_metadata(Metadata {
-    ///         path: Some("a path".to_string()),
-    ///         ..Metadata::default()
-    ///     });
+    /// let mut notice = Notice::new("read this notice".to_string());
+    /// notice.severity = Some(Severity::Warning);
+    /// let mut metadata = Metadata::default();
+    /// metadata.path = Some("a path".to_string());
+    /// metadata.notices = Some(vec![notice]);
+    /// let frame = Frame::new("frame").with_metadata(metadata);
     /// assert_eq!(frame.meta.unwrap().path, Some("a path".to_string()));
     /// ```
     #[must_use]
@@ -478,6 +475,7 @@ impl<T: IntoFrame> FromFields<T> for Frame {
 /// Options for customizing the way a [`Frame`] is serialized.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[non_exhaustive]
 pub enum FrameInclude {
     /// Serialize both the schema and data.
     All,
@@ -492,6 +490,7 @@ pub enum FrameInclude {
 #[serde_as]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[non_exhaustive]
 pub struct Metadata {
     /// A browsable path on the datasource.
     #[serde(default)]
@@ -532,6 +531,7 @@ pub struct Metadata {
 /// Visualiation type options understood by Grafana.
 #[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[non_exhaustive]
 pub enum VisType {
     /// Graph visualisation.
     Graph,
@@ -546,9 +546,29 @@ pub enum VisType {
 }
 
 /// A notification to be displayed in Grafana's UI.
+///
+/// # Example
+///
+/// ```
+/// use grafana_plugin_sdk::{data::{Frame, Metadata, Notice, Severity}, prelude::*};
+///
+/// let mut notice = Notice::new("Isn't this a cool set of data?".to_string());
+/// notice.severity = Some(Severity::Info);
+///
+/// let mut metadata = Metadata::default();
+/// metadata.notices = Some(vec![notice]);
+///
+/// let frame = Frame::new("frame")
+///     .with_fields([
+///         [1_u32, 2, 3].into_field("x"),
+///         ["a", "b", "c"].into_field("y"),
+///     ])
+///     .with_metadata(metadata);
+/// ```
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[non_exhaustive]
 pub struct Notice {
     /// The severity level of this notice.
     #[serde(default)]
@@ -568,9 +588,28 @@ pub struct Notice {
     pub inspect: Option<InspectType>,
 }
 
+impl Notice {
+    /// Create a new `Notice` with the given text.
+    ///
+    /// ```
+    /// use grafana_plugin_sdk::data::Notice;
+    ///
+    /// let notice = Notice::new("Isn't this a cool set of data?".to_string());
+    /// ```
+    pub fn new(text: String) -> Self {
+        Self {
+            text,
+            severity: None,
+            link: None,
+            inspect: None,
+        }
+    }
+}
+
 /// The severity level of a notice.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[non_exhaustive]
 pub enum Severity {
     /// Informational severity.
     Info,
@@ -583,6 +622,7 @@ pub enum Severity {
 /// A suggestion for which tab to display in the panel inspector in Grafana's UI.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[non_exhaustive]
 pub enum InspectType {
     /// Do not suggest anything.
     None,
@@ -600,15 +640,26 @@ pub enum InspectType {
 ///
 /// Examples include total request time and data processing time.
 ///
-/// The `field_config` field's `name` property MUST be set.
+/// The `field_config` field's `display_name` property MUST be set.
 ///
 /// This corresponds to the [`QueryResultMetaStat` on the frontend](https://github.com/grafana/grafana/blob/master/packages/grafana-data/src/types/data.ts#L53).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[non_exhaustive]
 pub struct QueryStat {
     #[serde(flatten)]
     /// Information used to identify the field to which this statistic applies.
     pub field_config: FieldConfig,
     /// The actual statistic.
     pub value: ConfFloat64,
+}
+
+impl QueryStat {
+    /// Create a new `QueryStat ` for a field.
+    pub fn new(field_config: FieldConfig, value: ConfFloat64) -> Self {
+        Self {
+            field_config,
+            value,
+        }
+    }
 }
