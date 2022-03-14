@@ -131,9 +131,12 @@ use tracing_subscriber::{
     EnvFilter,
 };
 
-use crate::pluginv2::{
-    self, data_server::DataServer, diagnostics_server::DiagnosticsServer,
-    resource_server::ResourceServer, stream_server::StreamServer,
+use crate::{
+    live,
+    pluginv2::{
+        self, data_server::DataServer, diagnostics_server::DiagnosticsServer,
+        resource_server::ResourceServer, stream_server::StreamServer,
+    },
 };
 
 /// Re-export of `async_trait` proc macro, so plugin implementations don't have to import tonic manually.
@@ -601,6 +604,13 @@ pub enum ConvertFromError {
     /// The role string provided by Grafana didn't match the roles known by the SDK.
     #[error("Unknown role: {0}")]
     UnknownRole(String),
+    /// The path provided by Grafana was invalid.
+    #[error("Invalid path: {source}")]
+    InvalidPath {
+        /// The underlying reason for the error.
+        #[from]
+        source: live::ChannelError,
+    },
 }
 
 impl From<ConvertFromError> for tonic::Status {

@@ -195,6 +195,12 @@ impl Path {
     }
 }
 
+impl fmt::Display for Path {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
 impl std::ops::Deref for Path {
     type Target = str;
     fn deref(&self) -> &Self::Target {

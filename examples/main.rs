@@ -97,7 +97,7 @@ impl backend::StreamService for MyPluginService {
         &self,
         request: backend::SubscribeStreamRequest,
     ) -> Result<backend::SubscribeStreamResponse, Self::Error> {
-        let status = if request.path == "stream" {
+        let status = if request.path.as_str() == "stream" {
             backend::SubscribeStreamStatus::Ok
         } else {
             backend::SubscribeStreamStatus::NotFound
