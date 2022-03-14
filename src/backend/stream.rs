@@ -7,7 +7,9 @@ use serde::Serialize;
 
 use crate::{
     backend::{ConvertFromError, ConvertToError, PluginContext},
-    data, pluginv2,
+    data,
+    live::Path,
+    pluginv2,
 };
 
 /// A request to subscribe to a stream.
@@ -22,7 +24,7 @@ pub struct SubscribeStreamRequest {
     pub plugin_context: PluginContext,
 
     /// The subscription channel path that the request wishes to subscribe to.
-    pub path: String,
+    pub path: Path,
 
     /// Optional raw data.
     ///
@@ -40,7 +42,7 @@ impl TryFrom<pluginv2::SubscribeStreamRequest> for SubscribeStreamRequest {
                 .plugin_context
                 .ok_or(ConvertFromError::MissingPluginContext)
                 .and_then(TryInto::try_into)?,
-            path: other.path,
+            path: Path::new(other.path)?,
             data: other.data,
         })
     }
@@ -142,7 +144,7 @@ pub struct RunStreamRequest {
     pub plugin_context: PluginContext,
 
     /// The subscription path; see module level comments for details.
-    pub path: String,
+    pub path: Path,
 
     /// Optional raw data.
     ///
@@ -160,7 +162,7 @@ impl TryFrom<pluginv2::RunStreamRequest> for RunStreamRequest {
                 .plugin_context
                 .ok_or(ConvertFromError::MissingPluginContext)
                 .and_then(TryInto::try_into)?,
-            path: other.path,
+            path: Path::new(other.path)?,
             data: other.data,
         })
     }
@@ -229,7 +231,7 @@ pub struct PublishStreamRequest {
     /// `data_source_instance_settings` field.
     pub plugin_context: PluginContext,
     /// The subscription path; see module level comments for details.
-    pub path: String,
+    pub path: Path,
     /// Data to be published to the stream.
     pub data: serde_json::Value,
 }
@@ -242,7 +244,7 @@ impl TryFrom<pluginv2::PublishStreamRequest> for PublishStreamRequest {
                 .plugin_context
                 .ok_or(ConvertFromError::MissingPluginContext)
                 .and_then(TryInto::try_into)?,
-            path: other.path,
+            path: Path::new(other.path)?,
             data: super::read_json(&other.data)?,
         })
     }
@@ -343,7 +345,7 @@ impl TryFrom<PublishStreamResponse> for pluginv2::PublishStreamResponse {
 ///         &self,
 ///         request: backend::SubscribeStreamRequest,
 ///     ) -> Result<backend::SubscribeStreamResponse, Self::Error> {
-///         let status = if request.path == "stream" {
+///         let status = if request.path.as_str() == "stream" {
 ///             backend::SubscribeStreamStatus::Ok
 ///         } else {
 ///             backend::SubscribeStreamStatus::NotFound
