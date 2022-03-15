@@ -1,6 +1,6 @@
 [package]
 name = "grafana-plugin-sdk-macros"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Ben Sully <ben.sully@grafana.com>"]
 license = "MIT/Apache-2.0"
 edition = "2018"
@@ -16,7 +16,7 @@ quote = "1.0.10"
 syn = { version = "1.0.81", features = ["full"] }
 
 [dev-dependencies]
-grafana-plugin-sdk = { version = "0.1.0", path = ".." }
+grafana-plugin-sdk = { version = "0.2.0", path = ".." }
 tokio = { version = "1.13.0", features = ["rt-multi-thread"] }
 trybuild = "1.0.52"
 

@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2022-03-15
+
 ### Added
 
 - Bump arrow2 dependency to 0.10.0, and re-export it as `grafana_plugin_sdk::arrow2`
@@ -51,5 +53,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial release of the SDK
 
-[unreleased]: https://github.com/sd2k/grafana-plugin-sdk-rust/compare/v0.1.0...HEAD
+[unreleased]: https://github.com/sd2k/grafana-plugin-sdk-rust/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/sd2k/grafana-plugin-sdk-rust/tag/v0.2.0
 [0.1.0]: https://github.com/sd2k/grafana-plugin-sdk-rust/tag/v0.1.0
