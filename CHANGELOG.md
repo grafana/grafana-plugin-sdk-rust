@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added various new constructors for `SubscribeStreamResponse`, `PublishStreamResponse`
+  and `CheckHealthResponse`, reducing the reliance of knowing what the arguments should
+  be.
+
+### Deprecated
+
+- The `CheckHealthResponse::new`, `SubscribeStreamResponse::new` and
+  `PublishStreamResponse::new` methods have been deprecated in favour of their new,
+  more direct constructors.
+
 ### Changed
 
 - Dependency bumps:

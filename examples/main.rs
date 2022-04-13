@@ -97,13 +97,13 @@ impl backend::StreamService for MyPluginService {
         &self,
         request: backend::SubscribeStreamRequest,
     ) -> Result<backend::SubscribeStreamResponse, Self::Error> {
-        let status = if request.path.as_str() == "stream" {
-            backend::SubscribeStreamStatus::Ok
+        let response = if request.path.as_str() == "stream" {
+            backend::SubscribeStreamResponse::ok(None)
         } else {
-            backend::SubscribeStreamStatus::NotFound
+            backend::SubscribeStreamResponse::not_found()
         };
         info!(path = %request.path, "Subscribing to stream");
-        Ok(backend::SubscribeStreamResponse::new(status, None))
+        Ok(response)
     }
 
     type Error = StreamError;
