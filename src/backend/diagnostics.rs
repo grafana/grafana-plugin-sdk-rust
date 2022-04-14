@@ -60,12 +60,55 @@ pub struct CheckHealthResponse {
 
 impl CheckHealthResponse {
     /// Create a new `CheckHealthResponse`.
+    #[deprecated(since = "1.3.0", note = "use ok/error/unknown constructors instead")]
     pub fn new(status: HealthStatus, message: String, json_details: Value) -> Self {
         Self {
             status,
             message,
             json_details,
         }
+    }
+
+    /// Create a `CheckHealthResponse` with status [`HealthStatus::Ok`].
+    ///
+    /// The JSON in `json_details` will be set to `null`; use [`with_json_details`]
+    /// to override it.
+    pub fn ok(message: String) -> Self {
+        Self {
+            status: HealthStatus::Ok,
+            message,
+            json_details: Value::Null,
+        }
+    }
+
+    /// Create a `CheckHealthResponse` with status [`HealthStatus::Error`].
+    ///
+    /// The JSON in `json_details` will be set to `null`; use [`with_json_details`]
+    /// to override it.
+    pub fn error(message: String) -> Self {
+        Self {
+            status: HealthStatus::Error,
+            message,
+            json_details: Value::Null,
+        }
+    }
+
+    /// Create a `CheckHealthResponse` with status [`HealthStatus::Unknown`].
+    ///
+    /// The JSON in `json_details` will be set to `null`; use [`with_json_details`]
+    /// to override it.
+    pub fn unknown(message: String) -> Self {
+        Self {
+            status: HealthStatus::Unknown,
+            message,
+            json_details: Value::Null,
+        }
+    }
+
+    /// Update `self` with the given JSON details, returning a new `CheckHealthResponse`.
+    pub fn with_json_details(mut self, json_details: Value) -> Self {
+        self.json_details = json_details;
+        self
     }
 }
 
@@ -185,11 +228,7 @@ impl From<CollectMetricsResponse> for pluginv2::CollectMetricsResponse {
 ///     ) -> Result<backend::CheckHealthResponse, Self::CheckHealthError> {
 ///         // A real plugin may ensure it could e.g. connect to a database, was configured
 ///         // correctly, etc.
-///         Ok(backend::CheckHealthResponse::new(
-///             backend::HealthStatus::Ok,
-///             "Ok".to_string(),
-///             serde_json::json!({}),
-///         ))
+///         Ok(backend::CheckHealthResponse::ok("Ok".to_string()))
 ///     }
 ///
 ///     type CollectMetricsError = prometheus::Error;

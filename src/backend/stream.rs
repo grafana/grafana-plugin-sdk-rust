@@ -100,9 +100,6 @@ impl InitialData {
 /// The response to a stream subscription request.
 ///
 /// This includes a status and some optional initial data for the stream.
-///
-/// If `initial_data` is provided then the requirements in the [`InitialData`] documentation
-/// MUST be upheld.
 #[derive(Debug)]
 #[non_exhaustive]
 pub struct SubscribeStreamResponse {
@@ -113,11 +110,45 @@ pub struct SubscribeStreamResponse {
 }
 
 impl SubscribeStreamResponse {
-    /// Create a new `SubscribeStreamResponse `.
+    /// Create a new `SubscribeStreamResponse`.
+    #[deprecated(
+        since = "1.3.0",
+        note = "use ok/not_found/permission_denied constructors instead"
+    )]
     pub fn new(status: SubscribeStreamStatus, initial_data: Option<InitialData>) -> Self {
         Self {
             status,
             initial_data,
+        }
+    }
+
+    /// Create a `SubscribeStreamResponse` with status [`SubscribeStreamStatus::Ok`].
+    ///
+    /// This is the happy path to be used when a subscription request succeeded.
+    pub fn ok(initial_data: Option<InitialData>) -> Self {
+        Self {
+            status: SubscribeStreamStatus::Ok,
+            initial_data,
+        }
+    }
+
+    /// Create a `SubscribeStreamResponse` with status [`SubscribeStreamStatus::NotFound`].
+    ///
+    /// This should be returned when the caller requested an unknown path.
+    pub fn not_found() -> Self {
+        Self {
+            status: SubscribeStreamStatus::NotFound,
+            initial_data: None,
+        }
+    }
+
+    /// Create a `SubscribeStreamResponse` with status [`SubscribeStreamStatus::PermissionDenied`].
+    ///
+    /// This should be returned when the caller is not permitted to access the requested path.
+    pub fn permission_denied() -> Self {
+        Self {
+            status: SubscribeStreamStatus::PermissionDenied,
+            initial_data: None,
         }
     }
 }
@@ -282,8 +313,42 @@ pub struct PublishStreamResponse {
 
 impl PublishStreamResponse {
     /// Create a new `PublishStreamResponse`.
+    #[deprecated(
+        since = "1.3.0",
+        note = "use ok/not_found/permission_denied constructors instead"
+    )]
     pub fn new(status: PublishStreamStatus, data: serde_json::Value) -> Self {
         Self { status, data }
+    }
+
+    /// Create a `PublishStreamResponse` with status [`PublishStreamStatus::Ok`].
+    ///
+    /// This is the happy path to be used when a publish request succeeded.
+    pub fn ok(data: serde_json::Value) -> Self {
+        Self {
+            status: PublishStreamStatus::Ok,
+            data,
+        }
+    }
+
+    /// Create a `PublishStreamResponse` with status [`PublishStreamStatus::NotFound`].
+    ///
+    /// This should be returned when the caller requested an unknown path.
+    pub fn not_found(details: serde_json::Value) -> Self {
+        Self {
+            status: PublishStreamStatus::NotFound,
+            data: details,
+        }
+    }
+
+    /// Create a `PublishStreamResponse` with status [`PublishStreamStatus::PermissionDenied`].
+    ///
+    /// This should be returned when the caller is not permitted to access the requested path.
+    pub fn permission_denied(details: serde_json::Value) -> Self {
+        Self {
+            status: PublishStreamStatus::PermissionDenied,
+            data: details,
+        }
     }
 }
 
@@ -345,13 +410,13 @@ impl TryFrom<PublishStreamResponse> for pluginv2::PublishStreamResponse {
 ///         &self,
 ///         request: backend::SubscribeStreamRequest,
 ///     ) -> Result<backend::SubscribeStreamResponse, Self::Error> {
-///         let status = if request.path.as_str() == "stream" {
-///             backend::SubscribeStreamStatus::Ok
+///         let response = if request.path.as_str() == "stream" {
+///             backend::SubscribeStreamResponse::ok(None)
 ///         } else {
-///             backend::SubscribeStreamStatus::NotFound
+///             backend::SubscribeStreamResponse::not_found()
 ///         };
 ///         info!(path = %request.path, "Subscribing to stream");
-///         Ok(backend::SubscribeStreamResponse::new(status, None))
+///         Ok(response)
 ///     }
 ///
 ///     type Error = StreamError;
