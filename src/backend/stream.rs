@@ -90,9 +90,9 @@ impl InitialData {
     }
 
     /// Create some initial data representing some JSON.
-    pub fn from_json(json: serde_json::Value) -> Result<Self, ConvertToError> {
+    pub fn from_json(json: &serde_json::Value) -> Result<Self, ConvertToError> {
         Ok(Self {
-            data: serde_json::to_vec(&json).map_err(|err| ConvertToError::InvalidJson { err })?,
+            data: serde_json::to_vec(json).map_err(|err| ConvertToError::InvalidJson { err })?,
         })
     }
 }
@@ -215,7 +215,7 @@ pub struct StreamPacket<J = ()> {
 }
 
 impl<J> StreamPacket<J> {
-    /// Create a StreamPacket representing a `Frame`.
+    /// Create a `StreamPacket` representing a `Frame`.
     pub fn from_frame(frame: data::CheckedFrame<'_>) -> Result<Self, ConvertToError> {
         Ok(Self {
             data: frame
@@ -225,7 +225,7 @@ impl<J> StreamPacket<J> {
         })
     }
 
-    /// Create a StreamPacket representing some JSON.
+    /// Create a `StreamPacket` representing some JSON.
     pub fn from_json(json: &J) -> Result<Self, ConvertToError>
     where
         J: Serialize,
@@ -236,7 +236,7 @@ impl<J> StreamPacket<J> {
         })
     }
 
-    /// Create a StreamPacket from arbitrary bytes.
+    /// Create a `StreamPacket` from arbitrary bytes.
     pub fn from_bytes(data: Vec<u8>) -> Self {
         Self {
             data,
