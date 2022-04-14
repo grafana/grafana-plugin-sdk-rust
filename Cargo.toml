@@ -4,7 +4,7 @@ version = "0.3.0"
 authors = ["Ben Sully <ben.sully@grafana.com>"]
 license = "MIT/Apache-2.0"
 edition = "2021"
-rust-version = "1.56"
+rust-version = "1.57"
 repository = "https://github.com/grafana/grafana-plugin-sdk-rust"
 description = "SDK for building Grafana backend plugins."
 
@@ -32,7 +32,11 @@ tracing = "0.1.29"
 tracing-core = "0.1.21"
 tracing-log = "0.1.2"
 tracing-serde = "0.1.2"
-tracing-subscriber = { version = "0.3.1", features = ["env-filter", "json", "time"] }
+tracing-subscriber = { version = "0.3.1", features = [
+  "env-filter",
+  "json",
+  "time",
+] }
 
 [dev-dependencies]
 async-stream = "0.3.2"
