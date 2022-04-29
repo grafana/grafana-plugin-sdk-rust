@@ -161,8 +161,8 @@ pub use resource::{
     IntoHttpResponse, ResourceService,
 };
 pub use stream::{
-    BoxRunStream, InitialData, PublishStreamRequest, PublishStreamResponse, RunStreamRequest,
-    StreamPacket, StreamService, SubscribeStreamRequest, SubscribeStreamResponse,
+    BoxRunStream, InitialData, PublishStreamRequest, PublishStreamResponse, PublishStreamStatus,
+    RunStreamRequest, StreamPacket, StreamService, SubscribeStreamRequest, SubscribeStreamResponse,
     SubscribeStreamStatus,
 };
 pub use tracing_fmt::HCLogJson;

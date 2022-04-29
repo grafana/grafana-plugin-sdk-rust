@@ -71,7 +71,7 @@ impl CheckHealthResponse {
 
     /// Create a `CheckHealthResponse` with status [`HealthStatus::Ok`].
     ///
-    /// The JSON in `json_details` will be set to `null`; use [`with_json_details`]
+    /// The JSON in `json_details` will be set to `null`; use [`CheckHealthResponse::with_json_details`]
     /// to override it.
     pub fn ok(message: String) -> Self {
         Self {
@@ -83,7 +83,7 @@ impl CheckHealthResponse {
 
     /// Create a `CheckHealthResponse` with status [`HealthStatus::Error`].
     ///
-    /// The JSON in `json_details` will be set to `null`; use [`with_json_details`]
+    /// The JSON in `json_details` will be set to `null`; use [`CheckHealthResponse::with_json_details`]
     /// to override it.
     pub fn error(message: String) -> Self {
         Self {
@@ -95,7 +95,7 @@ impl CheckHealthResponse {
 
     /// Create a `CheckHealthResponse` with status [`HealthStatus::Unknown`].
     ///
-    /// The JSON in `json_details` will be set to `null`; use [`with_json_details`]
+    /// The JSON in `json_details` will be set to `null`; use [`CheckHealthResponse::with_json_details`]
     /// to override it.
     pub fn unknown(message: String) -> Self {
         Self {
