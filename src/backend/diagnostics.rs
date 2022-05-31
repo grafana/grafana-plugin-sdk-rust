@@ -1,5 +1,7 @@
 //! SDK types and traits for checking health and collecting metrics from plugins.
 
+use std::collections::HashMap;
+
 use serde_json::Value;
 
 use crate::{
@@ -35,6 +37,8 @@ impl From<HealthStatus> for pluginv2::check_health_response::HealthStatus {
 pub struct CheckHealthRequest {
     /// Details of the plugin instance from which the request originated.
     pub plugin_context: Option<PluginContext>,
+    /// Headers included along with the request by Grafana.
+    pub headers: HashMap<String, String>,
 }
 
 impl TryFrom<pluginv2::CheckHealthRequest> for CheckHealthRequest {
@@ -42,6 +46,7 @@ impl TryFrom<pluginv2::CheckHealthRequest> for CheckHealthRequest {
     fn try_from(other: pluginv2::CheckHealthRequest) -> Result<Self, Self::Error> {
         Ok(Self {
             plugin_context: other.plugin_context.map(TryInto::try_into).transpose()?,
+            headers: other.headers,
         })
     }
 }
