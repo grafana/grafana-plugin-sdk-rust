@@ -13,6 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add `headers` field containing the allow-listed fields sent along with the request
   to `CheckHealthRequest` (see [the Go SDK PR](https://github.com/grafana/grafana-plugin-sdk-go/pull/512)
   for more details)
+- Add `type_` field containing the plugin type to `DataSourceInstanceSettings`. This is equal
+  to the `plugin_id` field on `PluginContext`. See [the Go SDK PR](https://github.com/grafana/grafana-plugin-sdk-go/pull/490)
+  for justification.
 
 ## [0.3.0] - 2022-04-14
 

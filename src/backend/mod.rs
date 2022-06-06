@@ -790,6 +790,11 @@ pub struct DataSourceInstanceSettings {
     /// The Grafana assigned string identifier of the the datasource instance.
     pub uid: String,
 
+    /// The unique identifier of the plugin that the request is for.
+    ///
+    /// This should be the same value as `[PluginContext.plugin_id]`.
+    pub type_: String,
+
     /// The configured name of the datasource instance.
     pub name: String,
 
@@ -830,6 +835,7 @@ impl Debug for DataSourceInstanceSettings {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("DataSourceInstanceSettings")
             .field("id", &self.id)
+            .field("type_", &self.type_)
             .field("uid", &self.uid)
             .field("name", &self.name)
             .field("url", &self.url)
@@ -844,12 +850,15 @@ impl Debug for DataSourceInstanceSettings {
     }
 }
 
-impl TryFrom<pluginv2::DataSourceInstanceSettings> for DataSourceInstanceSettings {
+impl TryFrom<(pluginv2::DataSourceInstanceSettings, String)> for DataSourceInstanceSettings {
     type Error = ConvertFromError;
-    fn try_from(other: pluginv2::DataSourceInstanceSettings) -> Result<Self, Self::Error> {
+    fn try_from(
+        (other, type_): (pluginv2::DataSourceInstanceSettings, String),
+    ) -> Result<Self, Self::Error> {
         Ok(Self {
             id: other.id,
             uid: other.uid,
+            type_,
             name: other.name,
             url: other.url,
             user: other.user,
@@ -903,7 +912,7 @@ impl TryFrom<pluginv2::PluginContext> for PluginContext {
     fn try_from(other: pluginv2::PluginContext) -> Result<Self, Self::Error> {
         Ok(Self {
             org_id: other.org_id,
-            plugin_id: other.plugin_id,
+            plugin_id: other.plugin_id.clone(),
             user: other.user.map(TryInto::try_into).transpose()?,
             app_instance_settings: other
                 .app_instance_settings
@@ -911,7 +920,7 @@ impl TryFrom<pluginv2::PluginContext> for PluginContext {
                 .transpose()?,
             datasource_instance_settings: other
                 .data_source_instance_settings
-                .map(TryInto::try_into)
+                .map(|ds| (ds, other.plugin_id).try_into())
                 .transpose()?,
         })
     }
