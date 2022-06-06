@@ -15,10 +15,10 @@ pub enum Error {
     Json(#[from] serde_json::Error),
     /// An error occurred creating the Arrow record batch.
     #[error("Error creating record batch: {0}")]
-    CreateRecordBatch(arrow2::error::ArrowError),
+    CreateRecordBatch(arrow2::error::Error),
     /// An error occurred when attempting to create or write data to the output buffer.
     #[error("Error writing data to Arrow buffer")]
-    WriteBuffer(arrow2::error::ArrowError),
+    WriteBuffer(arrow2::error::Error),
 }
 
 impl CheckedFrame<'_> {
