@@ -341,7 +341,7 @@ pub trait IntoOptField {
     fn into_opt_field(self, name: impl Into<String>) -> Field;
 }
 
-impl<'a, T, U, V> IntoOptField for T
+impl<T, U, V> IntoOptField for T
 where
     T: IntoIterator<Item = Option<U>>,
     U: IntoFieldType<ElementType = V>,
