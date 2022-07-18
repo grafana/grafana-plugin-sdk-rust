@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add `type_` field containing the plugin type to `DataSourceInstanceSettings`. This is equal
   to the `plugin_id` field on `PluginContext`. See [the Go SDK PR](https://github.com/grafana/grafana-plugin-sdk-go/pull/490)
   for justification.
+- Remove unused lifetime on `IntoOptField` blanket impl.
 
 ## [0.3.0] - 2022-04-14
 
