@@ -1,5 +1,5 @@
 //! Deserialization of [`Frame`]s from the JSON format.
-use std::{collections::BTreeMap, fmt, marker::PhantomData, sync::Arc};
+use std::{collections::BTreeMap, fmt, marker::PhantomData};
 
 use arrow2::{
     array::{
@@ -137,7 +137,7 @@ struct RawData<'a> {
 
 #[derive(Debug)]
 struct Data {
-    values: Vec<Arc<dyn Array>>,
+    values: Vec<Box<dyn Array>>,
 }
 
 impl TryFrom<(&'_ Schema, RawData<'_>)> for Data {
@@ -162,49 +162,49 @@ impl TryFrom<(&'_ Schema, RawData<'_>)> for Data {
                 .zip(entities)
                 .map(|((f, v), e)| {
                     let s = v.get();
-                    let arr: Arc<dyn Array> = match f.type_info.frame {
+                    let arr: Box<dyn Array> = match f.type_info.frame {
                         TypeInfoType::Int8 => {
-                            parse_array::<MutablePrimitiveArray<i8>, i8, ()>(s)?.as_arc()
+                            parse_array::<MutablePrimitiveArray<i8>, i8, ()>(s)?.as_box()
                         }
                         TypeInfoType::Int16 => {
-                            parse_array::<MutablePrimitiveArray<i16>, i16, ()>(s)?.as_arc()
+                            parse_array::<MutablePrimitiveArray<i16>, i16, ()>(s)?.as_box()
                         }
                         TypeInfoType::Int32 => {
-                            parse_array::<MutablePrimitiveArray<i32>, i32, ()>(s)?.as_arc()
+                            parse_array::<MutablePrimitiveArray<i32>, i32, ()>(s)?.as_box()
                         }
                         TypeInfoType::Int64 => {
-                            parse_array::<MutablePrimitiveArray<i64>, i64, ()>(s)?.as_arc()
+                            parse_array::<MutablePrimitiveArray<i64>, i64, ()>(s)?.as_box()
                         }
                         TypeInfoType::UInt8 => {
-                            parse_array::<MutablePrimitiveArray<u8>, u8, ()>(s)?.as_arc()
+                            parse_array::<MutablePrimitiveArray<u8>, u8, ()>(s)?.as_box()
                         }
                         TypeInfoType::UInt16 => {
-                            parse_array::<MutablePrimitiveArray<u16>, u16, ()>(s)?.as_arc()
+                            parse_array::<MutablePrimitiveArray<u16>, u16, ()>(s)?.as_box()
                         }
                         TypeInfoType::UInt32 => {
-                            parse_array::<MutablePrimitiveArray<u32>, u32, ()>(s)?.as_arc()
+                            parse_array::<MutablePrimitiveArray<u32>, u32, ()>(s)?.as_box()
                         }
                         TypeInfoType::UInt64 => {
-                            parse_array::<MutablePrimitiveArray<u64>, u64, ()>(s)?.as_arc()
+                            parse_array::<MutablePrimitiveArray<u64>, u64, ()>(s)?.as_box()
                         }
                         TypeInfoType::Float32 => {
                             parse_array_with_entities::<MutablePrimitiveArray<f32>, f32>(s, e)?
-                                .as_arc()
+                                .as_box()
                         }
                         TypeInfoType::Float64 => {
                             parse_array_with_entities::<MutablePrimitiveArray<f64>, f64>(s, e)?
-                                .as_arc()
+                                .as_box()
                         }
                         TypeInfoType::String => {
-                            parse_array::<MutableUtf8Array<i32>, String, ()>(s)?.as_arc()
+                            parse_array::<MutableUtf8Array<i32>, String, ()>(s)?.as_box()
                         }
                         TypeInfoType::Bool => {
-                            parse_array::<MutableBooleanArray, bool, ()>(s)?.as_arc()
+                            parse_array::<MutableBooleanArray, bool, ()>(s)?.as_box()
                         }
                         TypeInfoType::Time => {
                             parse_array::<MutablePrimitiveArray<i64>, i64, TimestampProcessor>(s)?
                                 .to(DataType::Timestamp(TimeUnit::Nanosecond, None))
-                                .as_arc()
+                                .as_box()
                         }
                     };
                     Ok(arr)

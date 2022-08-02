@@ -65,14 +65,8 @@ impl CheckedFrame<'_> {
             None
         } else {
             Some(
-                Chunk::try_new(
-                    self.0
-                        .fields
-                        .iter()
-                        .map(|f| Arc::clone(&f.values))
-                        .collect(),
-                )
-                .map_err(Error::CreateRecordBatch)?,
+                Chunk::try_new(self.0.fields.iter().map(|f| f.values.clone()).collect())
+                    .map_err(Error::CreateRecordBatch)?,
             )
         };
 

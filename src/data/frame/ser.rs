@@ -256,8 +256,6 @@ pub(crate) struct Entities {
 
 #[cfg(test)]
 mod test {
-    use std::sync::Arc;
-
     use arrow2::{
         array::PrimitiveArray,
         datatypes::{DataType, TimeUnit},
@@ -291,7 +289,7 @@ mod test {
                     name: "int8_values".to_string(),
                     labels: Default::default(),
                     config: None,
-                    values: Arc::new(PrimitiveArray::<i8>::from_slice([-128, -128, 0, 127, 127])),
+                    values: Box::new(PrimitiveArray::<i8>::from_slice([-128, -128, 0, 127, 127])),
                     type_info: TypeInfo {
                         frame: TypeInfoType::Int8,
                         nullable: Some(false),
@@ -301,7 +299,7 @@ mod test {
                     name: "date32_values".to_string(),
                     labels: Default::default(),
                     config: None,
-                    values: Arc::new(
+                    values: Box::new(
                         PrimitiveArray::<i32>::from_slice([18895, 18896, 18897, 18898, 18899])
                             .to(DataType::Date32),
                     ),
@@ -314,7 +312,7 @@ mod test {
                     name: "date64_values".to_string(),
                     labels: Default::default(),
                     config: None,
-                    values: Arc::new(
+                    values: Box::new(
                         PrimitiveArray::<i64>::from_slice([
                             1632528000000,
                             1632614400000,
@@ -333,7 +331,7 @@ mod test {
                     name: "timestamp_s_values".to_string(),
                     labels: Default::default(),
                     config: None,
-                    values: Arc::new(
+                    values: Box::new(
                         PrimitiveArray::<i64>::from_slice([
                             1632855151, 1632855152, 1632855153, 1632855154, 1632855155,
                         ])
@@ -348,7 +346,7 @@ mod test {
                     name: "timestamp_ms_values".to_string(),
                     labels: Default::default(),
                     config: None,
-                    values: Arc::new(
+                    values: Box::new(
                         PrimitiveArray::<i64>::from_slice([
                             1632855151000,
                             1632855152000,
@@ -367,7 +365,7 @@ mod test {
                     name: "timestamp_us_values".to_string(),
                     labels: Default::default(),
                     config: None,
-                    values: Arc::new(
+                    values: Box::new(
                         PrimitiveArray::<i64>::from_slice([
                             1632855151000000,
                             1632855152000000,
@@ -386,7 +384,7 @@ mod test {
                     name: "timestamp_ns_values".to_string(),
                     labels: Default::default(),
                     config: None,
-                    values: Arc::new(
+                    values: Box::new(
                         PrimitiveArray::<i64>::from_slice([
                             1632855151000000000,
                             1632855152000000000,
