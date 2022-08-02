@@ -8,6 +8,15 @@ rust-version = "1.57"
 repository = "https://github.com/grafana/grafana-plugin-sdk-rust"
 description = "SDK for building Grafana backend plugins."
 
+# Since prost 0.11 we no longer use prost-build at build time to generate code,
+# because it requires protoc. The generated code is instead checked in to source
+# control. To regenerate code in the case of updated .proto definitions, flip
+# the comments on the following lines and rebuild.
+build = false
+# [build-dependencies]
+# prost-build = "0.11.1"
+# tonic-build = "0.8.0"
+
 [dependencies]
 arrow2 = { version = "0.13.0", features = ["io_ipc"] }
 chrono = "0.4.19"
@@ -17,7 +26,7 @@ grafana-plugin-sdk-macros = { version = "0.3.0", path = "./grafana-plugin-sdk-ma
 http = "0.2.5"
 itertools = "0.10.1"
 num-traits = "0.2.14"
-prost = "0.10.0"
+prost = "0.11.0"
 reqwest_lib = { package = "reqwest", version = "0.11.6", optional = true }
 serde = { version = "1.0.130", features = ["derive"] }
 serde_json = { version = "1.0.69", features = ["float_roundtrip", "raw_value"] }
@@ -26,8 +35,8 @@ thiserror = "1.0.30"
 time = { version = "0.3.5", features = ["formatting", "macros"] }
 tokio = { version = "1.13.0", features = ["rt-multi-thread"] }
 tokio-stream = { version = "0.1.8", features = ["net"] }
-tonic = "0.7.0"
-tonic-health = "0.6.0"
+tonic = "0.8.1"
+tonic-health = "0.7.1"
 tracing = "0.1.29"
 tracing-core = "0.1.21"
 tracing-log = "0.1.2"
@@ -47,10 +56,6 @@ pretty_assertions = "1.0.0"
 prometheus = { version = "0.13.0", default-features = false }
 tokio = { version = "1.13.0", features = ["rt-multi-thread"] }
 tokio-stream = "0.1.8"
-
-[build-dependencies]
-prost-build = "0.10.0"
-tonic-build = "0.7.0"
 
 # docs.rs-specific configuration
 [package.metadata.docs.rs]

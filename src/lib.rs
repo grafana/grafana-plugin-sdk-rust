@@ -47,7 +47,7 @@ extern crate reqwest_lib as reqwest;
 #[allow(missing_docs, clippy::all, clippy::nursery, clippy::pedantic)]
 pub mod pluginv2 {
     //! The low-level structs generated from protocol definitions.
-    tonic::include_proto!("pluginv2");
+    include!("pluginv2/pluginv2.rs");
 }
 
 pub mod backend;

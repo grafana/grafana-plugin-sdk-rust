@@ -20,6 +20,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Remove unused lifetime on `IntoOptField` blanket impl.
 - Derive `Eq` (as well as just `PartialEq`) for various structs across the crate.
 - Bump arrow2 dependency to 0.13.0
+- Bump prost to 0.11.0 and remove prost-build dependency, preferring checked-in generated code.
+  This should speed up build times and remove the dependency on `protoc` since we no longer need to compile proto definitions.
+- Bump tonic to 0.8.0 and remove tonic-build dependency.
 - Bump serde_with dependency to 2.0.0
 
 ## [0.3.0] - 2022-04-14
