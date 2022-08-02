@@ -2,7 +2,6 @@
 use std::{
     collections::{BTreeMap, HashMap},
     iter::FromIterator,
-    sync::Arc,
 };
 
 use arrow2::{
@@ -41,7 +40,7 @@ pub struct Field {
     /// The types of values contained within the `Array` MUST match the
     /// type information in `type_info` at all times. The various `into_field`-like
     /// functions and the `set_values` methods should ensure this.
-    pub(crate) values: Arc<dyn Array>,
+    pub(crate) values: Box<dyn Array>,
     /// Type information for this field, as understood by Grafana.
     pub(crate) type_info: TypeInfo,
 }
@@ -132,6 +131,11 @@ impl Field {
 
     /// Get the values of this field as a [`&dyn Array`].
     pub fn values(&self) -> &dyn Array {
+        // This nightly clippy lint creates spurious suggestions for `&dyn Trait` return
+        // types. This can be uncommented when https://github.com/rust-lang/rust-clippy/pull/9126
+        // is released.
+        #[allow(unknown_lints)]
+        #[allow(clippy::explicit_auto_deref)]
         &*self.values
     }
 
@@ -177,7 +181,7 @@ impl Field {
                 field: self.name.clone(),
             });
         }
-        self.values = Arc::new(V::convert_arrow_array(
+        self.values = Box::new(V::convert_arrow_array(
             values
                 .into_iter()
                 .map(U::into_field_type)
@@ -230,7 +234,7 @@ impl Field {
                 field: self.name.clone(),
             });
         }
-        self.values = Arc::new(V::convert_arrow_array(
+        self.values = Box::new(V::convert_arrow_array(
             values
                 .into_iter()
                 .map(|x| x.and_then(U::into_field_type))
@@ -281,7 +285,7 @@ impl Field {
                 field: self.name.clone(),
             });
         }
-        self.values = Arc::new(values);
+        self.values = Box::new(values);
         Ok(())
     }
 }
@@ -325,7 +329,7 @@ where
                 frame: U::TYPE_INFO_TYPE,
                 nullable: Some(false),
             },
-            values: Arc::new(V::convert_arrow_array(
+            values: Box::new(V::convert_arrow_array(
                 self.into_iter()
                     .map(U::into_field_type)
                     .collect::<V::Array>(),
@@ -357,7 +361,7 @@ where
                 frame: U::TYPE_INFO_TYPE,
                 nullable: Some(true),
             },
-            values: Arc::new(V::convert_arrow_array(
+            values: Box::new(V::convert_arrow_array(
                 self.into_iter()
                     .map(|x| x.and_then(U::into_field_type))
                     .collect::<V::Array>(),
@@ -390,7 +394,7 @@ where
                 frame: self.data_type().try_into()?,
                 nullable: Some(true),
             },
-            values: Arc::new(self),
+            values: Box::new(self),
         })
     }
 }

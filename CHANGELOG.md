@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Bump arrow2 dependency to 0.12.0
+- Bump arrow2 dependency to 0.13.0
 - Bump serde_with dependency to 2.0.0
 - Add `headers` field containing the allow-listed fields sent along with the request
   to `CheckHealthRequest` (see [the Go SDK PR](https://github.com/grafana/grafana-plugin-sdk-go/pull/512)
