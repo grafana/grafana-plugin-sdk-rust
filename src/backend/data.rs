@@ -3,7 +3,7 @@ use std::{collections::HashMap, pin::Pin, time::Duration};
 
 use futures_core::Stream;
 use futures_util::StreamExt;
-use serde_json::Value;
+use serde::de::DeserializeOwned;
 
 use crate::{
     backend::{self, ConvertFromError, TimeRange},
@@ -16,7 +16,10 @@ use crate::{
 /// while the actual plugins themselves are in `queries`.
 #[derive(Debug)]
 #[non_exhaustive]
-pub struct QueryDataRequest {
+pub struct QueryDataRequest<Q>
+where
+    Q: DeserializeOwned,
+{
     /// Details of the plugin instance from which the request originated.
     ///
     /// If the request originates from a datasource instance, this will
@@ -30,10 +33,13 @@ pub struct QueryDataRequest {
     /// Each [`DataQuery`] contains a unique `ref_id` field which identifies
     /// the query to the frontend; this should be included in the corresponding
     /// `DataResponse` for each query.
-    pub queries: Vec<DataQuery>,
+    pub queries: Vec<DataQuery<Q>>,
 }
 
-impl TryFrom<pluginv2::QueryDataRequest> for QueryDataRequest {
+impl<Q> TryFrom<pluginv2::QueryDataRequest> for QueryDataRequest<Q>
+where
+    Q: DeserializeOwned,
+{
     type Error = ConvertFromError;
     fn try_from(other: pluginv2::QueryDataRequest) -> Result<Self, Self::Error> {
         Ok(Self {
@@ -53,10 +59,13 @@ impl TryFrom<pluginv2::QueryDataRequest> for QueryDataRequest {
 
 /// A query made by Grafana to the plugin as part of a [`QueryDataRequest`].
 ///
-/// The `json` field contains any fields set by the plugin's UI.
+/// The `query` field contains any fields set by the plugin's UI.
 #[derive(Debug)]
 #[non_exhaustive]
-pub struct DataQuery {
+pub struct DataQuery<Q>
+where
+    Q: DeserializeOwned,
+{
     /// The unique identifier of the query, set by the frontend call.
     ///
     /// This should be included in the corresponding [`DataResponse`].
@@ -76,13 +85,16 @@ pub struct DataQuery {
     /// The start and end of the query requested by the frontend.
     pub time_range: TimeRange,
 
-    /// The raw JSON query.
+    /// The inner query.
     ///
     /// This contains all of the other properties, as well as custom properties.
-    pub json: Value,
+    pub query: Q,
 }
 
-impl TryFrom<pluginv2::DataQuery> for DataQuery {
+impl<Q> TryFrom<pluginv2::DataQuery> for DataQuery<Q>
+where
+    Q: DeserializeOwned,
+{
     type Error = ConvertFromError;
     fn try_from(other: pluginv2::DataQuery) -> Result<Self, Self::Error> {
         Ok(Self {
@@ -94,7 +106,7 @@ impl TryFrom<pluginv2::DataQuery> for DataQuery {
                 .time_range
                 .map(TimeRange::from)
                 .ok_or(ConvertFromError::MissingTimeRange)?,
-            json: backend::read_json(&other.json)?,
+            query: backend::read_json(&other.json)?,
         })
     }
 }
@@ -164,6 +176,14 @@ pub trait DataQueryError: std::error::Error {
 /// #[backend::async_trait]
 /// impl backend::DataService for MyPlugin {
 ///
+///     /// The type of JSON data sent from Grafana to our backend plugin.
+///     ///
+///     /// This will correspond to the `TQuery` type parameter of the frontend
+///     /// datasource.
+///     ///
+///     /// We can use `serde_json::Value` if we want to accept any JSON.
+///     type Query = serde_json::Value;
+///
 ///     /// The type of error that could be returned by an individual query.
 ///     type QueryError = QueryError;
 ///
@@ -181,7 +201,7 @@ pub trait DataQueryError: std::error::Error {
 ///     ///
 ///     /// Our plugin must respond to each query and return an iterator of `DataResponse`s,
 ///     /// which themselves can contain zero or more `Frame`s.
-///     async fn query_data(&self, request: backend::QueryDataRequest) -> Self::Stream {
+///     async fn query_data(&self, request: backend::QueryDataRequest<Self::Query>) -> Self::Stream {
 ///         Box::pin(
 ///             request
 ///                 .queries
@@ -213,6 +233,9 @@ pub trait DataQueryError: std::error::Error {
 /// ```
 #[tonic::async_trait]
 pub trait DataService {
+    /// The type of the JSON query sent from Grafana to the plugin.
+    type Query: DeserializeOwned + Send + Sync;
+
     /// The error type that can be returned by individual queries.
     ///
     /// This must implement [`DataQueryError`], which allows the SDK to
@@ -229,7 +252,7 @@ pub trait DataService {
     ///
     /// The request will contain zero or more queries, as well as information about the
     /// origin of the queries (such as the datasource instance) in the `plugin_context` field.
-    async fn query_data(&self, request: QueryDataRequest) -> Self::Stream;
+    async fn query_data(&self, request: QueryDataRequest<Self::Query>) -> Self::Stream;
 }
 
 /// Type alias for a boxed iterator of query responses, useful for returning from [`DataService::query_data`].

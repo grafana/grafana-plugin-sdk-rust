@@ -59,6 +59,14 @@ impl backend::DataQueryError for QueryError {
 #[tonic::async_trait]
 impl backend::DataService for MyPlugin {
 
+    /// The type of JSON data sent from Grafana to our backend plugin.
+    ///
+    /// This will correspond to the `TQuery` type parameter of the frontend
+    /// datasource.
+    ///
+    /// We can use `serde_json::Value` if we want to accept any JSON.
+    type Query = serde_json::Value;
+
     /// The type of error that could be returned by an individual query.
     type QueryError = QueryError;
 
@@ -76,7 +84,7 @@ impl backend::DataService for MyPlugin {
     ///
     /// Our plugin must respond to each query and return an iterator of `DataResponse`s,
     /// which themselves can contain zero or more `Frame`s.
-    async fn query_data(&self, request: backend::QueryDataRequest) -> Self::Stream {
+    async fn query_data(&self, request: backend::QueryDataRequest<Self::Query>) -> Self::Stream {
         Box::pin(
             request
                 .queries
@@ -120,6 +128,7 @@ use std::{collections::HashMap, fmt::Debug, io, net::SocketAddr, str::FromStr};
 
 use chrono::prelude::*;
 use futures_util::FutureExt;
+use serde::de::DeserializeOwned;
 use serde_json::Value;
 use thiserror::Error;
 use tokio::net::TcpListener;
@@ -255,6 +264,14 @@ impl ShutdownHandler {
 /// #[tonic::async_trait]
 /// impl backend::DataService for MyPlugin {
 ///
+///     /// The type of JSON data sent from Grafana to our backend plugin.
+///     ///
+///     /// This will correspond to the `TQuery` type parameter of the frontend
+///     /// datasource.
+///     ///
+///     /// We can use `serde_json::Value` if we want to accept any JSON.
+///     type Query = serde_json::Value;
+///
 ///     /// The type of error that could be returned by an individual query.
 ///     type QueryError = QueryError;
 ///
@@ -272,7 +289,7 @@ impl ShutdownHandler {
 ///     ///
 ///     /// Our plugin must respond to each query and return an iterator of `DataResponse`s,
 ///     /// which themselves can contain zero or more `Frame`s.
-///     async fn query_data(&self, request: backend::QueryDataRequest) -> Self::Stream {
+///     async fn query_data(&self, request: backend::QueryDataRequest<Self::Query>) -> Self::Stream {
 ///         Box::pin(
 ///             request
 ///                 .queries
@@ -651,19 +668,18 @@ pub enum ConvertToError {
 
 type ConvertFromResult<T> = std::result::Result<T, ConvertFromError>;
 
-pub(self) fn read_json(jdoc: &[u8]) -> ConvertFromResult<Value> {
+pub(self) fn read_json<T>(jdoc: &[u8]) -> ConvertFromResult<T>
+where
+    T: DeserializeOwned,
+{
     // Grafana sometimes sends an empty string instead of an empty map, probably
     // because of some zero value Golang stuff?
-    (!jdoc.is_empty())
-        .then(|| {
-            serde_json::from_slice(jdoc).map_err(|err| ConvertFromError::InvalidJson {
-                err,
-                json: String::from_utf8(jdoc.to_vec()).unwrap_or_else(|_| {
-                    format!("non-utf8 string: {}", String::from_utf8_lossy(jdoc))
-                }),
-            })
-        })
-        .unwrap_or_else(|| Ok(serde_json::json!({})))
+    let jdoc = jdoc.is_empty().then(|| b"{}".as_slice()).unwrap_or(jdoc);
+    serde_json::from_slice(jdoc).map_err(|err| ConvertFromError::InvalidJson {
+        err,
+        json: String::from_utf8(jdoc.to_vec())
+            .unwrap_or_else(|_| format!("non-utf8 string: {}", String::from_utf8_lossy(jdoc))),
+    })
 }
 
 /// The time range for a query.
