@@ -10,7 +10,7 @@ use crate::{
 };
 
 /// The health status of a plugin.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum HealthStatus {
     /// The plugin was unable to determine if it was healthy.

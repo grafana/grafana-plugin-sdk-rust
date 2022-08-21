@@ -401,7 +401,7 @@ where
 
 /// The type information for a [`Frame`][crate::data::Frame] as understood by Grafana.
 #[skip_serializing_none]
-#[derive(Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Debug, Deserialize, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TypeInfo {
     /// The type, as understood by Grafana.
@@ -420,7 +420,7 @@ impl TypeInfo {
 }
 
 /// Valid types understood by Grafana.
-#[derive(Clone, Copy, Debug, PartialEq, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum TypeInfoType {
     /// An 8 bit signed integer.
@@ -620,7 +620,7 @@ pub struct FieldConfig {
 }
 
 /// Special values that can be mapped to new text and colour values.
-#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(untagged, rename_all = "camelCase")]
 #[non_exhaustive]
 pub enum SpecialValueMatch {
@@ -668,7 +668,7 @@ pub enum ValueMapping {
 
 /// A new value to be displayed when a [`ValueMapping`] matches an input value.
 #[skip_serializing_none]
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct ValueMappingResult {
@@ -709,7 +709,7 @@ pub struct Threshold {
 }
 
 /// How thresholds should be evaluated.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub enum ThresholdsMode {
@@ -729,7 +729,7 @@ impl Default for ThresholdsMode {
 
 /// Links to use when clicking on a result.
 #[skip_serializing_none]
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct DataLink {
