@@ -90,7 +90,10 @@ impl InitialData {
     }
 
     /// Create some initial data representing some JSON.
-    pub fn from_json(json: &serde_json::Value) -> Result<Self, ConvertToError> {
+    pub fn from_json<T>(json: &T) -> Result<Self, ConvertToError>
+    where
+        T: Serialize,
+    {
         Ok(Self {
             data: serde_json::to_vec(json).map_err(|err| ConvertToError::InvalidJson { err })?,
         })
