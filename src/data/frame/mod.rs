@@ -473,7 +473,7 @@ impl<T: IntoFrame> FromFields<T> for Frame {
 }
 
 /// Options for customizing the way a [`Frame`] is serialized.
-#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub enum FrameInclude {
@@ -529,7 +529,7 @@ pub struct Metadata {
 }
 
 /// Visualiation type options understood by Grafana.
-#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub enum VisType {
@@ -566,7 +566,7 @@ pub enum VisType {
 ///     .with_metadata(metadata);
 /// ```
 #[skip_serializing_none]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct Notice {
@@ -607,7 +607,7 @@ impl Notice {
 }
 
 /// The severity level of a notice.
-#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub enum Severity {
@@ -620,7 +620,7 @@ pub enum Severity {
 }
 
 /// A suggestion for which tab to display in the panel inspector in Grafana's UI.
-#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub enum InspectType {

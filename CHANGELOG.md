@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   to the `plugin_id` field on `PluginContext`. See [the Go SDK PR](https://github.com/grafana/grafana-plugin-sdk-go/pull/490)
   for justification.
 - Remove unused lifetime on `IntoOptField` blanket impl.
+- Derive `Eq` (as well as just `PartialEq`) for various structs across the crate.
 
 ## [0.3.0] - 2022-04-14
 

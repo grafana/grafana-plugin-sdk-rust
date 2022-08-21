@@ -59,7 +59,7 @@ type Result<T> = std::result::Result<T, Error>;
 /// The scope of a channel.
 ///
 /// This determines the purpose of a channel in Grafana Live.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Scope {
     /// Built-in real-time features of Grafana core.
     Grafana,
@@ -110,7 +110,7 @@ impl fmt::Display for Scope {
 ///
 /// The inner data can be accessed using the `as_str` method. `Namespace` also derefs
 /// to a `&str` for convenience.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Namespace(String);
 
 impl Namespace {
@@ -160,7 +160,7 @@ impl std::ops::Deref for Namespace {
 ///
 /// The inner data can be accessed using the `as_str` method. `Path` also derefs
 /// to a `&str` for convenience.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Path(String);
 
 impl Path {
@@ -234,7 +234,7 @@ impl std::ops::Deref for Path {
 /// See the [channel guide] for more information.
 ///
 /// [channel guide]: https://grafana.com/docs/grafana/latest/live/live-channel/
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Channel {
     scope: Scope,
     namespace: Namespace,
