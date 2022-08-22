@@ -9,8 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Bump arrow2 dependency to 0.13.0
-- Bump serde_with dependency to 2.0.0
+- The `DataService` trait has a new associated type, `Query`, which corresponds to the type of the query sent from the frontend component of the plugin (the `TQuery` type parameter of the frontend `DatasourceApi` implementation). The backend SDK will attempt to deserialize the JSON into this struct, and it will be accessible on the `query` property of each query in `QueryDataRequest.queries`. Note that `QueryDataRequest` is also now generic over this type. Within the `DataService` trait, it is simplest to use `Self::Query` to refer to the new type.
+  To retain the old behaviour, set `Query = serde_json::Value` in `DataService`.
 - Add `headers` field containing the allow-listed fields sent along with the request
   to `CheckHealthRequest` (see [the Go SDK PR](https://github.com/grafana/grafana-plugin-sdk-go/pull/512)
   for more details)
@@ -19,6 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   for justification.
 - Remove unused lifetime on `IntoOptField` blanket impl.
 - Derive `Eq` (as well as just `PartialEq`) for various structs across the crate.
+- Bump arrow2 dependency to 0.13.0
+- Bump serde_with dependency to 2.0.0
 
 ## [0.3.0] - 2022-04-14
 

@@ -10,11 +10,16 @@ use bytes::Bytes;
 use chrono::prelude::*;
 use futures_util::stream::FuturesOrdered;
 use http::Response;
+use serde::Deserialize;
 use thiserror::Error;
 use tokio_stream::StreamExt;
 use tracing::{debug, info};
 
-use grafana_plugin_sdk::{backend, data, prelude::*};
+use grafana_plugin_sdk::{
+    backend::{self, DataQuery},
+    data,
+    prelude::*,
+};
 
 #[derive(Clone, Debug, Default)]
 struct MyPluginService(Arc<AtomicUsize>);
@@ -26,6 +31,13 @@ impl MyPluginService {
 }
 
 // Data service implementation.
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct Query {
+    pub expression: String,
+    pub other_user_input: u64,
+}
 
 #[derive(Debug, Error)]
 #[error("Error querying backend for query {ref_id}: {source}")]
@@ -42,14 +54,21 @@ impl backend::DataQueryError for QueryError {
 
 #[tonic::async_trait]
 impl backend::DataService for MyPluginService {
+    type Query = Query;
     type QueryError = QueryError;
     type Stream = backend::BoxDataResponseStream<Self::QueryError>;
-    async fn query_data(&self, request: backend::QueryDataRequest) -> Self::Stream {
+    async fn query_data(&self, request: backend::QueryDataRequest<Self::Query>) -> Self::Stream {
         Box::pin(
             request
                 .queries
                 .into_iter()
-                .map(|x| async {
+                .map(|x: DataQuery<Self::Query>| async move {
+                    // We can see the user's query in `x.query`:
+                    debug!(
+                        expression = x.query.expression,
+                        other_user_input = x.query.other_user_input,
+                        "Got backend query",
+                    );
                     // Here we create a single response Frame for each query.
                     // Frames can be created from iterators of fields using [`IntoFrame`].
                     Ok(backend::DataResponse::new(
