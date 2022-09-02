@@ -123,10 +123,11 @@ pub type BoxResourceStream<E> = Pin<Box<dyn futures_core::Stream<Item = Result<B
 /// [`IntoHttpResponse`] is implemented for some types already - see its docs for details.
 /// Note that the `reqwest` feature of this crate is required for the `IntoHttpResponse`
 /// implementation to be enabled for [`reqwest::Response`].
+///
 #[cfg_attr(
     feature = "reqwest",
     doc = r##"
-Note that this example requires the `reqwest` feature.
+The example below requires the `reqwest` feature:
 
 ```rust
 # extern crate reqwest_lib as reqwest;
