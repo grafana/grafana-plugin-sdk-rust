@@ -17,7 +17,7 @@ grafana-plugin-sdk-macros = { version = "0.3.0", path = "./grafana-plugin-sdk-ma
 http = "0.2.5"
 itertools = "0.10.1"
 num-traits = "0.2.14"
-prost = "0.10.0"
+prost = "0.11.0"
 reqwest_lib = { package = "reqwest", version = "0.11.6", optional = true }
 serde = { version = "1.0.130", features = ["derive"] }
 serde_json = { version = "1.0.69", features = ["float_roundtrip", "raw_value"] }
@@ -26,8 +26,8 @@ thiserror = "1.0.30"
 time = { version = "0.3.5", features = ["formatting", "macros"] }
 tokio = { version = "1.13.0", features = ["rt-multi-thread"] }
 tokio-stream = { version = "0.1.8", features = ["net"] }
-tonic = "0.7.0"
-tonic-health = "0.6.0"
+tonic = "0.8.1"
+tonic-health = "0.7.1"
 tracing = "0.1.29"
 tracing-core = "0.1.21"
 tracing-log = "0.1.2"
@@ -49,8 +49,8 @@ tokio = { version = "1.13.0", features = ["rt-multi-thread"] }
 tokio-stream = "0.1.8"
 
 [build-dependencies]
-prost-build = "0.10.0"
-tonic-build = "0.7.0"
+prost-build = { version = "0.11.1", optional = true }
+tonic-build = { version = "0.8.0", optional = true }
 
 # docs.rs-specific configuration
 [package.metadata.docs.rs]
@@ -61,3 +61,8 @@ rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
 reqwest = ["reqwest_lib"]
+# Since prost 0.11 we no longer use prost-build at build time to generate code,
+# because it requires protoc. The generated code is instead checked in to source
+# control. To regenerate code in the case of updated .proto definitions, build
+# with this feature enabled.
+gen-proto = ["dep:tonic-build", "dep:prost-build"]
