@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+## [0.4.0] - 2022-09-19
+
 ### Changed
 
 - The `DataService` trait has a new associated type, `Query`, which corresponds to the type of the query sent from the frontend component of the plugin (the `TQuery` type parameter of the frontend `DatasourceApi` implementation). The backend SDK will attempt to deserialize the JSON into this struct, and it will be accessible on the `query` property of each query in `QueryDataRequest.queries`. Note that `QueryDataRequest` is also now generic over this type. Within the `DataService` trait, it is simplest to use `Self::Query` to refer to the new type.
@@ -99,7 +101,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial release of the SDK
 
 <!-- next-url -->
-[unreleased]: https://github.com/grafana/grafana-plugin-sdk-rust/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/assert-rs/predicates-rs/compare/v0.4.0...HEAD
+[unreleased]: https://github.com/grafana/grafana-plugin-sdk-rust/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/grafana/grafana-plugin-sdk-rust/tag/v0.3.0
 [0.2.0]: https://github.com/grafana/grafana-plugin-sdk-rust/tag/v0.2.0
 [0.1.0]: https://github.com/grafana/grafana-plugin-sdk-rust/tag/v0.1.0
