@@ -12,8 +12,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .out_dir("src/pluginv2")
             .compile_with_config(
                 config,
-                &["./vendor/proto/backend.proto"],
-                &["./vendor/proto"],
+                &["../../vendor/proto/backend.proto"],
+                &["../../vendor/proto"],
             )?)
     }
     #[cfg(not(feature = "gen-proto"))]
