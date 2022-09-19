@@ -2,9 +2,16 @@
 
 mod a {
     use grafana_plugin_sdk::{backend, data};
+    use serde::Deserialize;
 
     #[derive(Clone)]
     struct MyPlugin;
+
+    #[derive(Debug, Deserialize)]
+    struct Query {
+        pub expression: String,
+        pub other_user_input: u64,
+    }
 
     #[derive(Debug)]
     struct QueryError {
@@ -28,9 +35,10 @@ mod a {
 
     #[backend::async_trait]
     impl backend::DataService for MyPlugin {
+        type Query = Query;
         type QueryError = QueryError;
-        type Iter = backend::BoxDataResponseIter<Self::QueryError>;
-        async fn query_data(&self, request: backend::QueryDataRequest) -> Self::Iter {
+        type Stream = backend::BoxDataResponseStream<Self::QueryError>;
+        async fn query_data(&self, request: backend::QueryDataRequest<Self::Query>) -> Self::Stream {
             todo!()
         }
     }
@@ -45,9 +53,18 @@ mod b {
     use std::sync::Arc;
 
     use grafana_plugin_sdk::{backend, data};
+    use http::Response;
+    use serde::Deserialize;
+    use thiserror::Error;
 
     #[derive(Clone)]
     struct MyPlugin;
+
+    #[derive(Debug, Deserialize)]
+    struct Query {
+        pub expression: String,
+        pub other_user_input: u64,
+    }
 
     #[derive(Debug)]
     struct QueryError {
@@ -71,9 +88,10 @@ mod b {
 
     #[backend::async_trait]
     impl backend::DataService for MyPlugin {
+        type Query = Query;
         type QueryError = QueryError;
-        type Iter = backend::BoxDataResponseIter<Self::QueryError>;
-        async fn query_data(&self, request: backend::QueryDataRequest) -> Self::Iter {
+        type Stream = backend::BoxDataResponseStream<Self::QueryError>;
+        async fn query_data(&self, request: backend::QueryDataRequest<Self::Query>) -> Self::Stream {
             todo!()
         }
     }
@@ -99,12 +117,23 @@ mod b {
         }
     }
 
+    #[derive(Debug, Error)]
+    enum ResourceError {
+        #[error("HTTP error: {0}")]
+        Http(#[from] http::Error),
+   
+        #[error("Path not found")]
+        NotFound,
+    }
+   
+    impl backend::ErrIntoHttpResponse for ResourceError {}
+
     #[backend::async_trait]
     impl backend::ResourceService for MyPlugin {
-        type Error = Arc<dyn std::error::Error + Send + Sync>;
-        type InitialResponse = Vec<u8>;
+        type Error = ResourceError;
+        type InitialResponse = Response<Vec<u8>>;
         type Stream = backend::BoxResourceStream<Self::Error>;
-        async fn call_resource(&self, r: backend::CallResourceRequest) -> (Result<Self::InitialResponse, Self::Error>, Self::Stream) {
+        async fn call_resource(&self, r: backend::CallResourceRequest) -> Result<(Self::InitialResponse, Self::Stream), Self::Error> {
             todo!()
         }
     }
@@ -115,18 +144,18 @@ mod b {
         async fn subscribe_stream(
             &self,
             request: backend::SubscribeStreamRequest,
-        ) -> backend::SubscribeStreamResponse {
+        ) -> Result<backend::SubscribeStreamResponse, Self::Error> {
             todo!()
         }
-        type StreamError = Arc<dyn std::error::Error>;
-        type Stream = backend::BoxRunStream<Self::StreamError>;
-        async fn run_stream(&self, _request: backend::RunStreamRequest) -> Self::Stream {
+        type Error = Arc<dyn std::error::Error>;
+        type Stream = backend::BoxRunStream<Self::Error>;
+        async fn run_stream(&self, _request: backend::RunStreamRequest) -> Result<Self::Stream, Self::Error> {
             todo!()
         }
         async fn publish_stream(
             &self,
             _request: backend::PublishStreamRequest,
-        ) -> backend::PublishStreamResponse {
+        ) -> Result<backend::PublishStreamResponse, Self::Error> {
             todo!()
         }
     }
