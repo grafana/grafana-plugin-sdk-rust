@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+## [0.4.1] - 2022-09-19
+
 ## [0.4.0] - 2022-09-19
 
 ### Changed
@@ -101,7 +103,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial release of the SDK
 
 <!-- next-url -->
-[Unreleased]: https://github.com/assert-rs/predicates-rs/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/assert-rs/predicates-rs/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/assert-rs/predicates-rs/compare/v0.4.0...v0.4.1
 [unreleased]: https://github.com/grafana/grafana-plugin-sdk-rust/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/grafana/grafana-plugin-sdk-rust/tag/v0.3.0
 [0.2.0]: https://github.com/grafana/grafana-plugin-sdk-rust/tag/v0.2.0
