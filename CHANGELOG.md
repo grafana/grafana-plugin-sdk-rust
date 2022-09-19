@@ -27,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   This should speed up build times and remove the dependency on `protoc` since we no longer need to compile proto definitions.
 - Bump tonic to 0.8.0 and remove tonic-build dependency.
 - Bump serde_with dependency to 2.0.0
+- Use cargo-release to automate release process
 
 ## [0.3.0] - 2022-04-14
 
