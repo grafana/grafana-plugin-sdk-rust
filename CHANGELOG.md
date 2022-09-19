@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add `type_` field containing the plugin type to `DataSourceInstanceSettings`. This is equal
   to the `plugin_id` field on `PluginContext`. See [the Go SDK PR](https://github.com/grafana/grafana-plugin-sdk-go/pull/490)
   for justification.
+- Add impl of `backend::IntoHttpResponse` for `http::Response<Vec<u8>>`.
 - Remove unused lifetime on `IntoOptField` blanket impl.
 - Derive `Eq` (as well as just `PartialEq`) for various structs across the crate.
 - Bump arrow2 dependency to 0.14.0

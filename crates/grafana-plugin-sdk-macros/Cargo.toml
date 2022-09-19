@@ -17,6 +17,9 @@ syn = { version = "1.0.81", features = ["full"] }
 
 [dev-dependencies]
 grafana-plugin-sdk = { version = "0.3.0", path = "../grafana-plugin-sdk" }
+http = "0.2.8"
+serde = { version = "1.0.144", features = ["derive"] }
+thiserror = "1.0.35"
 tokio = { version = "1.13.0", features = ["rt-multi-thread"] }
 trybuild = "1.0.52"
 

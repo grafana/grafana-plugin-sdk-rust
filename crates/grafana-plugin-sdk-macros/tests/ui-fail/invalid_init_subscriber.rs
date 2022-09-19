@@ -2,9 +2,16 @@
 
 mod a {
     use grafana_plugin_sdk::{backend, data};
+    use serde::Deserialize;
 
     #[derive(Clone)]
     struct MyPlugin;
+
+    #[derive(Debug, Deserialize)]
+    struct Query {
+        pub expression: String,
+        pub other_user_input: u64,
+    }
 
     #[derive(Debug)]
     struct QueryError {
@@ -28,9 +35,10 @@ mod a {
 
     #[backend::async_trait]
     impl backend::DataService for MyPlugin {
+        type Query = Query;
         type QueryError = QueryError;
-        type Iter = backend::BoxDataResponseIter<Self::QueryError>;
-        async fn query_data(&self, request: backend::QueryDataRequest) -> Self::Iter {
+        type Stream = backend::BoxDataResponseStream<Self::QueryError>;
+        async fn query_data(&self, request: backend::QueryDataRequest<Self::Query>) -> Self::Stream {
             todo!()
         }
     }

@@ -343,6 +343,13 @@ impl IntoHttpResponse for http::Response<Bytes> {
     }
 }
 
+#[tonic::async_trait]
+impl IntoHttpResponse for http::Response<Vec<u8>> {
+    async fn into_http_response(self) -> Result<http::Response<Bytes>, Box<dyn std::error::Error>> {
+        Ok(self.map(Bytes::from))
+    }
+}
+
 #[cfg(feature = "reqwest")]
 #[tonic::async_trait]
 impl IntoHttpResponse for reqwest::Response {
