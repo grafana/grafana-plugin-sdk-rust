@@ -13,7 +13,7 @@ arrow2 = { version = "0.14.0", features = ["io_ipc"] }
 chrono = "0.4.19"
 futures-core = "0.3.17"
 futures-util = "0.3.17"
-grafana-plugin-sdk-macros = { version = "0.3.0", path = "../grafana-plugin-sdk-macros" }
+grafana-plugin-sdk-macros = { version = "0.4.0", path = "../grafana-plugin-sdk-macros" }
 http = "0.2.5"
 itertools = "0.10.1"
 num-traits = "0.2.14"
