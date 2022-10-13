@@ -543,6 +543,8 @@ pub enum VisType {
     Trace,
     /// Node graph visualization.
     NodeGraph,
+    /// Flame graph visualization.
+    FlameGraph,
 }
 
 /// A notification to be displayed in Grafana's UI.
