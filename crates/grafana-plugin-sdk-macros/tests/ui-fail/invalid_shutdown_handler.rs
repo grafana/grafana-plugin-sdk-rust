@@ -1,10 +1,11 @@
 #![allow(dead_code, unused_variables)]
 
 mod a {
-    use grafana_plugin_sdk::{backend, data};
+    use grafana_plugin_sdk::{backend, data, prelude::*};
     use serde::Deserialize;
 
-    #[derive(Clone)]
+    #[derive(Clone, GrafanaPlugin)]
+    #[grafana_plugin(plugin_type = "datasource")]
     struct MyPlugin;
 
     #[derive(Debug, Deserialize)]
@@ -38,7 +39,10 @@ mod a {
         type Query = Query;
         type QueryError = QueryError;
         type Stream = backend::BoxDataResponseStream<Self::QueryError>;
-        async fn query_data(&self, request: backend::QueryDataRequest<Self::Query>) -> Self::Stream {
+        async fn query_data(
+            &self,
+            request: backend::QueryDataRequest<Self::Query, Self>,
+        ) -> Self::Stream {
             todo!()
         }
     }
@@ -50,10 +54,11 @@ mod a {
 }
 
 mod b {
-    use grafana_plugin_sdk::{backend, data};
+    use grafana_plugin_sdk::{backend, data, prelude::*};
     use serde::Deserialize;
 
-    #[derive(Clone)]
+    #[derive(Clone, GrafanaPlugin)]
+    #[grafana_plugin(plugin_type = "datasource")]
     struct MyPlugin;
 
     #[derive(Debug, Deserialize)]
@@ -87,7 +92,10 @@ mod b {
         type Query = Query;
         type QueryError = QueryError;
         type Stream = backend::BoxDataResponseStream<Self::QueryError>;
-        async fn query_data(&self, request: backend::QueryDataRequest<Self::Query>) -> Self::Stream {
+        async fn query_data(
+            &self,
+            request: backend::QueryDataRequest<Self::Query, Self>,
+        ) -> Self::Stream {
             todo!()
         }
     }

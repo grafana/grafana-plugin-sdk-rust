@@ -41,6 +41,9 @@ The following feature flags enable additional functionality for this crate:
 /// error messages.
 pub use arrow2;
 
+#[doc(hidden)]
+pub use serde_json;
+
 #[cfg(feature = "reqwest")]
 extern crate reqwest_lib as reqwest;
 
@@ -56,6 +59,8 @@ pub mod live;
 
 /// Contains useful helper traits for constructing [`Field`][data::Field]s and [`Frame`][data::Frame]s.
 pub mod prelude {
+    pub use grafana_plugin_sdk_macros::GrafanaPlugin;
+
     pub use crate::data::{ArrayIntoField, FromFields, IntoField, IntoFrame, IntoOptField};
 }
 

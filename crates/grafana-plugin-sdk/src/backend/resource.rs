@@ -1,5 +1,5 @@
 //! Resource services, which allow backend plugins to handle custom HTTP requests and responses.
-use std::pin::Pin;
+use std::{fmt, marker::PhantomData, pin::Pin};
 
 use futures_util::StreamExt;
 use http::{
@@ -8,24 +8,40 @@ use http::{
 };
 use itertools::Itertools;
 use prost::bytes::Bytes;
+use serde::de::DeserializeOwned;
 
 use crate::{
     backend::{ConvertFromError, ConvertToError, PluginContext},
     pluginv2,
 };
 
+use super::{GrafanaPlugin, InstanceSettings, PluginType};
+
 /// A request for a resource call.
 #[derive(Debug)]
 #[non_exhaustive]
-pub struct CallResourceRequest<T = Bytes> {
+pub struct InnerCallResourceRequest<IS, JsonData, SecureJsonData>
+where
+    JsonData: fmt::Debug + DeserializeOwned,
+    SecureJsonData: DeserializeOwned,
+    IS: InstanceSettings<JsonData, SecureJsonData>,
+{
     /// Details of the plugin instance from which the request originated.
-    pub plugin_context: PluginContext,
-
+    pub plugin_context: PluginContext<IS, JsonData, SecureJsonData>,
     /// The HTTP request.
-    pub request: Request<T>,
+    pub request: Request<Bytes>,
+
+    _json_data: PhantomData<JsonData>,
+    _secure_json_data: PhantomData<SecureJsonData>,
 }
 
-impl TryFrom<pluginv2::CallResourceRequest> for CallResourceRequest {
+impl<IS, JsonData, SecureJsonData> TryFrom<pluginv2::CallResourceRequest>
+    for InnerCallResourceRequest<IS, JsonData, SecureJsonData>
+where
+    JsonData: fmt::Debug + DeserializeOwned,
+    SecureJsonData: DeserializeOwned,
+    IS: InstanceSettings<JsonData, SecureJsonData>,
+{
     type Error = ConvertFromError;
     fn try_from(other: pluginv2::CallResourceRequest) -> Result<Self, Self::Error> {
         let mut request = Request::builder();
@@ -59,6 +75,8 @@ impl TryFrom<pluginv2::CallResourceRequest> for CallResourceRequest {
                 .uri(format!("/{}", other.url))
                 .body(other.body)
                 .map_err(|source| ConvertFromError::InvalidRequest { source })?,
+            _json_data: PhantomData,
+            _secure_json_data: PhantomData,
         })
     }
 }
@@ -94,6 +112,22 @@ impl TryFrom<Response<Bytes>> for pluginv2::CallResourceResponse {
         })
     }
 }
+
+/// A request for a resource call.
+///
+/// This is a convenience type alias to hide some of the complexity of
+/// the various generics involved.
+///
+/// The type parameter `T` is the type of the plugin implementation itself,
+/// which must implement [`ConfiguredPlugin`].
+pub type CallResourceRequest<T> = InnerCallResourceRequest<
+    <<T as GrafanaPlugin>::PluginType as PluginType<
+        <T as GrafanaPlugin>::JsonData,
+        <T as GrafanaPlugin>::SecureJsonData,
+    >>::InstanceSettings,
+    <T as GrafanaPlugin>::JsonData,
+    <T as GrafanaPlugin>::SecureJsonData,
+>;
 
 fn body_to_response(body: Bytes) -> pluginv2::CallResourceResponse {
     pluginv2::CallResourceResponse {
@@ -159,10 +193,12 @@ let plugin = backend::Plugin::new().resource_service(respond);
 ///
 /// use async_stream::stream;
 /// use bytes::Bytes;
-/// use grafana_plugin_sdk::backend;
+/// use grafana_plugin_sdk::{backend, prelude::*};
 /// use http::Response;
 /// use thiserror::Error;
 ///
+/// #[derive(Clone, Debug, GrafanaPlugin)]
+/// #[grafana_plugin(plugin_type = "app")]
 /// struct Plugin(Arc<AtomicUsize>);
 ///
 /// impl Plugin {
@@ -194,7 +230,7 @@ let plugin = backend::Plugin::new().resource_service(respond);
 ///     type Error = ResourceError;
 ///     type InitialResponse = Response<Bytes>;
 ///     type Stream = backend::BoxResourceStream<Self::Error>;
-///     async fn call_resource(&self, r: backend::CallResourceRequest) -> Result<(Self::InitialResponse, Self::Stream), Self::Error> {
+///     async fn call_resource(&self, r: backend::CallResourceRequest<Self>) -> Result<(Self::InitialResponse, Self::Stream), Self::Error> {
 ///         let count = Arc::clone(&self.0);
 ///         let response_and_stream = match r.request.uri().path() {
 ///             // Just send back a single response.
@@ -230,7 +266,7 @@ let plugin = backend::Plugin::new().resource_service(respond);
 /// }
 /// ```
 #[tonic::async_trait]
-pub trait ResourceService {
+pub trait ResourceService: GrafanaPlugin {
     /// The error type that can be returned by individual responses.
     type Error: std::error::Error + ErrIntoHttpResponse + Send;
 
@@ -253,7 +289,7 @@ pub trait ResourceService {
     /// is to use [`futures_util::stream::once`].
     async fn call_resource(
         &self,
-        request: CallResourceRequest,
+        request: CallResourceRequest<Self>,
     ) -> Result<(Self::InitialResponse, Self::Stream), Self::Error>;
 }
 
@@ -311,10 +347,11 @@ where
 }
 
 #[tonic::async_trait]
-impl<T, F, R, E> ResourceService for T
+impl<T, Fut, R, E> ResourceService for T
 where
-    T: Fn(CallResourceRequest) -> F + Sync,
-    F: std::future::Future<Output = Result<R, E>> + Send,
+    Self: GrafanaPlugin,
+    T: Fn(CallResourceRequest<Self>) -> Fut + Sync,
+    Fut: std::future::Future<Output = Result<R, E>> + Send,
     R: IntoHttpResponse + Send + Sync,
     E: std::error::Error + ErrIntoHttpResponse + Send + Sync,
 {
@@ -323,7 +360,7 @@ where
     type Stream = futures_util::stream::Empty<Result<Bytes, Self::Error>>;
     async fn call_resource(
         &self,
-        request: CallResourceRequest,
+        request: CallResourceRequest<Self>,
     ) -> Result<(Self::InitialResponse, Self::Stream), Self::Error> {
         let response = self(request).await?;
         Ok((response, futures_util::stream::empty()))

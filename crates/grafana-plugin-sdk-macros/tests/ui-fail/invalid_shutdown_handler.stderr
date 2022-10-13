@@ -1,11 +1,11 @@
 error: `shutdown_handler` must be a string literal.
-  --> tests/ui-fail/invalid_shutdown_handler.rs:46:67
+  --> tests/ui-fail/invalid_shutdown_handler.rs:50:67
    |
-46 |     #[grafana_plugin_sdk::main(services(data), shutdown_handler = true)]
+50 |     #[grafana_plugin_sdk::main(services(data), shutdown_handler = true)]
    |                                                                   ^^^^
 
 error: `shutdown_handler` should be specified as `shutdown_handler = "127.0.0.1:10001"
-  --> tests/ui-fail/invalid_shutdown_handler.rs:95:48
-   |
-95 |     #[grafana_plugin_sdk::main(services(data), shutdown_handler("127.0.0.1:10001"))]
-   |                                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   --> tests/ui-fail/invalid_shutdown_handler.rs:103:48
+    |
+103 |     #[grafana_plugin_sdk::main(services(data), shutdown_handler("127.0.0.1:10001"))]
+    |                                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

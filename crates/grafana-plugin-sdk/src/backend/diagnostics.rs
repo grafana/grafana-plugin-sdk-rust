@@ -1,13 +1,16 @@
 //! SDK types and traits for checking health and collecting metrics from plugins.
 
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt};
 
+use serde::de::DeserializeOwned;
 use serde_json::Value;
 
 use crate::{
-    backend::{ConvertFromError, PluginContext},
+    backend::{ConvertFromError, InstanceSettings, PluginContext},
     pluginv2,
 };
+
+use super::{GrafanaPlugin, PluginType};
 
 /// The health status of a plugin.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -34,14 +37,25 @@ impl From<HealthStatus> for pluginv2::check_health_response::HealthStatus {
 /// A request to check the health of a plugin.
 #[derive(Debug)]
 #[non_exhaustive]
-pub struct CheckHealthRequest {
+pub struct InnerCheckHealthRequest<IS, JsonData, SecureJsonData>
+where
+    JsonData: fmt::Debug + DeserializeOwned,
+    SecureJsonData: DeserializeOwned,
+    IS: InstanceSettings<JsonData, SecureJsonData>,
+{
     /// Details of the plugin instance from which the request originated.
-    pub plugin_context: PluginContext,
+    pub plugin_context: PluginContext<IS, JsonData, SecureJsonData>,
     /// Headers included along with the request by Grafana.
     pub headers: HashMap<String, String>,
 }
 
-impl TryFrom<pluginv2::CheckHealthRequest> for CheckHealthRequest {
+impl<IS, JsonData, SecureJsonData> TryFrom<pluginv2::CheckHealthRequest>
+    for InnerCheckHealthRequest<IS, JsonData, SecureJsonData>
+where
+    JsonData: fmt::Debug + DeserializeOwned,
+    SecureJsonData: DeserializeOwned,
+    IS: InstanceSettings<JsonData, SecureJsonData>,
+{
     type Error = ConvertFromError;
     fn try_from(other: pluginv2::CheckHealthRequest) -> Result<Self, Self::Error> {
         Ok(Self {
@@ -53,6 +67,22 @@ impl TryFrom<pluginv2::CheckHealthRequest> for CheckHealthRequest {
         })
     }
 }
+
+/// A request to check the health of a plugin.
+///
+/// This is a convenience type alias to hide some of the complexity of
+/// the various generics involved.
+///
+/// The type parameter `T` is the type of the plugin implementation itself,
+/// which must implement `ConfiguredPlugin`.
+pub type CheckHealthRequest<T> = InnerCheckHealthRequest<
+    <<T as GrafanaPlugin>::PluginType as PluginType<
+        <T as GrafanaPlugin>::JsonData,
+        <T as GrafanaPlugin>::SecureJsonData,
+    >>::InstanceSettings,
+    <T as GrafanaPlugin>::JsonData,
+    <T as GrafanaPlugin>::SecureJsonData,
+>;
 
 /// The response to a health check request.
 #[derive(Debug)]
@@ -146,12 +176,23 @@ impl From<CheckHealthResponse> for pluginv2::CheckHealthResponse {
 /// A request to collect metrics about a plugin.
 #[derive(Debug)]
 #[non_exhaustive]
-pub struct CollectMetricsRequest {
+pub struct InnerCollectMetricsRequest<IS, JsonData, SecureJsonData>
+where
+    JsonData: fmt::Debug + DeserializeOwned,
+    SecureJsonData: DeserializeOwned,
+    IS: InstanceSettings<JsonData, SecureJsonData>,
+{
     /// Details of the plugin instance from which the request originated.
-    pub plugin_context: PluginContext,
+    pub plugin_context: PluginContext<IS, JsonData, SecureJsonData>,
 }
 
-impl TryFrom<pluginv2::CollectMetricsRequest> for CollectMetricsRequest {
+impl<IS, JsonData, SecureJsonData> TryFrom<pluginv2::CollectMetricsRequest>
+    for InnerCollectMetricsRequest<IS, JsonData, SecureJsonData>
+where
+    JsonData: fmt::Debug + DeserializeOwned,
+    SecureJsonData: DeserializeOwned,
+    IS: InstanceSettings<JsonData, SecureJsonData>,
+{
     type Error = ConvertFromError;
     fn try_from(other: pluginv2::CollectMetricsRequest) -> Result<Self, Self::Error> {
         Ok(Self {
@@ -162,6 +203,22 @@ impl TryFrom<pluginv2::CollectMetricsRequest> for CollectMetricsRequest {
         })
     }
 }
+
+/// A request to collect metrics about a plugin.
+///
+/// This is a convenience type alias to hide some of the complexity of
+/// the various generics involved.
+///
+/// The type parameter `T` is the type of the plugin implementation itself,
+/// which must implement `ConfiguredPlugin`.
+pub type CollectMetricsRequest<T> = InnerCollectMetricsRequest<
+    <<T as GrafanaPlugin>::PluginType as PluginType<
+        <T as GrafanaPlugin>::JsonData,
+        <T as GrafanaPlugin>::SecureJsonData,
+    >>::InstanceSettings,
+    <T as GrafanaPlugin>::JsonData,
+    <T as GrafanaPlugin>::SecureJsonData,
+>;
 
 /// Metrics collected from a plugin as part of a collect metrics.
 #[derive(Debug)]
@@ -222,9 +279,11 @@ impl From<CollectMetricsResponse> for pluginv2::CollectMetricsResponse {
 /// # Example
 ///
 /// ```rust
-/// use grafana_plugin_sdk::backend;
+/// use grafana_plugin_sdk::{backend, prelude::*};
 /// use prometheus::{Encoder, TextEncoder};
 ///
+/// #[derive(Clone, Debug, GrafanaPlugin)]
+/// #[grafana_plugin(plugin_type = "app")]
 /// struct MyPlugin {
 ///     metrics: prometheus::Registry,
 /// }
@@ -235,7 +294,7 @@ impl From<CollectMetricsResponse> for pluginv2::CollectMetricsResponse {
 ///
 ///     async fn check_health(
 ///         &self,
-///         request: backend::CheckHealthRequest,
+///         request: backend::CheckHealthRequest<Self>,
 ///     ) -> Result<backend::CheckHealthResponse, Self::CheckHealthError> {
 ///         // A real plugin may ensure it could e.g. connect to a database, was configured
 ///         // correctly, etc.
@@ -246,7 +305,7 @@ impl From<CollectMetricsResponse> for pluginv2::CollectMetricsResponse {
 ///
 ///     async fn collect_metrics(
 ///         &self,
-///         request: backend::CollectMetricsRequest,
+///         request: backend::CollectMetricsRequest<Self>,
 ///     ) -> Result<backend::CollectMetricsResponse, Self::CollectMetricsError> {
 ///         let mut buffer = vec![];
 ///         let encoder = TextEncoder::new();
@@ -256,7 +315,7 @@ impl From<CollectMetricsResponse> for pluginv2::CollectMetricsResponse {
 /// }
 /// ```
 #[tonic::async_trait]
-pub trait DiagnosticsService {
+pub trait DiagnosticsService: GrafanaPlugin {
     /// The type of error that can occur when performing a health check request.
     type CheckHealthError: std::error::Error;
 
@@ -271,7 +330,7 @@ pub trait DiagnosticsService {
     /// See <https://grafana.com/docs/grafana/latest/developers/plugins/backend/#health-checks>.
     async fn check_health(
         &self,
-        request: CheckHealthRequest,
+        request: CheckHealthRequest<Self>,
     ) -> Result<CheckHealthResponse, Self::CheckHealthError>;
 
     /// The type of error that can occur when collecting metrics.
@@ -282,7 +341,7 @@ pub trait DiagnosticsService {
     /// See <https://grafana.com/docs/grafana/latest/developers/plugins/backend/#collect-metrics>.
     async fn collect_metrics(
         &self,
-        request: CollectMetricsRequest,
+        request: CollectMetricsRequest<Self>,
     ) -> Result<CollectMetricsResponse, Self::CollectMetricsError>;
 }
 

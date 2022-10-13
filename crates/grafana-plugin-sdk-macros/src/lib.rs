@@ -1,8 +1,61 @@
 use proc_macro::TokenStream;
 use proc_macro2::Span;
 
+use darling::{FromDeriveInput, FromMeta};
 use quote::{quote, quote_spanned, ToTokens};
 use syn::{meta::ParseNestedMeta, parenthesized, parse::ParseBuffer, parse_macro_input, Lit};
+
+#[derive(Debug, FromMeta)]
+enum PluginType {
+    Datasource,
+    App,
+}
+
+#[derive(Debug, FromDeriveInput)]
+#[darling(attributes(grafana_plugin))]
+struct GrafanaPluginOpts {
+    ident: syn::Ident,
+    plugin_type: PluginType,
+    json_data: Option<syn::Path>,
+    secure_json_data: Option<syn::Path>,
+}
+
+#[doc(hidden)]
+#[allow(missing_docs)]
+#[proc_macro_derive(GrafanaPlugin, attributes(grafana_plugin))]
+pub fn derive(input: TokenStream) -> TokenStream {
+    let ast: syn::DeriveInput = syn::parse(input).expect("Couldn't parse item");
+    let GrafanaPluginOpts {
+        ident,
+        plugin_type,
+        json_data,
+        secure_json_data,
+    } = match GrafanaPluginOpts::from_derive_input(&ast) {
+        Ok(x) => x,
+        Err(e) => return e.flatten().write_errors().into(),
+    };
+    let ptype = match plugin_type {
+        PluginType::App => {
+            quote! { ::grafana_plugin_sdk::backend::AppPlugin<Self::JsonData, Self::SecureJsonData> }
+        }
+        PluginType::Datasource => {
+            quote! { ::grafana_plugin_sdk::backend::DataSourcePlugin<Self::JsonData, Self::SecureJsonData> }
+        }
+    };
+    let json_data =
+        json_data.unwrap_or_else(|| syn::parse_quote!(::grafana_plugin_sdk::serde_json::Value));
+    let secure_json_data = secure_json_data
+        .unwrap_or_else(|| syn::parse_quote!(::grafana_plugin_sdk::serde_json::Value));
+    quote! {
+        impl ::grafana_plugin_sdk::backend::GrafanaPlugin for #ident {
+
+            type PluginType = #ptype;
+            type JsonData = #json_data;
+            type SecureJsonData = #secure_json_data;
+        }
+    }
+    .into()
+}
 
 fn token_stream_with_error(mut tokens: TokenStream, error: syn::Error) -> TokenStream {
     tokens.extend(TokenStream::from(error.into_compile_error()));
@@ -265,11 +318,12 @@ At least one service must be specified. Possible options are:
 ```rust
 # use std::sync::Arc;
 #
-# use grafana_plugin_sdk::{backend, data};
+# use grafana_plugin_sdk::{backend, data, prelude::*};
 # use serde::Deserialize;
 # use thiserror::Error;
 #
-# #[derive(Clone)]
+# #[derive(Clone, GrafanaPlugin)]
+# #[grafana_plugin(plugin_type = "app")]
 # struct Plugin;
 #
 # #[derive(Debug, Deserialize)]
@@ -303,7 +357,7 @@ At least one service must be specified. Possible options are:
 #     type Query = Query;
 #     type QueryError = QueryError;
 #     type Stream = backend::BoxDataResponseStream<Self::QueryError>;
-#     async fn query_data(&self, request: backend::QueryDataRequest<Self::Query>) -> Self::Stream {
+#     async fn query_data(&self, request: backend::QueryDataRequest<Self::Query, Self>) -> Self::Stream {
 #         todo!()
 #     }
 # }
@@ -314,7 +368,7 @@ At least one service must be specified. Possible options are:
 #
 #     async fn check_health(
 #         &self,
-#         request: backend::CheckHealthRequest,
+#         request: backend::CheckHealthRequest<Self>,
 #     ) -> Result<backend::CheckHealthResponse, Self::CheckHealthError> {
 #         todo!()
 #     }
@@ -323,7 +377,7 @@ At least one service must be specified. Possible options are:
 #
 #     async fn collect_metrics(
 #         &self,
-#         request: backend::CollectMetricsRequest,
+#         request: backend::CollectMetricsRequest<Self>,
 #     ) -> Result<backend::CollectMetricsResponse, Self::CollectMetricsError> {
 #         todo!()
 #     }
@@ -345,7 +399,7 @@ At least one service must be specified. Possible options are:
 #     type Error = ResourceError;
 #     type InitialResponse = Vec<u8>;
 #     type Stream = backend::BoxResourceStream<Self::Error>;
-#     async fn call_resource(&self, r: backend::CallResourceRequest) -> Result<(Self::InitialResponse, Self::Stream), Self::Error> {
+#     async fn call_resource(&self, r: backend::CallResourceRequest<Self>) -> Result<(Self::InitialResponse, Self::Stream), Self::Error> {
 #         todo!()
 #     }
 # }
@@ -355,18 +409,18 @@ At least one service must be specified. Possible options are:
 #     type JsonValue = ();
 #     async fn subscribe_stream(
 #         &self,
-#         request: backend::SubscribeStreamRequest,
+#         request: backend::SubscribeStreamRequest<Self>,
 #     ) -> Result<backend::SubscribeStreamResponse, Self::Error> {
 #         todo!()
 #     }
 #     type Error = Arc<dyn std::error::Error>;
 #     type Stream = backend::BoxRunStream<Self::Error>;
-#     async fn run_stream(&self, _request: backend::RunStreamRequest) -> Result<Self::Stream, Self::Error> {
+#     async fn run_stream(&self, _request: backend::RunStreamRequest<Self>) -> Result<Self::Stream, Self::Error> {
 #         todo!()
 #     }
 #     async fn publish_stream(
 #         &self,
-#         _request: backend::PublishStreamRequest,
+#         _request: backend::PublishStreamRequest<Self>,
 #     ) -> Result<backend::PublishStreamResponse, Self::Error> {
 #         todo!()
 #     }
@@ -394,10 +448,11 @@ This must be a boolean.
 ```
 # use std::sync::Arc;
 #
-# use grafana_plugin_sdk::backend;
+# use grafana_plugin_sdk::{backend, prelude::*};
 # use thiserror::Error;
 #
-# #[derive(Clone)]
+# #[derive(Clone, GrafanaPlugin)]
+# #[grafana_plugin(plugin_type = "app")]
 # struct Plugin;
 #
 # #[derive(Debug, Error)]
@@ -416,7 +471,7 @@ This must be a boolean.
 #     type Error = ResourceError;
 #     type InitialResponse = Vec<u8>;
 #     type Stream = backend::BoxResourceStream<Self::Error>;
-#     async fn call_resource(&self, r: backend::CallResourceRequest) -> Result<(Self::InitialResponse, Self::Stream), Self::Error> {
+#     async fn call_resource(&self, r: backend::CallResourceRequest<Self>) -> Result<(Self::InitialResponse, Self::Stream), Self::Error> {
 #         todo!()
 #     }
 # }
@@ -442,10 +497,11 @@ This must be a string which can be parsed as a [`SocketAddr`][std::net::SocketAd
 ```
 # use std::sync::Arc;
 #
-# use grafana_plugin_sdk::backend;
+# use grafana_plugin_sdk::{backend, prelude::*};
 # use thiserror::Error;
 #
-# #[derive(Clone)]
+# #[derive(Clone, GrafanaPlugin)]
+# #[grafana_plugin(plugin_type = "app")]
 # struct Plugin;
 #
 # #[derive(Debug, Error)]
@@ -464,7 +520,7 @@ This must be a string which can be parsed as a [`SocketAddr`][std::net::SocketAd
 #     type Error = ResourceError;
 #     type InitialResponse = Vec<u8>;
 #     type Stream = backend::BoxResourceStream<Self::Error>;
-#     async fn call_resource(&self, r: backend::CallResourceRequest) -> Result<(Self::InitialResponse, Self::Stream), Self::Error> {
+#     async fn call_resource(&self, r: backend::CallResourceRequest<Self>) -> Result<(Self::InitialResponse, Self::Stream), Self::Error> {
 #         todo!()
 #     }
 # }
@@ -485,10 +541,11 @@ The following example shows what the `#[main]` macro expands to:
 ```rust
 use std::sync::Arc;
 
-use grafana_plugin_sdk::backend;
+use grafana_plugin_sdk::{backend, prelude::*};
 use thiserror::Error;
 
-#[derive(Clone)]
+# #[derive(Clone, GrafanaPlugin)]
+# #[grafana_plugin(plugin_type = "app")]
 struct Plugin;
 
 #[derive(Debug, Error)]
@@ -507,7 +564,7 @@ impl backend::ResourceService for Plugin {
     type Error = ResourceError;
     type InitialResponse = Vec<u8>;
     type Stream = backend::BoxResourceStream<Self::Error>;
-    async fn call_resource(&self, r: backend::CallResourceRequest) -> Result<(Self::InitialResponse, Self::Stream), Self::Error> {
+    async fn call_resource(&self, r: backend::CallResourceRequest<Self>) -> Result<(Self::InitialResponse, Self::Stream), Self::Error> {
         todo!()
     }
 }
@@ -527,10 +584,11 @@ expands to:
 ```rust
 # use std::sync::Arc;
 #
-# use grafana_plugin_sdk::backend;
+# use grafana_plugin_sdk::{backend, prelude::*};
 # use thiserror::Error;
 #
-# #[derive(Clone)]
+# #[derive(Clone, GrafanaPlugin)]
+# #[grafana_plugin(plugin_type = "app")]
 # struct Plugin;
 #
 # #[derive(Debug, Error)]
@@ -549,7 +607,7 @@ expands to:
 #     type Error = ResourceError;
 #     type InitialResponse = Vec<u8>;
 #     type Stream = backend::BoxResourceStream<Self::Error>;
-#     async fn call_resource(&self, r: backend::CallResourceRequest) -> Result<(Self::InitialResponse, Self::Stream), Self::Error> {
+#     async fn call_resource(&self, r: backend::CallResourceRequest<Self>) -> Result<(Self::InitialResponse, Self::Stream), Self::Error> {
 #         todo!()
 #     }
 # }
