@@ -1,5 +1,5 @@
 error: `data` set multiple times.
-  --> tests/ui-fail/duplicate_services.rs:46:47
+  --> tests/ui-fail/duplicate_services.rs:50:47
    |
-46 |     #[grafana_plugin_sdk::main(services(data, data))]
+50 |     #[grafana_plugin_sdk::main(services(data, data))]
    |                                               ^^^^
