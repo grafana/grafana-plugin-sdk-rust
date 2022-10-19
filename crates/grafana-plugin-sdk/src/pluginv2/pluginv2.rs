@@ -155,6 +155,12 @@ pub struct DataResponse {
     /// Warning: Current ignored by frontend. Would be for metadata about the query.
     #[prost(bytes="vec", tag="3")]
     pub json_meta: ::prost::alloc::vec::Vec<u8>,
+    /// When errors exist or a non 2XX status, clients will be passed a 207 HTTP
+    /// error code in /ds/query The status codes should match values from standard
+    /// HTTP status codes If not set explicitly, it will be marshaled to 200 if no
+    /// error exists, or 500 if one does
+    #[prost(int32, tag="4")]
+    pub status: i32,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CollectMetricsRequest {

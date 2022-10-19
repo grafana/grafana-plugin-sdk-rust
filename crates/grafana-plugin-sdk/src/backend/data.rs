@@ -141,6 +141,17 @@ pub trait DataQueryError: std::error::Error {
     ///
     /// This allows the SDK to align queries up with any failed requests.
     fn ref_id(self) -> String;
+
+    /// A suitable `http::StatusCode` to represent this error.
+    ///
+    /// This may be used by clients to decide how this error should
+    /// be handled. For example, whether the request should be retried,
+    /// treated as a client or server error, etc.
+    ///
+    /// Defaults to `http::StatusCode::INTERNAL_SERVER_ERROR` if not overridden.
+    fn status(&self) -> http::StatusCode {
+        http::StatusCode::INTERNAL_SERVER_ERROR
+    }
 }
 
 /// Used to respond for requests for data from datasources and app plugins.
@@ -300,6 +311,7 @@ where
                             ref_id.clone(),
                             pluginv2::DataResponse {
                                 frames: vec![],
+                                status: http::StatusCode::INTERNAL_SERVER_ERROR.as_u16().into(),
                                 error: e.to_string(),
                                 json_meta: vec![],
                             },
@@ -310,6 +322,7 @@ where
                             ref_id.clone(),
                             pluginv2::DataResponse {
                                 frames,
+                                status: http::StatusCode::OK.as_u16().into(),
                                 error: "".to_string(),
                                 json_meta: vec![],
                             },
@@ -318,11 +331,13 @@ where
                 )
             }
             Err(e) => {
+                let status = e.status().as_u16().into();
                 let err_string = e.to_string();
                 (
                     e.ref_id(),
                     pluginv2::DataResponse {
                         frames: vec![],
+                        status,
                         error: err_string,
                         json_meta: vec![],
                     },
