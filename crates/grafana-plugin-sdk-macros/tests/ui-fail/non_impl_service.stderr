@@ -16,7 +16,7 @@ error[E0599]: the method `start` exists for struct `grafana_plugin_sdk::backend:
    --> tests/ui-fail/non_impl_service.rs:7:5
     |
 5   |     struct MyPlugin;
-    |     ---------------- doesn't satisfy `MyPlugin: DataService`
+    |     --------------- doesn't satisfy `MyPlugin: DataService`
 6   |
 7   |     #[grafana_plugin_sdk::main(services(data))]
     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ method cannot be called on `grafana_plugin_sdk::backend::Plugin<backend::noop::NoopService, MyPlugin, backend::noop::NoopService, backend::noop::NoopService>` due to unsatisfied trait bounds
@@ -26,12 +26,6 @@ error[E0599]: the method `start` exists for struct `grafana_plugin_sdk::backend:
 note: the following trait must be implemented
    --> $WORKSPACE/crates/grafana-plugin-sdk/src/backend/data.rs
     |
-    | / pub trait DataService {
-    | |     /// The type of the JSON query sent from Grafana to the plugin.
-    | |     type Query: DeserializeOwned + Send + Sync;
-    | |
-...   |
-    | |     async fn query_data(&self, request: QueryDataRequest<Self::Query>) -> Self::Stream;
-    | | }
-    | |_^
+    | pub trait DataService {
+    | ^^^^^^^^^^^^^^^^^^^^^
     = note: this error originates in the attribute macro `grafana_plugin_sdk::main` (in Nightly builds, run with -Z macro-backtrace for more info)
