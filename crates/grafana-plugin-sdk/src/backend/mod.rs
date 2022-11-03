@@ -159,7 +159,8 @@ mod stream;
 mod tracing_fmt;
 
 pub use data::{
-    BoxDataResponseStream, DataQuery, DataQueryError, DataResponse, DataService, QueryDataRequest,
+    BoxDataResponseStream, DataClient, DataQuery, DataQueryError, DataResponse, DataService,
+    QueryDataError, QueryDataRequest, TransportMetadata,
 };
 pub use diagnostics::{
     CheckHealthRequest, CheckHealthResponse, CollectMetricsRequest, CollectMetricsResponse,
@@ -697,6 +698,15 @@ impl From<pluginv2::TimeRange> for TimeRange {
         Self {
             from: Utc.timestamp_millis(other.from_epoch_ms),
             to: Utc.timestamp_millis(other.to_epoch_ms),
+        }
+    }
+}
+
+impl From<TimeRange> for pluginv2::TimeRange {
+    fn from(other: TimeRange) -> Self {
+        Self {
+            from_epoch_ms: other.from.timestamp_millis(),
+            to_epoch_ms: other.to.timestamp_millis(),
         }
     }
 }

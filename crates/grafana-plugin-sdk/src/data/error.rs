@@ -3,7 +3,7 @@ use arrow2::datatypes::DataType;
 use itertools::Itertools;
 use thiserror::Error;
 
-use super::frame::to_arrow;
+use super::frame::arrow;
 
 /// Errors that can occur when interacting with the Grafana plugin SDK.
 #[derive(Debug, Error)]
@@ -11,7 +11,7 @@ use super::frame::to_arrow;
 pub enum Error {
     /// An error has occurred when serializing to Arrow IPC format.
     #[error("Arrow serialization error: {0}")]
-    ArrowSerialization(#[from] to_arrow::Error),
+    ArrowSerialization(#[from] arrow::Error),
 
     /// There is a datatype mismatch in a field.
     ///

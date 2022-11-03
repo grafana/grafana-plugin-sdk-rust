@@ -1,14 +1,25 @@
 //! SDK types and traits relevant to plugins that query data.
 use std::{collections::HashMap, pin::Pin, time::Duration};
 
+use bytes::Bytes;
 use futures_core::Stream;
 use futures_util::StreamExt;
-use serde::de::DeserializeOwned;
+use serde::{de::DeserializeOwned, Serialize};
+use tonic::transport::Endpoint;
 
 use crate::{
     backend::{self, ConvertFromError, TimeRange},
     data, pluginv2,
 };
+
+use super::ConvertToError;
+
+/// Transport metadata sent alongside a query.
+///
+/// This should be passed into [`DataClient::query_data`] when forwarding
+/// a query to the same Grafana instance as the query originated.
+#[derive(Clone, Debug)]
+pub struct TransportMetadata(tonic::metadata::MetadataMap);
 
 /// A request for data made by Grafana.
 ///
@@ -16,10 +27,7 @@ use crate::{
 /// while the actual plugins themselves are in `queries`.
 #[derive(Debug)]
 #[non_exhaustive]
-pub struct QueryDataRequest<Q>
-where
-    Q: DeserializeOwned,
-{
+pub struct QueryDataRequest<Q> {
     /// Details of the plugin instance from which the request originated.
     ///
     /// If the request originates from a datasource instance, this will
@@ -34,25 +42,41 @@ where
     /// the query to the frontend; this should be included in the corresponding
     /// `DataResponse` for each query.
     pub queries: Vec<DataQuery<Q>>,
+
+    grpc_meta: TransportMetadata,
 }
 
-impl<Q> TryFrom<pluginv2::QueryDataRequest> for QueryDataRequest<Q>
+impl<Q> QueryDataRequest<Q> {
+    /// Get the transport metadata in this request.
+    ///
+    /// This is required when using the [`DataClient`] to query
+    /// other Grafana datasources.
+    pub fn transport_metadata(&self) -> &TransportMetadata {
+        &self.grpc_meta
+    }
+}
+
+impl<Q> TryFrom<tonic::Request<pluginv2::QueryDataRequest>> for QueryDataRequest<Q>
 where
     Q: DeserializeOwned,
 {
     type Error = ConvertFromError;
-    fn try_from(other: pluginv2::QueryDataRequest) -> Result<Self, Self::Error> {
+    fn try_from(other: tonic::Request<pluginv2::QueryDataRequest>) -> Result<Self, Self::Error> {
+        // Clone is required until https://github.com/hyperium/tonic/pull/1118 is released.
+        let grpc_meta = other.metadata().clone();
+        let request = other.into_inner();
         Ok(Self {
-            plugin_context: other
+            plugin_context: request
                 .plugin_context
                 .ok_or(ConvertFromError::MissingPluginContext)
                 .and_then(TryInto::try_into)?,
-            headers: other.headers,
-            queries: other
+            headers: request.headers,
+            queries: request
                 .queries
                 .into_iter()
                 .map(DataQuery::try_from)
                 .collect::<Result<Vec<_>, _>>()?,
+            grpc_meta: TransportMetadata(grpc_meta),
         })
     }
 }
@@ -60,12 +84,9 @@ where
 /// A query made by Grafana to the plugin as part of a [`QueryDataRequest`].
 ///
 /// The `query` field contains any fields set by the plugin's UI.
-#[derive(Debug)]
 #[non_exhaustive]
-pub struct DataQuery<Q>
-where
-    Q: DeserializeOwned,
-{
+#[derive(Clone, Debug)]
+pub struct DataQuery<Q> {
     /// The unique identifier of the query, set by the frontend call.
     ///
     /// This should be included in the corresponding [`DataResponse`].
@@ -111,6 +132,46 @@ where
     }
 }
 
+impl<Q> TryFrom<DataQuery<Q>> for pluginv2::DataQuery
+where
+    Q: Serialize,
+{
+    type Error = ConvertToError;
+
+    fn try_from(other: DataQuery<Q>) -> Result<Self, Self::Error> {
+        Ok(Self {
+            ref_id: other.ref_id,
+            max_data_points: other.max_data_points,
+            interval_ms: other.interval.as_millis() as i64,
+            time_range: Some(other.time_range.into()),
+            json: serde_json::to_vec(&other.query)
+                .map_err(|err| ConvertToError::InvalidJson { err })?,
+            query_type: other.query_type,
+        })
+    }
+}
+
+#[derive(Debug)]
+enum DataResponseFrames {
+    Deserialized(Vec<data::Frame>),
+    Serialized(Result<Vec<Vec<u8>>, data::Error>),
+}
+
+impl DataResponseFrames {
+    fn into_serialized(self) -> Result<Vec<Vec<u8>>, data::Error> {
+        match self {
+            Self::Deserialized(frames) => to_arrow(
+                frames
+                    .iter()
+                    .map(|x| x.check())
+                    .collect::<Result<Vec<_>, _>>()?,
+                &None,
+            ),
+            Self::Serialized(x) => x,
+        }
+    }
+}
+
 /// The results from a [`DataQuery`].
 #[derive(Debug)]
 pub struct DataResponse {
@@ -121,7 +182,7 @@ pub struct DataResponse {
     ref_id: String,
 
     /// The data returned from the query.
-    frames: Result<Vec<Vec<u8>>, data::Error>,
+    frames: DataResponseFrames,
 }
 
 impl DataResponse {
@@ -130,7 +191,7 @@ impl DataResponse {
     pub fn new(ref_id: String, frames: Vec<data::CheckedFrame<'_>>) -> Self {
         Self {
             ref_id: ref_id.clone(),
-            frames: to_arrow(frames, &Some(ref_id)),
+            frames: DataResponseFrames::Serialized(to_arrow(frames, &Some(ref_id))),
         }
     }
 }
@@ -286,7 +347,7 @@ where
         let responses = DataService::query_data(
             self,
             request
-                .into_inner()
+                // .into_inner()
                 .try_into()
                 .map_err(ConvertFromError::into_tonic_status)?,
         )
@@ -294,7 +355,7 @@ where
         .map(|resp| match resp {
             Ok(x) => {
                 let ref_id = x.ref_id;
-                x.frames.map_or_else(
+                x.frames.into_serialized().map_or_else(
                     |e| {
                         (
                             ref_id.clone(),
@@ -334,5 +395,91 @@ where
         Ok(tonic::Response::new(pluginv2::QueryDataResponse {
             responses,
         }))
+    }
+}
+
+/// A client for querying data from Grafana.
+///
+/// This can be used by plugins which need to query data from
+/// a different datasource of the same Grafana instance.
+#[derive(Debug, Clone)]
+pub struct DataClient<T = tonic::transport::Channel> {
+    inner: pluginv2::data_client::DataClient<T>,
+}
+
+impl DataClient<tonic::transport::Channel> {
+    /// Create a new DataClient to connect to the given endpoint.
+    ///
+    /// This constructor uses the default [`tonic::transport::Channel`] as the
+    /// transport. Use [`DataClient::with_channel`] to provide your own channel.
+    pub fn new(url: impl Into<Bytes>) -> Result<Self, tonic::transport::Error> {
+        let endpoint = Endpoint::from_shared(url)?;
+        let channel = endpoint.connect_lazy();
+        Ok(Self {
+            inner: pluginv2::data_client::DataClient::new(channel),
+        })
+    }
+}
+
+/// Errors which can occur when querying data.
+#[derive(Clone, Debug, thiserror::Error)]
+#[error("Error querying data")]
+pub struct QueryDataError;
+
+impl<T> DataClient<T> {
+    /// Query for data from a Grafana datasource.
+    pub async fn query_data<Q>(
+        &mut self,
+        queries: Vec<DataQuery<Q>>,
+        upstream_metadata: &TransportMetadata,
+    ) -> Result<HashMap<String, DataResponse>, QueryDataError>
+    where
+        Q: Serialize,
+        T: tonic::client::GrpcService<tonic::body::BoxBody> + Clone + Send + Sync + 'static,
+        T::ResponseBody: tonic::codegen::Body<Data = tonic::codegen::Bytes> + Send + Sync + 'static,
+        <T::ResponseBody as tonic::codegen::Body>::Error: Into<tonic::codegen::StdError> + Send,
+    {
+        let queries: Vec<_> = queries
+            .into_iter()
+            // TODO: add enum variant
+            .map(|q| q.try_into().map_err(|_| QueryDataError))
+            .collect::<Result<_, _>>()?;
+        let query_data_request = pluginv2::QueryDataRequest {
+            plugin_context: None,
+            headers: Default::default(),
+            queries,
+        };
+        let mut request = tonic::Request::new(query_data_request);
+        for kv in upstream_metadata.0.iter() {
+            match kv {
+                tonic::metadata::KeyAndValueRef::Ascii(k, v) => {
+                    request.metadata_mut().insert(k, v.clone());
+                }
+                tonic::metadata::KeyAndValueRef::Binary(k, v) => {
+                    request.metadata_mut().insert_bin(k, v.clone());
+                }
+            }
+        }
+        let responses = self
+            .inner
+            .query_data(request)
+            .await
+            // TODO: add enum variant
+            .map_err(|_| QueryDataError)?
+            .into_inner()
+            .responses
+            .into_iter()
+            .map(|(k, v)| {
+                let frames = v
+                    .frames
+                    .into_iter()
+                    .map(|f| data::Frame::from_arrow(f).map_err(|_| QueryDataError))
+                    .collect::<Result<Vec<_>, _>>()
+                    .map(DataResponseFrames::Deserialized)
+                    .unwrap();
+                Ok((k.clone(), DataResponse { ref_id: k, frames }))
+            })
+            .collect::<Result<_, _>>()?;
+        Ok(responses)
     }
 }

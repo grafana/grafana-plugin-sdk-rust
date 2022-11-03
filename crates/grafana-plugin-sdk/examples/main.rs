@@ -10,7 +10,7 @@ use bytes::Bytes;
 use chrono::prelude::*;
 use futures_util::stream::FuturesOrdered;
 use http::Response;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tokio_stream::StreamExt;
 use tracing::{debug, info};
@@ -21,18 +21,24 @@ use grafana_plugin_sdk::{
     prelude::*,
 };
 
-#[derive(Clone, Debug, Default)]
-struct MyPluginService(Arc<AtomicUsize>);
+#[derive(Clone, Debug)]
+struct MyPluginService {
+    counter: Arc<AtomicUsize>,
+    data_client: backend::DataClient,
+}
 
 impl MyPluginService {
     fn new() -> Self {
-        Self(Arc::new(AtomicUsize::new(0)))
+        Self {
+            counter: Arc::new(AtomicUsize::new(0)),
+            data_client: backend::DataClient::new("localhost:10000").expect("valid URL"),
+        }
     }
 }
 
 // Data service implementation.
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct Query {
     pub expression: String,
@@ -40,9 +46,17 @@ struct Query {
 }
 
 #[derive(Debug, Error)]
+enum SDKError {
+    #[error("SDK error: {0}")]
+    Data(data::Error),
+    #[error("Query data error: {0}")]
+    QueryData(backend::QueryDataError),
+}
+
+#[derive(Debug, Error)]
 #[error("Error querying backend for query {ref_id}: {source}")]
 struct QueryError {
-    source: data::Error,
+    source: SDKError,
     ref_id: String,
 }
 
@@ -58,40 +72,60 @@ impl backend::DataService for MyPluginService {
     type QueryError = QueryError;
     type Stream = backend::BoxDataResponseStream<Self::QueryError>;
     async fn query_data(&self, request: backend::QueryDataRequest<Self::Query>) -> Self::Stream {
+        let client = self.data_client.clone();
+        let transport_metadata = request.transport_metadata().clone();
         Box::pin(
             request
                 .queries
                 .into_iter()
-                .map(|x: DataQuery<Self::Query>| async move {
+                .map(|x: DataQuery<Self::Query>| {
                     // We can see the user's query in `x.query`:
                     debug!(
                         expression = x.query.expression,
                         other_user_input = x.query.other_user_input,
                         "Got backend query",
                     );
-                    // Here we create a single response Frame for each query.
-                    // Frames can be created from iterators of fields using [`IntoFrame`].
-                    Ok(backend::DataResponse::new(
-                        x.ref_id.clone(),
-                        vec![[
-                            // Fields can be created from iterators of a variety of
-                            // relevant datatypes.
-                            [
-                                Utc.ymd(2021, 1, 1).and_hms(12, 0, 0),
-                                Utc.ymd(2021, 1, 1).and_hms(12, 0, 1),
-                                Utc.ymd(2021, 1, 1).and_hms(12, 0, 2),
+
+                    let ref_id = x.ref_id.clone();
+                    let transport_metadata = transport_metadata.clone();
+                    let mut client = client.clone();
+
+                    async move {
+                        // We can proxy this request to a different datasource if we like.
+                        // Here we do that, but ignore the response.
+                        let proxied = client
+                            .query_data(vec![x.clone()], &transport_metadata)
+                            .await
+                            .map_err(|source| QueryError {
+                                source: SDKError::QueryData(source),
+                                ref_id: ref_id.clone(),
+                            })?;
+                        info!("Got proxied response: {:?}", proxied);
+
+                        // Here we create a single response Frame for each query.
+                        // Frames can be created from iterators of fields using [`IntoFrame`].
+                        Ok(backend::DataResponse::new(
+                            ref_id.clone(),
+                            vec![[
+                                // Fields can be created from iterators of a variety of
+                                // relevant datatypes.
+                                [
+                                    Utc.ymd(2021, 1, 1).and_hms(12, 0, 0),
+                                    Utc.ymd(2021, 1, 1).and_hms(12, 0, 1),
+                                    Utc.ymd(2021, 1, 1).and_hms(12, 0, 2),
+                                ]
+                                .into_field("time"),
+                                [1_u32, 2, 3].into_field("x"),
+                                ["a", "b", "c"].into_field("y"),
                             ]
-                            .into_field("time"),
-                            [1_u32, 2, 3].into_field("x"),
-                            ["a", "b", "c"].into_field("y"),
-                        ]
-                        .into_frame("foo")
-                        .check()
-                        .map_err(|source| QueryError {
-                            ref_id: x.ref_id,
-                            source,
-                        })?],
-                    ))
+                            .into_frame("foo")
+                            .check()
+                            .map_err(|source| QueryError {
+                                source: SDKError::Data(source),
+                                ref_id,
+                            })?],
+                        ))
+                    }
                 })
                 .collect::<FuturesOrdered<_>>(),
         )
@@ -195,7 +229,7 @@ impl backend::ResourceService for MyPluginService {
         &self,
         r: backend::CallResourceRequest,
     ) -> Result<(Self::InitialResponse, Self::Stream), Self::Error> {
-        let count = Arc::clone(&self.0);
+        let count = Arc::clone(&self.counter);
         let response_and_stream = match r.request.uri().path() {
             // Just send back a single response.
             "/echo" => Ok((

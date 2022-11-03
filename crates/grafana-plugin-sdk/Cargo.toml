@@ -10,6 +10,7 @@ description = "SDK for building Grafana backend plugins."
 
 [dependencies]
 arrow2 = { version = "0.14.0", features = ["io_ipc"] }
+bytes = "1.2.1"
 chrono = "0.4.19"
 futures-core = "0.3.17"
 futures-util = "0.3.17"
@@ -40,7 +41,7 @@ tracing-subscriber = { version = "0.3.1", features = [
 
 [dev-dependencies]
 async-stream = "0.3.2"
-bytes = "1.1.0"
+bytes = "1.2.1"
 futures = "0.3.17"
 paste = "1.0.6"
 pretty_assertions = "1.0.0"

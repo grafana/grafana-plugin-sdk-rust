@@ -5,7 +5,7 @@ use std::{
 };
 
 use arrow2::{
-    array::Array,
+    array::{new_empty_array, Array},
     datatypes::{DataType, Field as ArrowField, TimeUnit},
 };
 use serde::{Deserialize, Serialize};
@@ -67,6 +67,27 @@ impl Field {
             data_type: self.type_info.frame.into(),
             is_nullable: self.type_info.nullable.unwrap_or_default(),
             metadata,
+        })
+    }
+
+    pub(crate) fn from_arrow(f: ArrowField) -> Result<Self, serde_json::Error> {
+        let data_type: TypeInfoType = f.data_type().try_into().unwrap();
+        Ok(Self {
+            name: f.name,
+            labels: f
+                .metadata
+                .get("labels")
+                .and_then(|c| serde_json::from_str(c).ok())
+                .unwrap_or_default(),
+            config: f
+                .metadata
+                .get("config")
+                .and_then(|c| serde_json::from_str(c).ok()),
+            values: data_type.empty_array(),
+            type_info: TypeInfo {
+                frame: data_type,
+                nullable: Some(f.is_nullable),
+            },
         })
     }
 
@@ -476,6 +497,26 @@ impl TryFrom<&DataType> for TypeInfoType {
     }
 }
 
+impl From<&TypeInfoType> for DataType {
+    fn from(other: &TypeInfoType) -> Self {
+        match other {
+            TypeInfoType::Int8 => Self::Int8,
+            TypeInfoType::Int16 => Self::Int16,
+            TypeInfoType::Int32 => Self::Int32,
+            TypeInfoType::Int64 => Self::Int64,
+            TypeInfoType::UInt8 => Self::UInt8,
+            TypeInfoType::UInt16 => Self::UInt16,
+            TypeInfoType::UInt32 => Self::UInt32,
+            TypeInfoType::UInt64 => Self::UInt64,
+            TypeInfoType::Float32 => Self::Float32,
+            TypeInfoType::Float64 => Self::Float64,
+            TypeInfoType::String => Self::Utf8,
+            TypeInfoType::Bool => Self::Boolean,
+            TypeInfoType::Time => Self::Timestamp(TimeUnit::Nanosecond, None),
+        }
+    }
+}
+
 impl From<TypeInfoType> for DataType {
     fn from(other: TypeInfoType) -> Self {
         match other {
@@ -514,6 +555,11 @@ impl TypeInfoType {
             Self::Bool => SimpleType::Boolean,
             Self::Time => SimpleType::Time,
         }
+    }
+
+    #[must_use]
+    pub(crate) fn empty_array(&self) -> Box<dyn Array> {
+        new_empty_array(self.into())
     }
 }
 
