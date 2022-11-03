@@ -146,9 +146,7 @@ fn build_config(input: syn::ItemFn, args: AttributeArgs) -> Result<FinalConfig, 
                 let ident = namevalue
                     .path
                     .get_ident()
-                    .ok_or_else(|| {
-                        syn::Error::new_spanned(&namevalue, "Must have specified ident")
-                    })?
+                    .ok_or_else(|| syn::Error::new_spanned(namevalue, "Must have specified ident"))?
                     .to_string()
                     .to_lowercase();
                 match ident.as_str() {
@@ -173,7 +171,7 @@ fn build_config(input: syn::ItemFn, args: AttributeArgs) -> Result<FinalConfig, 
                 let ident = list
                     .path
                     .get_ident()
-                    .ok_or_else(|| syn::Error::new_spanned(&list, "Must have specified ident"))?
+                    .ok_or_else(|| syn::Error::new_spanned(list, "Must have specified ident"))?
                     .to_string()
                     .to_lowercase();
                 match ident.as_str() {
@@ -235,7 +233,7 @@ fn parse_services(list: &AttributeArgs) -> Result<Vec<String>, syn::Error> {
             syn::NestedMeta::Meta(syn::Meta::Path(path)) => {
                 let svc = path
                     .get_ident()
-                    .ok_or_else(|| syn::Error::new_spanned(&list, "Must have specified ident"))?
+                    .ok_or_else(|| syn::Error::new_spanned(list, "Must have specified ident"))?
                     .to_string()
                     .to_lowercase();
                 if !["data", "diagnostics", "resource", "stream"].contains(&svc.as_str()) {

@@ -75,7 +75,7 @@ impl<'de> Deserialize<'de> for Frame {
                 let raw_data = raw_data.ok_or_else(|| Error::missing_field("data"))?;
                 let data: Data = (&schema, raw_data)
                     .try_into()
-                    .map_err(|e| Error::custom(&format!("invalid values: {}", e)))?;
+                    .map_err(|e| Error::custom(format!("invalid values: {}", e)))?;
 
                 Ok(Frame {
                     name: schema.name,
