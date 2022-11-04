@@ -31,9 +31,9 @@ impl DataService for NoopService {
     type Query = ();
     type QueryError = Infallible;
     type Stream<'a> = BoxDataResponseStream<'static, Self::QueryError>;
-    async fn query_data<'st, 'r: 'st, 's: 'r>(
+    async fn query_data<'st, 's: 'st>(
         &'s self,
-        _request: &'r QueryDataRequest<Self::Query>,
+        _request: QueryDataRequest<Self::Query>,
     ) -> Self::Stream<'st> {
         unreachable!()
     }

@@ -254,9 +254,9 @@ pub trait DataService {
     ///
     /// The request will contain zero or more queries, as well as information about the
     /// origin of the queries (such as the datasource instance) in the `plugin_context` field.
-    async fn query_data<'st, 'r: 'st, 's: 'r>(
+    async fn query_data<'st, 's: 'st>(
         &'s self,
-        request: &'r QueryDataRequest<Self::Query>,
+        request: QueryDataRequest<Self::Query>,
     ) -> Self::Stream<'st>;
 }
 
@@ -290,7 +290,7 @@ where
     ) -> Result<tonic::Response<pluginv2::QueryDataResponse>, tonic::Status> {
         let responses = DataService::query_data(
             self,
-            &request
+            request
                 .into_inner()
                 .try_into()
                 .map_err(ConvertFromError::into_tonic_status)?,
