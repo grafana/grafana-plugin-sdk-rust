@@ -595,6 +595,12 @@ pub enum ConvertFromError {
     /// The `time_range` was missing from the query.
     #[error("time_range missing from query")]
     MissingTimeRange,
+    /// The timestamp passed from Grafana was invalid.
+    #[error("error interpreting timestamp ({timestamp}) from Grafana")]
+    InvalidTimestamp {
+        /// The original timestamp in milliseconds.
+        timestamp: i64,
+    },
     /// The `plugin_context` was missing from the request.
     #[error("plugin_context missing from request")]
     MissingPluginContext,
@@ -695,8 +701,14 @@ pub struct TimeRange {
 impl From<pluginv2::TimeRange> for TimeRange {
     fn from(other: pluginv2::TimeRange) -> Self {
         Self {
-            from: Utc.timestamp_millis(other.from_epoch_ms),
-            to: Utc.timestamp_millis(other.to_epoch_ms),
+            from: Utc
+                .timestamp_millis_opt(other.from_epoch_ms)
+                .single()
+                .expect("'from' timestamp is invalid"),
+            to: Utc
+                .timestamp_millis_opt(other.to_epoch_ms)
+                .single()
+                .expect("'to' timestamp is invalid"),
         }
     }
 }
@@ -786,7 +798,12 @@ impl TryFrom<pluginv2::AppInstanceSettings> for AppInstanceSettings {
         Ok(Self {
             decrypted_secure_json_data: other.decrypted_secure_json_data,
             json_data: read_json(&other.json_data)?,
-            updated: Utc.timestamp_millis(other.last_updated_ms),
+            updated: Utc
+                .timestamp_millis_opt(other.last_updated_ms)
+                .single()
+                .ok_or(ConvertFromError::InvalidTimestamp {
+                    timestamp: other.last_updated_ms,
+                })?,
         })
     }
 }
@@ -883,7 +900,12 @@ impl TryFrom<(pluginv2::DataSourceInstanceSettings, String)> for DataSourceInsta
             basic_auth_user: other.basic_auth_user,
             decrypted_secure_json_data: other.decrypted_secure_json_data,
             json_data: read_json(&other.json_data)?,
-            updated: Utc.timestamp_millis(other.last_updated_ms),
+            updated: Utc
+                .timestamp_millis_opt(other.last_updated_ms)
+                .single()
+                .ok_or(ConvertFromError::InvalidTimestamp {
+                    timestamp: other.last_updated_ms,
+                })?,
         })
     }
 }

@@ -153,6 +153,9 @@ where
     }
 }
 
+// The `Date` type was only recently deprecated, we should remove support for it in the next
+// minor version.
+#[allow(deprecated)]
 impl<T> FieldType for Date<T>
 where
     T: Offset + TimeZone,
@@ -166,6 +169,9 @@ where
     }
 }
 
+// The `Date` type was only recently deprecated, we should remove support for it in the next
+// minor version.
+#[allow(deprecated)]
 impl<T> IntoFieldType for Date<T>
 where
     T: Offset + TimeZone,
@@ -173,7 +179,11 @@ where
     type ElementType = i64;
     const TYPE_INFO_TYPE: TypeInfoType = TypeInfoType::Time;
     fn into_field_type(self) -> Option<Self::ElementType> {
-        Some(self.and_hms(0, 0, 0).timestamp_nanos())
+        Some(
+            self.and_hms_opt(0, 0, 0)
+                .expect("hms are valid")
+                .timestamp_nanos(),
+        )
     }
 }
 
@@ -191,7 +201,11 @@ impl IntoFieldType for NaiveDate {
     type ElementType = i64;
     const TYPE_INFO_TYPE: TypeInfoType = TypeInfoType::Time;
     fn into_field_type(self) -> Option<Self::ElementType> {
-        Some(self.and_hms(0, 0, 0).timestamp_nanos())
+        Some(
+            self.and_hms_opt(0, 0, 0)
+                .expect("hms are valid")
+                .timestamp_nanos(),
+        )
     }
 }
 

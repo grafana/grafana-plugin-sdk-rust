@@ -2,7 +2,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     #[cfg(feature = "gen-proto")]
     {
         let mut config = prost_build::Config::new();
-        config.bytes(&[
+        config.bytes([
             ".pluginv2.CallResourceRequest",
             ".pluginv2.CallResourceResponse",
             ".pluginv2.RunStreamRequest",
