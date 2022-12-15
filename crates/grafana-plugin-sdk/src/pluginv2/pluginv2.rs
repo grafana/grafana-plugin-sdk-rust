@@ -1,199 +1,222 @@
-// -----------------------------------------------
-// Common
-// -----------------------------------------------
-
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct AppInstanceSettings {
-    #[prost(bytes="vec", tag="3")]
+    #[prost(bytes = "vec", tag = "3")]
     pub json_data: ::prost::alloc::vec::Vec<u8>,
-    #[prost(map="string, string", tag="4")]
-    pub decrypted_secure_json_data: ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
-    #[prost(int64, tag="5")]
+    #[prost(map = "string, string", tag = "4")]
+    pub decrypted_secure_json_data: ::std::collections::HashMap<
+        ::prost::alloc::string::String,
+        ::prost::alloc::string::String,
+    >,
+    #[prost(int64, tag = "5")]
     pub last_updated_ms: i64,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct DataSourceInstanceSettings {
-    #[prost(int64, tag="1")]
+    #[prost(int64, tag = "1")]
     pub id: i64,
-    #[prost(string, tag="2")]
+    #[prost(string, tag = "2")]
     pub name: ::prost::alloc::string::String,
-    #[prost(string, tag="3")]
+    #[prost(string, tag = "3")]
     pub url: ::prost::alloc::string::String,
-    #[prost(string, tag="4")]
+    #[prost(string, tag = "4")]
     pub user: ::prost::alloc::string::String,
-    #[prost(string, tag="5")]
+    #[prost(string, tag = "5")]
     pub database: ::prost::alloc::string::String,
-    #[prost(bool, tag="6")]
+    #[prost(bool, tag = "6")]
     pub basic_auth_enabled: bool,
-    #[prost(string, tag="7")]
+    #[prost(string, tag = "7")]
     pub basic_auth_user: ::prost::alloc::string::String,
-    #[prost(bytes="vec", tag="8")]
+    #[prost(bytes = "vec", tag = "8")]
     pub json_data: ::prost::alloc::vec::Vec<u8>,
-    #[prost(map="string, string", tag="9")]
-    pub decrypted_secure_json_data: ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
-    #[prost(int64, tag="10")]
+    #[prost(map = "string, string", tag = "9")]
+    pub decrypted_secure_json_data: ::std::collections::HashMap<
+        ::prost::alloc::string::String,
+        ::prost::alloc::string::String,
+    >,
+    #[prost(int64, tag = "10")]
     pub last_updated_ms: i64,
-    #[prost(string, tag="11")]
+    #[prost(string, tag = "11")]
     pub uid: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct User {
-    #[prost(string, tag="1")]
+    #[prost(string, tag = "1")]
     pub login: ::prost::alloc::string::String,
-    #[prost(string, tag="2")]
+    #[prost(string, tag = "2")]
     pub name: ::prost::alloc::string::String,
-    #[prost(string, tag="3")]
+    #[prost(string, tag = "3")]
     pub email: ::prost::alloc::string::String,
-    #[prost(string, tag="4")]
+    #[prost(string, tag = "4")]
     pub role: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct PluginContext {
     /// The Grafana organization id the request originating from.
-    #[prost(int64, tag="1")]
+    #[prost(int64, tag = "1")]
     pub org_id: i64,
     /// The unique identifier of the plugin the request  originating from.
-    #[prost(string, tag="2")]
+    #[prost(string, tag = "2")]
     pub plugin_id: ::prost::alloc::string::String,
     /// The Grafana user the request originating from.
     ///
     /// Will not be provided if Grafana backend initiated the request.
-    #[prost(message, optional, tag="3")]
+    #[prost(message, optional, tag = "3")]
     pub user: ::core::option::Option<User>,
     /// App plugin instance settings is the configured app instance settings.
     /// In Grafana an app instance is an enabled app plugin in a
     /// Grafana organization.
     ///
     /// Will only be set if request targeting an app instance.
-    #[prost(message, optional, tag="4")]
+    #[prost(message, optional, tag = "4")]
     pub app_instance_settings: ::core::option::Option<AppInstanceSettings>,
     /// Data source instance settings is the configured data source instance
     /// settings. In Grafana a data source instance is a created data source
     /// in a Grafana organization.
     ///
     /// Will only be set if request targeting a data source instance.
-    #[prost(message, optional, tag="5")]
-    pub data_source_instance_settings: ::core::option::Option<DataSourceInstanceSettings>,
+    #[prost(message, optional, tag = "5")]
+    pub data_source_instance_settings: ::core::option::Option<
+        DataSourceInstanceSettings,
+    >,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct StringList {
-    #[prost(string, repeated, tag="1")]
+    #[prost(string, repeated, tag = "1")]
     pub values: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CallResourceRequest {
-    #[prost(message, optional, tag="1")]
+    #[prost(message, optional, tag = "1")]
     pub plugin_context: ::core::option::Option<PluginContext>,
-    #[prost(string, tag="2")]
+    #[prost(string, tag = "2")]
     pub path: ::prost::alloc::string::String,
-    #[prost(string, tag="3")]
+    #[prost(string, tag = "3")]
     pub method: ::prost::alloc::string::String,
-    #[prost(string, tag="4")]
+    #[prost(string, tag = "4")]
     pub url: ::prost::alloc::string::String,
-    #[prost(map="string, message", tag="5")]
+    #[prost(map = "string, message", tag = "5")]
     pub headers: ::std::collections::HashMap<::prost::alloc::string::String, StringList>,
-    #[prost(bytes="bytes", tag="6")]
+    #[prost(bytes = "bytes", tag = "6")]
     pub body: ::prost::bytes::Bytes,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CallResourceResponse {
-    #[prost(int32, tag="1")]
+    #[prost(int32, tag = "1")]
     pub code: i32,
-    #[prost(map="string, message", tag="2")]
+    #[prost(map = "string, message", tag = "2")]
     pub headers: ::std::collections::HashMap<::prost::alloc::string::String, StringList>,
-    #[prost(bytes="bytes", tag="3")]
+    #[prost(bytes = "bytes", tag = "3")]
     pub body: ::prost::bytes::Bytes,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct TimeRange {
-    #[prost(int64, tag="1")]
+    #[prost(int64, tag = "1")]
     pub from_epoch_ms: i64,
-    #[prost(int64, tag="2")]
+    #[prost(int64, tag = "2")]
     pub to_epoch_ms: i64,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct DataQuery {
-    #[prost(string, tag="1")]
+    #[prost(string, tag = "1")]
     pub ref_id: ::prost::alloc::string::String,
-    #[prost(int64, tag="2")]
+    #[prost(int64, tag = "2")]
     pub max_data_points: i64,
-    #[prost(int64, tag="3")]
+    #[prost(int64, tag = "3")]
     pub interval_ms: i64,
-    #[prost(message, optional, tag="4")]
+    #[prost(message, optional, tag = "4")]
     pub time_range: ::core::option::Option<TimeRange>,
-    #[prost(bytes="vec", tag="5")]
+    #[prost(bytes = "vec", tag = "5")]
     pub json: ::prost::alloc::vec::Vec<u8>,
-    #[prost(string, tag="6")]
+    #[prost(string, tag = "6")]
     pub query_type: ::prost::alloc::string::String,
 }
 /// QueryDataRequest
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct QueryDataRequest {
-    #[prost(message, optional, tag="1")]
+    #[prost(message, optional, tag = "1")]
     pub plugin_context: ::core::option::Option<PluginContext>,
     /// Environment info
-    #[prost(map="string, string", tag="2")]
-    pub headers: ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
+    #[prost(map = "string, string", tag = "2")]
+    pub headers: ::std::collections::HashMap<
+        ::prost::alloc::string::String,
+        ::prost::alloc::string::String,
+    >,
     /// List of data queries
-    #[prost(message, repeated, tag="3")]
+    #[prost(message, repeated, tag = "3")]
     pub queries: ::prost::alloc::vec::Vec<DataQuery>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct QueryDataResponse {
     /// Map of refId to response
-    #[prost(map="string, message", tag="1")]
-    pub responses: ::std::collections::HashMap<::prost::alloc::string::String, DataResponse>,
+    #[prost(map = "string, message", tag = "1")]
+    pub responses: ::std::collections::HashMap<
+        ::prost::alloc::string::String,
+        DataResponse,
+    >,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct DataResponse {
     /// Arrow encoded DataFrames
     /// Frame has its own meta, warnings, and repeats refId
-    #[prost(bytes="vec", repeated, tag="1")]
+    #[prost(bytes = "vec", repeated, tag = "1")]
     pub frames: ::prost::alloc::vec::Vec<::prost::alloc::vec::Vec<u8>>,
-    #[prost(string, tag="2")]
+    #[prost(string, tag = "2")]
     pub error: ::prost::alloc::string::String,
     /// Warning: Current ignored by frontend. Would be for metadata about the query.
-    #[prost(bytes="vec", tag="3")]
+    #[prost(bytes = "vec", tag = "3")]
     pub json_meta: ::prost::alloc::vec::Vec<u8>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CollectMetricsRequest {
-    #[prost(message, optional, tag="1")]
+    #[prost(message, optional, tag = "1")]
     pub plugin_context: ::core::option::Option<PluginContext>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CollectMetricsResponse {
-    #[prost(message, optional, tag="1")]
+    #[prost(message, optional, tag = "1")]
     pub metrics: ::core::option::Option<collect_metrics_response::Payload>,
 }
 /// Nested message and enum types in `CollectMetricsResponse`.
 pub mod collect_metrics_response {
     #[derive(Clone, PartialEq, ::prost::Message)]
     pub struct Payload {
-        #[prost(bytes="vec", tag="1")]
+        #[prost(bytes = "vec", tag = "1")]
         pub prometheus: ::prost::alloc::vec::Vec<u8>,
     }
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CheckHealthRequest {
-    #[prost(message, optional, tag="1")]
+    #[prost(message, optional, tag = "1")]
     pub plugin_context: ::core::option::Option<PluginContext>,
     /// Environment info
-    #[prost(map="string, string", tag="2")]
-    pub headers: ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
+    #[prost(map = "string, string", tag = "2")]
+    pub headers: ::std::collections::HashMap<
+        ::prost::alloc::string::String,
+        ::prost::alloc::string::String,
+    >,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CheckHealthResponse {
-    #[prost(enumeration="check_health_response::HealthStatus", tag="1")]
+    #[prost(enumeration = "check_health_response::HealthStatus", tag = "1")]
     pub status: i32,
-    #[prost(string, tag="2")]
+    #[prost(string, tag = "2")]
     pub message: ::prost::alloc::string::String,
-    #[prost(bytes="vec", tag="3")]
+    #[prost(bytes = "vec", tag = "3")]
     pub json_details: ::prost::alloc::vec::Vec<u8>,
 }
 /// Nested message and enum types in `CheckHealthResponse`.
 pub mod check_health_response {
-    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+    #[derive(
+        Clone,
+        Copy,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash,
+        PartialOrd,
+        Ord,
+        ::prost::Enumeration
+    )]
     #[repr(i32)]
     pub enum HealthStatus {
         Unknown = 0,
@@ -216,30 +239,40 @@ pub mod check_health_response {
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SubscribeStreamRequest {
-    #[prost(message, optional, tag="1")]
+    #[prost(message, optional, tag = "1")]
     pub plugin_context: ::core::option::Option<PluginContext>,
     /// path part of channel.
-    #[prost(string, tag="2")]
+    #[prost(string, tag = "2")]
     pub path: ::prost::alloc::string::String,
     /// optional raw data. May be used as an extra payload supplied upon subscription.
     /// For example, can contain JSON query object.
-    #[prost(bytes="bytes", tag="3")]
+    #[prost(bytes = "bytes", tag = "3")]
     pub data: ::prost::bytes::Bytes,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SubscribeStreamResponse {
     /// status of subscribe response.
-    #[prost(enumeration="subscribe_stream_response::Status", tag="1")]
+    #[prost(enumeration = "subscribe_stream_response::Status", tag = "1")]
     pub status: i32,
     /// JSON-encoded data to return to a client in a successful
     /// subscription result.
     /// For data frame streams this can be a JSON-encoded frame schema.
-    #[prost(bytes="vec", tag="2")]
+    #[prost(bytes = "vec", tag = "2")]
     pub data: ::prost::alloc::vec::Vec<u8>,
 }
 /// Nested message and enum types in `SubscribeStreamResponse`.
 pub mod subscribe_stream_response {
-    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+    #[derive(
+        Clone,
+        Copy,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash,
+        PartialOrd,
+        Ord,
+        ::prost::Enumeration
+    )]
     #[repr(i32)]
     pub enum Status {
         Ok = 0,
@@ -262,32 +295,42 @@ pub mod subscribe_stream_response {
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct PublishStreamRequest {
-    #[prost(message, optional, tag="1")]
+    #[prost(message, optional, tag = "1")]
     pub plugin_context: ::core::option::Option<PluginContext>,
     /// path part of a channel.
-    #[prost(string, tag="2")]
+    #[prost(string, tag = "2")]
     pub path: ::prost::alloc::string::String,
     /// data that user wants to publish into a stream
     /// (only JSON-encoded at the moment).
-    #[prost(bytes="vec", tag="3")]
+    #[prost(bytes = "vec", tag = "3")]
     pub data: ::prost::alloc::vec::Vec<u8>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct PublishStreamResponse {
     /// status of publish response.
-    #[prost(enumeration="publish_stream_response::Status", tag="1")]
+    #[prost(enumeration = "publish_stream_response::Status", tag = "1")]
     pub status: i32,
     /// JSON-encoded data to publish into a channel. This can be
     /// unmodified data from a PublishRequest or any modified data.
     /// If empty data returned here then Grafana won't publish data
     /// to a channel itself but will return a successful result to a
     /// client (supposing plugin published data to a channel itself).
-    #[prost(bytes="vec", tag="2")]
+    #[prost(bytes = "vec", tag = "2")]
     pub data: ::prost::alloc::vec::Vec<u8>,
 }
 /// Nested message and enum types in `PublishStreamResponse`.
 pub mod publish_stream_response {
-    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+    #[derive(
+        Clone,
+        Copy,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash,
+        PartialOrd,
+        Ord,
+        ::prost::Enumeration
+    )]
     #[repr(i32)]
     pub enum Status {
         Ok = 0,
@@ -310,20 +353,20 @@ pub mod publish_stream_response {
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct RunStreamRequest {
-    #[prost(message, optional, tag="1")]
+    #[prost(message, optional, tag = "1")]
     pub plugin_context: ::core::option::Option<PluginContext>,
     /// path part of a channel.
-    #[prost(string, tag="2")]
+    #[prost(string, tag = "2")]
     pub path: ::prost::alloc::string::String,
     /// optional raw data. May be used as an extra payload supplied upon subscription.
     /// For example, can contain JSON query object.
-    #[prost(bytes="bytes", tag="3")]
+    #[prost(bytes = "bytes", tag = "3")]
     pub data: ::prost::bytes::Bytes,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct StreamPacket {
     /// JSON-encoded data to publish into a channel.
-    #[prost(bytes="vec", tag="1")]
+    #[prost(bytes = "vec", tag = "1")]
     pub data: ::prost::alloc::vec::Vec<u8>,
 }
 /// Generated client implementations.
@@ -763,10 +806,10 @@ pub mod stream_client {
 pub mod resource_server {
     #![allow(unused_variables, dead_code, missing_docs, clippy::let_unit_value)]
     use tonic::codegen::*;
-    ///Generated trait containing gRPC methods that should be implemented for use with ResourceServer.
+    /// Generated trait containing gRPC methods that should be implemented for use with ResourceServer.
     #[async_trait]
     pub trait Resource: Send + Sync + 'static {
-        ///Server streaming response type for the CallResource method.
+        /// Server streaming response type for the CallResource method.
         type CallResourceStream: futures_core::Stream<
                 Item = Result<super::CallResourceResponse, tonic::Status>,
             >
@@ -920,7 +963,7 @@ pub mod resource_server {
 pub mod data_server {
     #![allow(unused_variables, dead_code, missing_docs, clippy::let_unit_value)]
     use tonic::codegen::*;
-    ///Generated trait containing gRPC methods that should be implemented for use with DataServer.
+    /// Generated trait containing gRPC methods that should be implemented for use with DataServer.
     #[async_trait]
     pub trait Data: Send + Sync + 'static {
         async fn query_data(
@@ -1066,7 +1109,7 @@ pub mod data_server {
 pub mod diagnostics_server {
     #![allow(unused_variables, dead_code, missing_docs, clippy::let_unit_value)]
     use tonic::codegen::*;
-    ///Generated trait containing gRPC methods that should be implemented for use with DiagnosticsServer.
+    /// Generated trait containing gRPC methods that should be implemented for use with DiagnosticsServer.
     #[async_trait]
     pub trait Diagnostics: Send + Sync + 'static {
         async fn check_health(
@@ -1260,7 +1303,7 @@ pub mod diagnostics_server {
 pub mod stream_server {
     #![allow(unused_variables, dead_code, missing_docs, clippy::let_unit_value)]
     use tonic::codegen::*;
-    ///Generated trait containing gRPC methods that should be implemented for use with StreamServer.
+    /// Generated trait containing gRPC methods that should be implemented for use with StreamServer.
     #[async_trait]
     pub trait Stream: Send + Sync + 'static {
         /// SubscribeStream called when a user tries to subscribe to a plugin/datasource
@@ -1271,7 +1314,7 @@ pub mod stream_server {
             &self,
             request: tonic::Request<super::SubscribeStreamRequest>,
         ) -> Result<tonic::Response<super::SubscribeStreamResponse>, tonic::Status>;
-        ///Server streaming response type for the RunStream method.
+        /// Server streaming response type for the RunStream method.
         type RunStreamStream: futures_core::Stream<
                 Item = Result<super::StreamPacket, tonic::Status>,
             >
