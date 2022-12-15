@@ -1,10 +1,19 @@
 //! Conversion of [`Frame`][crate::data::Frame]s to the Arrow IPC format.
 use std::{collections::BTreeMap, sync::Arc};
 
-use arrow2::{chunk::Chunk, datatypes::Schema, io::ipc::write::FileWriter};
+use arrow2::{
+    chunk::Chunk,
+    datatypes::Schema,
+    io::ipc::{
+        read::{read_file_metadata, FileReader},
+        write::FileWriter,
+    },
+};
 use thiserror::Error;
 
 use crate::data::{field::Field, frame::CheckedFrame};
+
+use super::Frame;
 
 /// Errors occurring when serializing a [`Frame`] to the Arrow IPC format.
 #[derive(Debug, Error)]
@@ -80,6 +89,36 @@ impl CheckedFrame<'_> {
             writer.finish().map_err(Error::WriteBuffer)?;
         }
         Ok(buf)
+    }
+}
+
+impl Frame {
+    pub(crate) fn from_arrow(data: Vec<u8>) -> Result<Self, Error> {
+        let mut cursor = std::io::Cursor::new(data);
+        let metadata = read_file_metadata(&mut cursor).unwrap();
+        let arrow_schema = metadata.schema.clone();
+        let mut frame = Frame {
+            name: arrow_schema.metadata.get("name").unwrap().to_string(),
+            ref_id: arrow_schema.metadata.get("refId").map(Clone::clone),
+            meta: arrow_schema
+                .metadata
+                .get("meta")
+                .and_then(|m| serde_json::from_str(m).ok()),
+            fields: vec![],
+        };
+
+        let fields = arrow_schema
+            .fields
+            .into_iter()
+            .map(Field::from_arrow)
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
+        let reader = FileReader::new(cursor, metadata, None, None);
+        // TODO: are these chunks of columns? need to actually read them in...
+        let chunks = reader.collect::<Result<Vec<_>, _>>().unwrap();
+
+        frame.fields = fields;
+        Ok(frame)
     }
 }
 
