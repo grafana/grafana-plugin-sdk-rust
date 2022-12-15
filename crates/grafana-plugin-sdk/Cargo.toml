@@ -27,7 +27,7 @@ time = { version = "0.3.5", features = ["formatting", "macros"] }
 tokio = { version = "1.13.0", features = ["rt-multi-thread"] }
 tokio-stream = { version = "0.1.8", features = ["net"] }
 tonic = "0.8.1"
-tonic-health = "0.7.1"
+tonic-health = "0.8.0"
 tracing = "0.1.29"
 tracing-core = "0.1.21"
 tracing-log = "0.1.2"
