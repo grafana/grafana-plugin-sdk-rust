@@ -849,11 +849,20 @@ mod tests {
     test_create_field_from_type!(SystemTime, UNIX_EPOCH);
     test_create_field_from_type!(
         NaiveDateTime,
-        NaiveDate::from_ymd(1970, 1, 1).and_hms(0, 0, 0)
+        NaiveDate::from_ymd_opt(1970, 1, 1)
+            .unwrap()
+            .and_hms_opt(0, 0, 0)
+            .unwrap()
     );
-    test_create_field_from_type!(NaiveDate, NaiveDate::from_ymd(1970, 1, 1));
-    test_create_field_from_type!(DateTime, Utc.ymd(1970, 1, 1).and_hms(0, 0, 0));
-    test_create_field_from_type!(Date, Utc.ymd(1970, 1, 1));
+    test_create_field_from_type!(NaiveDate, NaiveDate::from_ymd_opt(1970, 1, 1).unwrap());
+    test_create_field_from_type!(
+        DateTime,
+        Utc.with_ymd_and_hms(1970, 1, 1, 0, 0, 0).single().unwrap()
+    );
+    test_create_field_from_type!(
+        Date,
+        Utc.with_ymd_and_hms(1970, 1, 1, 0, 0, 0).single().unwrap()
+    );
 
     #[test]
     fn set_values_from_iter_primitive() {
