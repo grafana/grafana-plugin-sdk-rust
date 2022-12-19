@@ -1,3 +1,4 @@
+#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct AppInstanceSettings {
     #[prost(bytes = "vec", tag = "3")]
@@ -10,6 +11,7 @@ pub struct AppInstanceSettings {
     #[prost(int64, tag = "5")]
     pub last_updated_ms: i64,
 }
+#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct DataSourceInstanceSettings {
     #[prost(int64, tag = "1")]
@@ -38,6 +40,7 @@ pub struct DataSourceInstanceSettings {
     #[prost(string, tag = "11")]
     pub uid: ::prost::alloc::string::String,
 }
+#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct User {
     #[prost(string, tag = "1")]
@@ -49,6 +52,7 @@ pub struct User {
     #[prost(string, tag = "4")]
     pub role: ::prost::alloc::string::String,
 }
+#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct PluginContext {
     /// The Grafana organization id the request originating from.
@@ -79,11 +83,13 @@ pub struct PluginContext {
         DataSourceInstanceSettings,
     >,
 }
+#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct StringList {
     #[prost(string, repeated, tag = "1")]
     pub values: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
+#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CallResourceRequest {
     #[prost(message, optional, tag = "1")]
@@ -99,6 +105,7 @@ pub struct CallResourceRequest {
     #[prost(bytes = "bytes", tag = "6")]
     pub body: ::prost::bytes::Bytes,
 }
+#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CallResourceResponse {
     #[prost(int32, tag = "1")]
@@ -108,6 +115,7 @@ pub struct CallResourceResponse {
     #[prost(bytes = "bytes", tag = "3")]
     pub body: ::prost::bytes::Bytes,
 }
+#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct TimeRange {
     #[prost(int64, tag = "1")]
@@ -115,6 +123,7 @@ pub struct TimeRange {
     #[prost(int64, tag = "2")]
     pub to_epoch_ms: i64,
 }
+#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct DataQuery {
     #[prost(string, tag = "1")]
@@ -131,6 +140,7 @@ pub struct DataQuery {
     pub query_type: ::prost::alloc::string::String,
 }
 /// QueryDataRequest
+#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct QueryDataRequest {
     #[prost(message, optional, tag = "1")]
@@ -145,6 +155,7 @@ pub struct QueryDataRequest {
     #[prost(message, repeated, tag = "3")]
     pub queries: ::prost::alloc::vec::Vec<DataQuery>,
 }
+#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct QueryDataResponse {
     /// Map of refId to response
@@ -154,6 +165,7 @@ pub struct QueryDataResponse {
         DataResponse,
     >,
 }
+#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct DataResponse {
     /// Arrow encoded DataFrames
@@ -166,11 +178,13 @@ pub struct DataResponse {
     #[prost(bytes = "vec", tag = "3")]
     pub json_meta: ::prost::alloc::vec::Vec<u8>,
 }
+#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CollectMetricsRequest {
     #[prost(message, optional, tag = "1")]
     pub plugin_context: ::core::option::Option<PluginContext>,
 }
+#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CollectMetricsResponse {
     #[prost(message, optional, tag = "1")]
@@ -178,12 +192,14 @@ pub struct CollectMetricsResponse {
 }
 /// Nested message and enum types in `CollectMetricsResponse`.
 pub mod collect_metrics_response {
+    #[allow(clippy::derive_partial_eq_without_eq)]
     #[derive(Clone, PartialEq, ::prost::Message)]
     pub struct Payload {
         #[prost(bytes = "vec", tag = "1")]
         pub prometheus: ::prost::alloc::vec::Vec<u8>,
     }
 }
+#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CheckHealthRequest {
     #[prost(message, optional, tag = "1")]
@@ -195,6 +211,7 @@ pub struct CheckHealthRequest {
         ::prost::alloc::string::String,
     >,
 }
+#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CheckHealthResponse {
     #[prost(enumeration = "check_health_response::HealthStatus", tag = "1")]
@@ -237,6 +254,7 @@ pub mod check_health_response {
         }
     }
 }
+#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SubscribeStreamRequest {
     #[prost(message, optional, tag = "1")]
@@ -249,6 +267,7 @@ pub struct SubscribeStreamRequest {
     #[prost(bytes = "bytes", tag = "3")]
     pub data: ::prost::bytes::Bytes,
 }
+#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SubscribeStreamResponse {
     /// status of subscribe response.
@@ -293,6 +312,7 @@ pub mod subscribe_stream_response {
         }
     }
 }
+#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct PublishStreamRequest {
     #[prost(message, optional, tag = "1")]
@@ -305,6 +325,7 @@ pub struct PublishStreamRequest {
     #[prost(bytes = "vec", tag = "3")]
     pub data: ::prost::alloc::vec::Vec<u8>,
 }
+#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct PublishStreamResponse {
     /// status of publish response.
@@ -351,6 +372,7 @@ pub mod publish_stream_response {
         }
     }
 }
+#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct RunStreamRequest {
     #[prost(message, optional, tag = "1")]
@@ -363,6 +385,7 @@ pub struct RunStreamRequest {
     #[prost(bytes = "bytes", tag = "3")]
     pub data: ::prost::bytes::Bytes,
 }
+#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct StreamPacket {
     /// JSON-encoded data to publish into a channel.
