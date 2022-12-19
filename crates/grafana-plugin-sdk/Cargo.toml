@@ -9,7 +9,7 @@ repository = "https://github.com/grafana/grafana-plugin-sdk-rust"
 description = "SDK for building Grafana backend plugins."
 
 [dependencies]
-arrow2 = { version = "0.14.0", features = ["io_ipc"] }
+arrow2 = { version = "0.15.0", features = ["io_ipc"] }
 chrono = "0.4.19"
 futures-core = "0.3.17"
 futures-util = "0.3.17"
