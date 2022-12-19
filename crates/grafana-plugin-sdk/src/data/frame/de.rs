@@ -3,11 +3,10 @@ use std::{collections::BTreeMap, fmt, marker::PhantomData};
 
 use arrow2::{
     array::{
-        Array, MutableArray, MutableBooleanArray, MutablePrimitiveArray, MutableUtf8Array, Offset,
-        TryPush,
+        Array, MutableArray, MutableBooleanArray, MutablePrimitiveArray, MutableUtf8Array, TryPush,
     },
     datatypes::{DataType, TimeUnit},
-    types::NativeType,
+    types::{NativeType, Offset},
 };
 use num_traits::Float;
 use serde::{
