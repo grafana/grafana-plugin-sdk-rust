@@ -160,8 +160,7 @@ fn build_config(input: syn::ItemFn, args: AttributeArgs) -> Result<FinalConfig, 
                     )?,
                     name => {
                         let msg = format!(
-                            "Unknown attribute {} is specified; expected one of: `services`, `init_subscriber`, `shutdown_handler`",
-                            name,
+                            "Unknown attribute {name} is specified; expected one of: `services`, `init_subscriber`, `shutdown_handler`",
                         );
                         return Err(syn::Error::new_spanned(namevalue, msg));
                     }
@@ -180,16 +179,14 @@ fn build_config(input: syn::ItemFn, args: AttributeArgs) -> Result<FinalConfig, 
                     name @ "init_subscriber" | name @ "shutdown_handler" => {
                         let val = &list.nested;
                         let msg = format!(
-                            "`{0}` attribute should be specified as `{0} = {1}`",
-                            name,
+                            "`{name}` attribute should be specified as `{name} = {0}`",
                             quote! { #val },
                         );
                         return Err(syn::Error::new_spanned(list, msg));
                     }
                     name => {
                         let msg = format!(
-                            "Unknown attribute {} is specified; expected one of: `services`, `init_subscriber`, `shutdown_handler`",
-                            name,
+                            "Unknown attribute {name} is specified; expected one of: `services`, `init_subscriber`, `shutdown_handler`",
                         );
                         return Err(syn::Error::new_spanned(list, msg));
                     }
@@ -212,7 +209,7 @@ fn parse_string(val: syn::Lit, span: Span, field: &str) -> Result<String, syn::E
         syn::Lit::Verbatim(s) => Ok(s.to_string()),
         _ => Err(syn::Error::new(
             span,
-            format!("Failed to parse value of `{}` as string.", field),
+            format!("Failed to parse value of `{field}` as string."),
         )),
     }
 }
@@ -222,7 +219,7 @@ fn parse_bool(bool: syn::Lit, span: Span, field: &str) -> Result<bool, syn::Erro
         syn::Lit::Bool(b) => Ok(b.value),
         _ => Err(syn::Error::new(
             span,
-            format!("Failed to parse value of `{}` as bool.", field),
+            format!("Failed to parse value of `{field}` as bool."),
         )),
     }
 }
@@ -238,8 +235,7 @@ fn parse_services(list: &AttributeArgs) -> Result<Vec<String>, syn::Error> {
                     .to_lowercase();
                 if !["data", "diagnostics", "resource", "stream"].contains(&svc.as_str()) {
                     let msg = format!(
-                        "invalid service {}; must be one of `data`, `diagnostics`, `resource`, `stream`",
-                        svc,
+                        "invalid service {svc}; must be one of `data`, `diagnostics`, `resource`, `stream`",
                     );
                     return Err(syn::Error::new_spanned(path, msg))
                 }

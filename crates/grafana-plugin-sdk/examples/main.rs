@@ -77,9 +77,9 @@ impl backend::DataService for MyPluginService {
                             // Fields can be created from iterators of a variety of
                             // relevant datatypes.
                             [
-                                Utc.ymd(2021, 1, 1).and_hms(12, 0, 0),
-                                Utc.ymd(2021, 1, 1).and_hms(12, 0, 1),
-                                Utc.ymd(2021, 1, 1).and_hms(12, 0, 2),
+                                Utc.with_ymd_and_hms(2021, 1, 1, 12, 0, 0).single().unwrap(),
+                                Utc.with_ymd_and_hms(2021, 1, 1, 12, 0, 1).single().unwrap(),
+                                Utc.with_ymd_and_hms(2021, 1, 1, 12, 0, 2).single().unwrap(),
                             ]
                             .into_field("time"),
                             [1_u32, 2, 3].into_field("x"),
