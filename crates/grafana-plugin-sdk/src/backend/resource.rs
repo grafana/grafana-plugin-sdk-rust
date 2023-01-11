@@ -19,7 +19,8 @@ use crate::{
 #[non_exhaustive]
 pub struct CallResourceRequest<T = Bytes> {
     /// Details of the plugin instance from which the request originated.
-    pub plugin_context: Option<PluginContext>,
+    pub plugin_context: PluginContext,
+
     /// The HTTP request.
     pub request: Request<T>,
 }
@@ -49,7 +50,10 @@ impl TryFrom<pluginv2::CallResourceRequest> for CallResourceRequest {
             }
         }
         Ok(Self {
-            plugin_context: other.plugin_context.map(TryInto::try_into).transpose()?,
+            plugin_context: other
+                .plugin_context
+                .ok_or(ConvertFromError::MissingPluginContext)
+                .and_then(TryInto::try_into)?,
             request: request
                 .method(other.method.as_str())
                 .uri(format!("/{}", other.url))

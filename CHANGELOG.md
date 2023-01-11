@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Change the `plugin_context` field of various structs to be non-optional, matching the Go SDK.
 - Bump arrow2 dependency to 0.15.0
 
 ## [0.4.2] - 2022-09-19
