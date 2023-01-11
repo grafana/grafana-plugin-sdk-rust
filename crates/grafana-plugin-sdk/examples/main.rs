@@ -50,6 +50,10 @@ impl backend::DataQueryError for QueryError {
     fn ref_id(self) -> String {
         self.ref_id
     }
+
+    fn status(&self) -> backend::DataQueryStatus {
+        backend::DataQueryStatus::Internal
+    }
 }
 
 #[tonic::async_trait]

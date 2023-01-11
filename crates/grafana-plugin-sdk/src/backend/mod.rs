@@ -159,7 +159,8 @@ mod stream;
 mod tracing_fmt;
 
 pub use data::{
-    BoxDataResponseStream, DataQuery, DataQueryError, DataResponse, DataService, QueryDataRequest,
+    BoxDataResponseStream, DataQuery, DataQueryError, DataQueryStatus, DataResponse, DataService,
+    QueryDataRequest,
 };
 pub use diagnostics::{
     CheckHealthRequest, CheckHealthResponse, CollectMetricsRequest, CollectMetricsResponse,

@@ -141,6 +141,123 @@ pub trait DataQueryError: std::error::Error {
     ///
     /// This allows the SDK to align queries up with any failed requests.
     fn ref_id(self) -> String;
+
+    /// A suitable [`DataQueryStatus`] to represent this error.
+    ///
+    /// This may be used by clients to decide how this error should
+    /// be handled. For example, whether the request should be retried,
+    /// treated as a client or server error, etc.
+    ///
+    /// Defaults to [`DataQueryStatus::Unknown`] if not overridden.
+    fn status(&self) -> DataQueryStatus {
+        DataQueryStatus::Unknown
+    }
+}
+
+/// Status codes for [`DataQueryError`].
+///
+/// These generally correspond to HTTP status codes, but are not
+/// a 1:1 mapping: several variants may map to a single HTTP
+/// status code, and not all HTTP status codes are given.
+///
+/// To return a custom HTTP status code in more advanced scenarios,
+/// use [`DataQueryStatus::Custom`] and nest the required
+/// [`http::StatusCode`] inside.
+pub enum DataQueryStatus {
+    /// An error that should be updated to contain an accurate status code,
+    /// as none has been provided.
+    ///
+    /// HTTP status code 500.
+    Unknown,
+
+    /// The query was successful.
+    ///
+    /// HTTP status code 200.
+    OK,
+
+    /// The datasource does not recognize the client's authentication,
+    /// either because it has not been provided
+    /// or is invalid for the operation.
+    ///
+    /// HTTP status code 401.
+    Unauthorized,
+
+    /// The datasource refuses to perform the requested action for the authenticated user.
+    /// HTTP status code 403.
+    Forbidden,
+
+    /// The datasource does not have any corresponding document to return to the request.
+    ///
+    /// HTTP status code 404.
+    NotFound,
+
+    /// The client is rate limited by the datasource and should back-off before trying again.
+    ///
+    /// HTTP status code 429.
+    TooManyRequests,
+
+    /// The datasource was unable to parse the parameters or payload for the request.
+    ///
+    /// HTTP status code 400.
+    BadRequest,
+
+    /// The datasource was able to parse the payload for the request,
+    /// but it failed one or more validation checks.
+    ///
+    /// HTTP status code 400.
+    ValidationFailed,
+
+    /// The datasource acknowledges that there's an error, but that there is
+    /// nothing the client can do to fix it.
+    ///
+    /// HTTP status code 500.
+    Internal,
+
+    /// The datasource does not support the requested action.
+    /// Typically used during development of new features.
+    ///
+    /// HTTP status code 501.
+    NotImplemented,
+
+    /// The datasource did not complete the request within the required time and aborted the action.
+    ///
+    /// HTTP status code 504.
+    Timeout,
+
+    /// The datasource, while acting as a gateway or proxy, received an invalid response
+    /// from the upstream server.
+    ///
+    /// HTTP status code 502.
+    BadGateway,
+
+    /// The datasource encountered another error, best represented by
+    /// the inner status code.
+    Custom(http::StatusCode),
+}
+
+impl DataQueryStatus {
+    fn as_http(&self) -> http::StatusCode {
+        use http::StatusCode;
+        match self {
+            DataQueryStatus::Unknown => StatusCode::INTERNAL_SERVER_ERROR,
+            DataQueryStatus::OK => StatusCode::OK,
+            DataQueryStatus::Unauthorized => StatusCode::UNAUTHORIZED,
+            DataQueryStatus::Forbidden => StatusCode::FORBIDDEN,
+            DataQueryStatus::NotFound => StatusCode::NOT_FOUND,
+            DataQueryStatus::TooManyRequests => StatusCode::TOO_MANY_REQUESTS,
+            DataQueryStatus::BadRequest => StatusCode::BAD_REQUEST,
+            DataQueryStatus::ValidationFailed => StatusCode::BAD_REQUEST,
+            DataQueryStatus::Internal => StatusCode::INTERNAL_SERVER_ERROR,
+            DataQueryStatus::NotImplemented => StatusCode::NOT_IMPLEMENTED,
+            DataQueryStatus::Timeout => StatusCode::GATEWAY_TIMEOUT,
+            DataQueryStatus::BadGateway => StatusCode::BAD_GATEWAY,
+            DataQueryStatus::Custom(inner) => *inner,
+        }
+    }
+
+    fn as_i32(&self) -> i32 {
+        self.as_http().as_u16().into()
+    }
 }
 
 /// Used to respond for requests for data from datasources and app plugins.
@@ -300,6 +417,7 @@ where
                             ref_id.clone(),
                             pluginv2::DataResponse {
                                 frames: vec![],
+                                status: DataQueryStatus::Internal.as_i32(),
                                 error: e.to_string(),
                                 json_meta: vec![],
                             },
@@ -310,6 +428,7 @@ where
                             ref_id.clone(),
                             pluginv2::DataResponse {
                                 frames,
+                                status: DataQueryStatus::OK.as_i32(),
                                 error: "".to_string(),
                                 json_meta: vec![],
                             },
@@ -318,11 +437,13 @@ where
                 )
             }
             Err(e) => {
+                let status = e.status().as_i32();
                 let err_string = e.to_string();
                 (
                     e.ref_id(),
                     pluginv2::DataResponse {
                         frames: vec![],
+                        status,
                         error: err_string,
                         json_meta: vec![],
                     },
