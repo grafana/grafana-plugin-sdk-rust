@@ -181,7 +181,7 @@ pub struct DataResponse {
     /// error code in /ds/query The status codes should match values from standard
     /// HTTP status codes If not set explicitly, it will be marshaled to 200 if no
     /// error exists, or 500 if one does
-    #[prost(int32, tag="4")]
+    #[prost(int32, tag = "4")]
     pub status: i32,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]

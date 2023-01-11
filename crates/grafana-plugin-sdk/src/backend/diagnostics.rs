@@ -36,7 +36,7 @@ impl From<HealthStatus> for pluginv2::check_health_response::HealthStatus {
 #[non_exhaustive]
 pub struct CheckHealthRequest {
     /// Details of the plugin instance from which the request originated.
-    pub plugin_context: Option<PluginContext>,
+    pub plugin_context: PluginContext,
     /// Headers included along with the request by Grafana.
     pub headers: HashMap<String, String>,
 }
@@ -45,7 +45,10 @@ impl TryFrom<pluginv2::CheckHealthRequest> for CheckHealthRequest {
     type Error = ConvertFromError;
     fn try_from(other: pluginv2::CheckHealthRequest) -> Result<Self, Self::Error> {
         Ok(Self {
-            plugin_context: other.plugin_context.map(TryInto::try_into).transpose()?,
+            plugin_context: other
+                .plugin_context
+                .ok_or(ConvertFromError::MissingPluginContext)
+                .and_then(TryInto::try_into)?,
             headers: other.headers,
         })
     }
@@ -145,14 +148,17 @@ impl From<CheckHealthResponse> for pluginv2::CheckHealthResponse {
 #[non_exhaustive]
 pub struct CollectMetricsRequest {
     /// Details of the plugin instance from which the request originated.
-    pub plugin_context: Option<PluginContext>,
+    pub plugin_context: PluginContext,
 }
 
 impl TryFrom<pluginv2::CollectMetricsRequest> for CollectMetricsRequest {
     type Error = ConvertFromError;
     fn try_from(other: pluginv2::CollectMetricsRequest) -> Result<Self, Self::Error> {
         Ok(Self {
-            plugin_context: other.plugin_context.map(TryInto::try_into).transpose()?,
+            plugin_context: other
+                .plugin_context
+                .ok_or(ConvertFromError::MissingPluginContext)
+                .and_then(TryInto::try_into)?,
         })
     }
 }
