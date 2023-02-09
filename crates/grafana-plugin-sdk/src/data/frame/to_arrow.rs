@@ -1,5 +1,5 @@
 //! Conversion of [`Frame`][crate::data::Frame]s to the Arrow IPC format.
-use std::{collections::BTreeMap, sync::Arc};
+use std::collections::BTreeMap;
 
 use arrow2::{chunk::Chunk, datatypes::Schema, io::ipc::write::FileWriter};
 use thiserror::Error;
@@ -59,7 +59,7 @@ impl CheckedFrame<'_> {
     /// If `ref_id` is provided, it is passed down to the various conversion
     /// function and takes precedence over the `ref_id` set on the frame.
     pub(crate) fn to_arrow(&self, ref_id: Option<String>) -> Result<Vec<u8>, Error> {
-        let schema: Arc<Schema> = Arc::new(self.arrow_schema(ref_id)?);
+        let schema = self.arrow_schema(ref_id)?;
 
         let records = if self.0.fields.is_empty() {
             None
@@ -72,7 +72,7 @@ impl CheckedFrame<'_> {
 
         let mut buf = Vec::new();
         {
-            let mut writer = FileWriter::try_new(&mut buf, &schema, None, Default::default())
+            let mut writer = FileWriter::try_new(&mut buf, schema, None, Default::default())
                 .map_err(Error::WriteBuffer)?;
             if let Some(records) = records {
                 writer.write(&records, None).map_err(Error::WriteBuffer)?;
