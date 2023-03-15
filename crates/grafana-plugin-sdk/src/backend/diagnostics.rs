@@ -4,6 +4,7 @@ use std::{collections::HashMap, fmt};
 
 use serde::de::DeserializeOwned;
 use serde_json::Value;
+use tracing::instrument;
 
 use crate::{
     backend::{ConvertFromError, InstanceSettings, PluginContext},
@@ -57,6 +58,7 @@ where
     IS: InstanceSettings<JsonData, SecureJsonData>,
 {
     type Error = ConvertFromError;
+    #[instrument(err)]
     fn try_from(other: pluginv2::CheckHealthRequest) -> Result<Self, Self::Error> {
         Ok(Self {
             plugin_context: other
@@ -355,14 +357,13 @@ where
         &self,
         request: tonic::Request<pluginv2::CheckHealthRequest>,
     ) -> Result<tonic::Response<pluginv2::CheckHealthResponse>, tonic::Status> {
-        let response = DiagnosticsService::check_health(
-            self,
-            request
-                .into_inner()
-                .try_into()
-                .map_err(ConvertFromError::into_tonic_status)?,
-        )
-        .await
+        let response = match request.into_inner().try_into() {
+            Ok(request) => DiagnosticsService::check_health(self, request).await,
+            Err(e) => Ok(CheckHealthResponse::error(format!(
+                "error converting check health request: {e}"
+            ))
+            .with_json_details(serde_json::to_value(e).unwrap_or(serde_json::Value::Null))),
+        }
         .map_err(|e| tonic::Status::internal(e.to_string()))?;
         Ok(tonic::Response::new(response.into()))
     }

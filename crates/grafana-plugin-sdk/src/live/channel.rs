@@ -7,13 +7,14 @@ See the [channel guide] for more information.
 use std::{fmt, str::FromStr};
 
 use itertools::Itertools;
+use serde::Serialize;
 use thiserror::Error;
 
 /// The maximum length of a channel when represented as a string.
 pub const MAX_CHANNEL_LENGTH: usize = 160;
 
 /// The error returned when parsing a channel.
-#[derive(Debug, Error)]
+#[derive(Debug, Error, Serialize)]
 #[non_exhaustive]
 pub enum Error {
     /// The channel was empty.

@@ -352,7 +352,7 @@ where
                 .ok_or(ConvertFromError::MissingPluginContext)
                 .and_then(TryInto::try_into)?,
             path: Path::new(other.path)?,
-            data: super::read_json(&other.data)?,
+            data: super::read_json_query(&other.data)?,
         })
     }
 }

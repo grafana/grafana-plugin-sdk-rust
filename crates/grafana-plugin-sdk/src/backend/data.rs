@@ -138,7 +138,7 @@ where
                 .time_range
                 .map(TimeRange::from)
                 .ok_or(ConvertFromError::MissingTimeRange)?,
-            query: backend::read_json(&other.json)?,
+            query: backend::read_json_query(&other.json)?,
         })
     }
 }
