@@ -363,9 +363,18 @@ impl<D, Q, R, S> Plugin<D, Q, R, S> {
     ///
     /// The shutdown handler waits for a TCP connection on the specified address
     /// and requests that the server gracefully shutdown when any connection is made.
+    ///
+    /// Note that this _only_ takes effect in debug mode. The shutdown handler
+    /// is never added when the crate is compiled in release mode.
     #[must_use]
     pub fn shutdown_handler(mut self, address: SocketAddr) -> Self {
-        self.shutdown_handler = Some(ShutdownHandler::new(address));
+        cfg_if::cfg_if! {
+            if #[cfg(debug_assertions)] {
+                self.shutdown_handler = Some(ShutdownHandler::new(address));
+            } else {
+                self.shutdown_handler = None;
+            }
+        }
         self
     }
 

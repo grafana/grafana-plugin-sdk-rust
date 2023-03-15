@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Change the `plugin_context` field of various structs to be non-optional, matching the Go SDK.
+- Plugins will only spawn shutdown handlers when compiled in debug mode. When compiled in release mode the shutdown handler attribute will do nothing.
 - Bump arrow2 dependency to 0.16.0
 
 ## [0.4.2] - 2022-09-19
