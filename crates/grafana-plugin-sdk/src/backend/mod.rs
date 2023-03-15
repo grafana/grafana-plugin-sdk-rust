@@ -131,8 +131,9 @@ use std::{
 
 use chrono::prelude::*;
 use futures_util::FutureExt;
-use serde::de::DeserializeOwned;
+use serde::{de::DeserializeOwned, Serialize};
 use serde_json::Value;
+use serde_with::{serde_as, DisplayFromStr};
 use thiserror::Error;
 use tokio::net::TcpListener;
 use tokio_stream::wrappers::TcpListenerStream;
@@ -607,7 +608,9 @@ pub enum Error {
 /// Errors occurring when trying to interpret data passed from Grafana to this SDK.
 ///
 /// Generally any errors should be considered a bug and should be reported.
-#[derive(Debug, Error)]
+#[serde_as]
+#[derive(Debug, Error, Serialize)]
+#[serde(rename_all = "camelCase", tag = "type")]
 #[non_exhaustive]
 pub enum ConvertFromError {
     /// The `time_range` was missing from the query.
@@ -625,22 +628,34 @@ pub enum ConvertFromError {
     /// The app or datasource instance settings were missing from the request.
     #[error("instance settings missing from request")]
     MissingInstanceSettings,
-    /// The JSON provided by Grafana was invalid.
-    #[error("invalid JSON (got {json}): {err}")]
-    InvalidJson {
+    /// The query's JSON data sent by Grafana could not be deserialized.
+    #[error("unexpected query JSON (got {json}): {err}")]
+    UnexpectedQueryJson {
         /// The underlying JSON error.
+        #[serde_as(as = "DisplayFromStr")]
         err: serde_json::Error,
         /// The JSON for which deserialization was attempted.
         json: String,
     },
-    /// The plugin's 'secure' JSON data could not be converted into
+    /// The plugin instance's JSON data sent by Grafana could not be deserialized
+    /// into the backend representation.
+    #[error("unexpected plugin JSON data (got {json}): {err}")]
+    UnexpectedJsonData {
+        /// The underlying JSON error.
+        #[serde_as(as = "DisplayFromStr")]
+        err: serde_json::Error,
+        /// The JSON for which deserialization was attempted.
+        json: String,
+    },
+    /// The plugin instance's 'secure' JSON data sent by Grafana could not be converted into
     /// the backend representation.
     #[error(
-        "invalid secure JSON (found keys: {keys}): {err}",
+        "unexpected plugin secure JSON data (got keys: [{keys}]): {err}",
         keys = secure_json_keys.join(", ")
     )]
-    InvalidSecureJson {
+    UnexpectedSecureJson {
         /// The underlying JSON error.
+        #[serde_as(as = "DisplayFromStr")]
         err: serde_json::Error,
         /// The keys found in the underlying decrypted secure JSON.
         ///
@@ -651,12 +666,14 @@ pub enum ConvertFromError {
     #[error("invalid frame: {source}")]
     InvalidFrame {
         /// The underlying JSON error.
+        #[serde_as(as = "DisplayFromStr")]
         source: serde_json::Error,
     },
     /// The resource request was not a valid HTTP request.
     #[error("invalid HTTP request: {source}")]
     InvalidRequest {
         /// The underlying `http` error.
+        #[serde_as(as = "DisplayFromStr")]
         source: http::Error,
     },
     /// The role string provided by Grafana didn't match the roles known by the SDK.
@@ -709,14 +726,32 @@ pub enum ConvertToError {
 
 type ConvertFromResult<T> = std::result::Result<T, ConvertFromError>;
 
-fn read_json<T>(jdoc: &[u8]) -> ConvertFromResult<T>
+fn read_json<T>(jdoc: &[u8]) -> Result<T, serde_json::Error>
 where
     T: DeserializeOwned,
 {
     // Grafana sometimes sends an empty string instead of an empty map, probably
     // because of some zero value Golang stuff?
     let jdoc = jdoc.is_empty().then(|| b"{}".as_slice()).unwrap_or(jdoc);
-    serde_json::from_slice(jdoc).map_err(|err| ConvertFromError::InvalidJson {
+    serde_json::from_slice(jdoc)
+}
+
+ fn read_json_query<T>(jdoc: &[u8]) -> ConvertFromResult<T>
+where
+    T: DeserializeOwned,
+{
+    read_json(jdoc).map_err(|err| ConvertFromError::UnexpectedQueryJson {
+        err,
+        json: String::from_utf8(jdoc.to_vec())
+            .unwrap_or_else(|_| format!("non-utf8 string: {}", String::from_utf8_lossy(jdoc))),
+    })
+}
+
+fn read_json_data<T>(jdoc: &[u8]) -> ConvertFromResult<T>
+where
+    T: DeserializeOwned,
+{
+    read_json(jdoc).map_err(|err| ConvertFromError::UnexpectedJsonData {
         err,
         json: String::from_utf8(jdoc.to_vec())
             .unwrap_or_else(|_| format!("non-utf8 string: {}", String::from_utf8_lossy(jdoc))),
@@ -806,7 +841,7 @@ fn convert_secure_json_data<T: DeserializeOwned>(
             .iter()
             .map(|(k, v)| (k.clone(), Value::String(v.clone()))),
     )))
-    .map_err(|e| ConvertFromError::InvalidSecureJson {
+    .map_err(|e| ConvertFromError::UnexpectedSecureJson {
         err: e,
         secure_json_keys: secure_json.keys().cloned().collect(),
     })
@@ -878,7 +913,7 @@ where
                 decrypted_secure_json_data: convert_secure_json_data(
                     &proto.decrypted_secure_json_data,
                 )?,
-                json_data: read_json(&proto.json_data)?,
+                json_data: read_json_data(&proto.json_data)?,
                 updated: Utc
                     .timestamp_millis_opt(proto.last_updated_ms)
                     .single()
@@ -901,29 +936,6 @@ where
 }
 
 impl<JsonData, SecureJsonData> sealed::Sealed for AppInstanceSettings<JsonData, SecureJsonData> {}
-
-// impl<JsonData, SecureJsonData> TryFrom<pluginv2::AppInstanceSettings>
-//     for AppInstanceSettings<JsonData, SecureJsonData>
-// where
-//     JsonData: DeserializeOwned,
-//     SecureJsonData: DeserializeOwned,
-// {
-//     type Error = ConvertFromError;
-//     fn try_from(other: pluginv2::AppInstanceSettings) -> Result<Self, Self::Error> {
-//         Ok(Self {
-//             decrypted_secure_json_data: convert_secure_json_data(
-//                 &other.decrypted_secure_json_data,
-//             )?,
-//             json_data: read_json(&other.json_data)?,
-//             updated: Utc
-//                 .timestamp_millis_opt(other.last_updated_ms)
-//                 .single()
-//                 .ok_or(ConvertFromError::InvalidTimestamp {
-//                     timestamp: other.last_updated_ms,
-//                 })?,
-//         })
-//     }
-// }
 
 /// Settings for a datasource instance.
 ///
@@ -1028,7 +1040,7 @@ where
                 decrypted_secure_json_data: convert_secure_json_data(
                     &proto.decrypted_secure_json_data,
                 )?,
-                json_data: read_json(&proto.json_data)?,
+                json_data: read_json_data(&proto.json_data)?,
                 updated: Utc
                     .timestamp_millis_opt(proto.last_updated_ms)
                     .single()
@@ -1054,40 +1066,6 @@ impl<JsonData, SecureJsonData> sealed::Sealed
     for DataSourceInstanceSettings<JsonData, SecureJsonData>
 {
 }
-
-// impl<JsonData, SecureJsonData> TryFrom<(pluginv2::DataSourceInstanceSettings, String)>
-//     for DataSourceInstanceSettings<JsonData, SecureJsonData>
-// where
-//     JsonData: DeserializeOwned,
-//     SecureJsonData: DeserializeOwned,
-// {
-//     type Error = ConvertFromError;
-//     fn try_from(
-//         (other, type_): (pluginv2::DataSourceInstanceSettings, String),
-//     ) -> Result<Self, Self::Error> {
-//         Ok(Self {
-//             id: other.id,
-//             uid: other.uid,
-//             type_,
-//             name: other.name,
-//             url: other.url,
-//             user: other.user,
-//             database: other.database,
-//             basic_auth_enabled: other.basic_auth_enabled,
-//             basic_auth_user: other.basic_auth_user,
-//             decrypted_secure_json_data: convert_secure_json_data(
-//                 &other.decrypted_secure_json_data,
-//             )?,
-//             json_data: read_json(&other.json_data)?,
-//             updated: Utc
-//                 .timestamp_millis_opt(other.last_updated_ms)
-//                 .single()
-//                 .ok_or(ConvertFromError::InvalidTimestamp {
-//                     timestamp: other.last_updated_ms,
-//                 })?,
-//         })
-//     }
-// }
 
 /// Holds contextual information about a plugin request: Grafana org, user, and plugin instance settings.
 #[derive(Clone, Debug)]
