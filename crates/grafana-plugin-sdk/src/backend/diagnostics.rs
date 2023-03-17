@@ -358,13 +358,14 @@ where
         request: tonic::Request<pluginv2::CheckHealthRequest>,
     ) -> Result<tonic::Response<pluginv2::CheckHealthResponse>, tonic::Status> {
         let response = match request.into_inner().try_into() {
-            Ok(request) => DiagnosticsService::check_health(self, request).await,
-            Err(e) => Ok(CheckHealthResponse::error(format!(
-                "error converting check health request: {e}"
-            ))
-            .with_json_details(serde_json::to_value(e).unwrap_or(serde_json::Value::Null))),
-        }
-        .map_err(|e| tonic::Status::internal(e.to_string()))?;
+            Ok(request) => DiagnosticsService::check_health(self, request)
+                .await
+                .unwrap_or_else(|e| CheckHealthResponse::error(e.to_string())),
+            Err(e) => {
+                CheckHealthResponse::error(format!("error converting check health request: {e}"))
+                    .with_json_details(serde_json::to_value(e).unwrap_or(serde_json::Value::Null))
+            }
+        };
         Ok(tonic::Response::new(response.into()))
     }
 
