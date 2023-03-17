@@ -52,6 +52,8 @@ struct Query {
 
 #[derive(Debug, Error)]
 enum QueryError {
+    #[error("Missing datasource instance settings")]
+    MissingInstanceSettings { ref_id: String },
     #[error("Error querying backend for query {ref_id}: {source}")]
     Backend { source: data::Error, ref_id: String },
 }
@@ -59,6 +61,7 @@ enum QueryError {
 impl backend::DataQueryError for QueryError {
     fn ref_id(self) -> String {
         match self {
+            Self::MissingInstanceSettings { ref_id } => ref_id,
             Self::Backend { ref_id, .. } => ref_id,
         }
     }
@@ -85,6 +88,11 @@ impl backend::DataService for MyPluginService {
                 .map(|x: DataQuery<Self::Query>| {
                     let instance_settings = instance_settings.clone();
                     async move {
+                        let instance_settings = instance_settings.ok_or_else(|| {
+                            QueryError::MissingInstanceSettings {
+                                ref_id: x.ref_id.clone(),
+                            }
+                        })?;
                         let json_data = instance_settings.json_data;
                         // We can see the user's query in `x.query`:
                         debug!(
@@ -164,9 +172,7 @@ impl backend::StreamService for MyPluginService {
         Ok(Box::pin(
             async_stream::try_stream! {
                 loop {
-                    frame.fields_mut()[0].set_values(
-                        x..x+n
-                    )?;
+                    frame.fields_mut()[0].set_values(x..x+n)?;
                     let packet = backend::StreamPacket::from_frame(frame.check()?)?;
                     debug!("Yielding frame from {} to {}", x, x+n);
                     yield packet;

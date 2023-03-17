@@ -154,33 +154,6 @@ pub type BoxResourceStream<E> = Pin<Box<dyn futures_core::Stream<Item = Result<B
 ///
 /// # Examples
 ///
-/// ## Simple function
-///
-/// This trait has a blanket impl for async functions taking a `CallResourceRequest` and
-/// returning a `Result<T, E> where T: IntoHttpResponse + Send, E: std::error::Error + Send`.
-/// [`IntoHttpResponse`] is implemented for some types already - see its docs for details.
-/// Note that the `reqwest` feature of this crate is required for the `IntoHttpResponse`
-/// implementation to be enabled for [`reqwest::Response`].
-///
-#[cfg_attr(
-    feature = "reqwest",
-    doc = r##"
-The example below requires the `reqwest` feature:
-
-```rust
-# extern crate reqwest_lib as reqwest;
-use bytes::Bytes;
-use grafana_plugin_sdk::{backend, prelude::*};
-use reqwest::{Error, Response};
-
-async fn respond(req: backend::CallResourceRequest) -> Result<Response, Error> {
-    reqwest::get("https://www.rust-lang.org").await
-}
-
-let plugin = backend::Plugin::new().resource_service(respond);
-```
-"##
-)]
 /// ## Stateful service
 ///
 /// The following shows an example implementation of [`ResourceService`] which handles
@@ -343,27 +316,6 @@ where
                         .map_err(|e| tonic::Status::internal(e.to_string()))
                 }));
         Ok(tonic::Response::new(Box::pin(stream)))
-    }
-}
-
-#[tonic::async_trait]
-impl<T, Fut, R, E> ResourceService for T
-where
-    Self: GrafanaPlugin,
-    T: Fn(CallResourceRequest<Self>) -> Fut + Sync,
-    Fut: std::future::Future<Output = Result<R, E>> + Send,
-    R: IntoHttpResponse + Send + Sync,
-    E: std::error::Error + ErrIntoHttpResponse + Send + Sync,
-{
-    type Error = E;
-    type InitialResponse = R;
-    type Stream = futures_util::stream::Empty<Result<Bytes, Self::Error>>;
-    async fn call_resource(
-        &self,
-        request: CallResourceRequest<Self>,
-    ) -> Result<(Self::InitialResponse, Self::Stream), Self::Error> {
-        let response = self(request).await?;
-        Ok((response, futures_util::stream::empty()))
     }
 }
 
