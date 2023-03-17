@@ -625,9 +625,6 @@ pub enum ConvertFromError {
     /// The `plugin_context` was missing from the request.
     #[error("plugin_context missing from request")]
     MissingPluginContext,
-    /// The app or datasource instance settings were missing from the request.
-    #[error("instance settings missing from request")]
-    MissingInstanceSettings,
     /// The query's JSON data sent by Grafana could not be deserialized.
     #[error("unexpected query JSON (got {json}): {err}")]
     UnexpectedQueryJson {
@@ -858,7 +855,7 @@ where
         app_instance_settings: Option<pluginv2::AppInstanceSettings>,
         datasource_instance_settings: Option<pluginv2::DataSourceInstanceSettings>,
         plugin_id: String,
-    ) -> Result<Self, ConvertFromError>;
+    ) -> Result<Option<Self>, ConvertFromError>;
     /// Get the JSON data for the app or data source instance.
     fn json_data(&self) -> &JsonData;
     /// Get the decrypted secure JSON data for the app or data source instance.
@@ -907,23 +904,23 @@ where
         app_instance_settings: Option<pluginv2::AppInstanceSettings>,
         _datasource_instance_settings: Option<pluginv2::DataSourceInstanceSettings>,
         _plugin_id: String,
-    ) -> Result<Self, ConvertFromError> {
-        if let Some(proto) = app_instance_settings {
-            Ok(Self {
-                decrypted_secure_json_data: convert_secure_json_data(
-                    &proto.decrypted_secure_json_data,
-                )?,
-                json_data: read_json_data(&proto.json_data)?,
-                updated: Utc
-                    .timestamp_millis_opt(proto.last_updated_ms)
-                    .single()
-                    .ok_or(ConvertFromError::InvalidTimestamp {
-                        timestamp: proto.last_updated_ms,
-                    })?,
+    ) -> Result<Option<Self>, ConvertFromError> {
+        app_instance_settings
+            .map(|proto| {
+                Ok(Self {
+                    decrypted_secure_json_data: convert_secure_json_data(
+                        &proto.decrypted_secure_json_data,
+                    )?,
+                    json_data: read_json_data(&proto.json_data)?,
+                    updated: Utc
+                        .timestamp_millis_opt(proto.last_updated_ms)
+                        .single()
+                        .ok_or(ConvertFromError::InvalidTimestamp {
+                            timestamp: proto.last_updated_ms,
+                        })?,
+                })
             })
-        } else {
-            Err(ConvertFromError::MissingInstanceSettings)
-        }
+            .transpose()
     }
 
     fn json_data(&self) -> &JsonData {
@@ -1025,32 +1022,32 @@ where
         _app_instance_settings: Option<pluginv2::AppInstanceSettings>,
         datasource_instance_settings: Option<pluginv2::DataSourceInstanceSettings>,
         plugin_id: String,
-    ) -> Result<Self, ConvertFromError> {
-        if let Some(proto) = datasource_instance_settings {
-            Ok(Self {
-                id: proto.id,
-                uid: proto.uid,
-                type_: plugin_id,
-                name: proto.name,
-                url: proto.url,
-                user: proto.user,
-                database: proto.database,
-                basic_auth_enabled: proto.basic_auth_enabled,
-                basic_auth_user: proto.basic_auth_user,
-                decrypted_secure_json_data: convert_secure_json_data(
-                    &proto.decrypted_secure_json_data,
-                )?,
-                json_data: read_json_data(&proto.json_data)?,
-                updated: Utc
-                    .timestamp_millis_opt(proto.last_updated_ms)
-                    .single()
-                    .ok_or(ConvertFromError::InvalidTimestamp {
-                        timestamp: proto.last_updated_ms,
-                    })?,
+    ) -> Result<Option<Self>, ConvertFromError> {
+        datasource_instance_settings
+            .map(|proto| {
+                Ok(Self {
+                    id: proto.id,
+                    uid: proto.uid,
+                    type_: plugin_id,
+                    name: proto.name,
+                    url: proto.url,
+                    user: proto.user,
+                    database: proto.database,
+                    basic_auth_enabled: proto.basic_auth_enabled,
+                    basic_auth_user: proto.basic_auth_user,
+                    decrypted_secure_json_data: convert_secure_json_data(
+                        &proto.decrypted_secure_json_data,
+                    )?,
+                    json_data: read_json_data(&proto.json_data)?,
+                    updated: Utc
+                        .timestamp_millis_opt(proto.last_updated_ms)
+                        .single()
+                        .ok_or(ConvertFromError::InvalidTimestamp {
+                            timestamp: proto.last_updated_ms,
+                        })?,
+                })
             })
-        } else {
-            Err(ConvertFromError::MissingInstanceSettings)
-        }
+            .transpose()
     }
 
     fn json_data(&self) -> &JsonData {
@@ -1093,7 +1090,9 @@ where
     /// The concrete type of this field will depend on the type of the plugin.
     /// App plugins will contain [`AppInstanceSettings`], while datasource plugins
     /// will contain [`DataSourceInstanceSettings`].
-    pub instance_settings: IS,
+    ///
+    /// This may be `None` if the request does not target a plugin instance.
+    pub instance_settings: Option<IS>,
     // /// The configured app instance settings.
     // ///
     // /// An app instance is an app plugin of a certain type that has been configured
