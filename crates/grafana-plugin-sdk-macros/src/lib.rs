@@ -2,10 +2,7 @@ use proc_macro::TokenStream;
 use proc_macro2::Span;
 
 use quote::{quote, quote_spanned, ToTokens};
-use syn::parse::Parser;
-
-// syn::AttributeArgs does not implement syn::Parse
-type AttributeArgs = syn::punctuated::Punctuated<syn::NestedMeta, syn::Token![,]>;
+use syn::{meta::ParseNestedMeta, parenthesized, parse::ParseBuffer, parse_macro_input, Lit};
 
 fn token_stream_with_error(mut tokens: TokenStream, error: syn::Error) -> TokenStream {
     tokens.extend(TokenStream::from(error.into_compile_error()));
@@ -20,91 +17,134 @@ struct Configuration {
 }
 
 impl Configuration {
-    fn new() -> Self {
-        Self::default()
-    }
-
-    fn set_services(&mut self, services: &AttributeArgs, span: Span) -> Result<(), syn::Error> {
+    fn set_services(&mut self, meta: ParseNestedMeta) -> Result<(), syn::Error> {
         if self.services.is_some() {
-            return Err(syn::Error::new(span, "`services` set multiple times."));
+            return Err(meta.error("`services` set multiple times."));
         }
-        let services = parse_services(services)?;
         let mut cfg_services = Services::default();
-        for service in services {
-            if service.as_str() == "data" {
+        meta.parse_nested_meta(|meta| {
+            if meta.path.is_ident("data") {
                 if cfg_services.data {
-                    return Err(syn::Error::new(span, "`data` set multiple times."));
+                    return Err(meta.error("`data` set multiple times."));
                 }
                 cfg_services.data = true;
-            }
-            if service.as_str() == "diagnostics" {
+                Ok(())
+            } else if meta.path.is_ident("diagnostics") {
                 if cfg_services.diagnostics {
-                    return Err(syn::Error::new(span, "`diagnostics` set multiple times."));
+                    return Err(meta.error("`diagnostics` set multiple times."));
                 }
                 cfg_services.diagnostics = true;
-            }
-            if service.as_str() == "resource" {
+                Ok(())
+            } else if meta.path.is_ident("resource") {
                 if cfg_services.resource {
-                    return Err(syn::Error::new(span, "`resource` set multiple times."));
+                    return Err(meta.error("`resource` set multiple times."));
                 }
                 cfg_services.resource = true;
-            }
-            if service.as_str() == "stream" {
+                Ok(())
+            } else if meta.path.is_ident("stream") {
                 if cfg_services.stream {
-                    return Err(syn::Error::new(span, "`stream` set multiple times."));
+                    return Err(meta.error("`stream` set multiple times."));
                 }
                 cfg_services.stream = true;
+                Ok(())
+            } else {
+                Err(meta.error(
+                    "Unknown service. Only `data`, `diagnostics`, `resource` and `stream` are supported.",
+                ))
             }
+        })?;
+        if !cfg_services.data
+            && !cfg_services.diagnostics
+            && !cfg_services.resource
+            && !cfg_services.stream
+        {
+            return Err(meta.error("At least one service must be specified in `services`."));
         }
+
         self.services = Some(cfg_services);
         Ok(())
     }
 
-    fn set_init_subscriber(
-        &mut self,
-        init_subscriber: syn::Lit,
-        span: Span,
-    ) -> Result<(), syn::Error> {
+    fn get_accidental_nested_meta(input: &ParseBuffer) -> Result<Lit, syn::Error> {
+        let content;
+        parenthesized!(content in input);
+        let x: Lit = content.parse()?;
+        Ok(x)
+    }
+
+    fn set_init_subscriber(&mut self, init_subscriber: ParseNestedMeta) -> Result<(), syn::Error> {
         if self.init_subscriber.is_some() {
-            return Err(syn::Error::new(
-                span,
-                "`init_subscriber` set multiple times.",
-            ));
+            return Err(init_subscriber.error("`init_subscriber` set multiple times."));
         }
-        let init_subscriber = parse_bool(init_subscriber, span, "init_subscriber")?;
-        self.init_subscriber = Some(init_subscriber);
+        let value = init_subscriber.value().map_err(|_| {
+            init_subscriber.error(format!(
+                "`init_subscriber` should be specified as `init_subscriber = {}`",
+                Self::get_accidental_nested_meta(init_subscriber.input)
+                    .ok()
+                    .and_then(|x| if let Lit::Bool(b) = x {
+                        Some(b.value)
+                    } else {
+                        None
+                    })
+                    .unwrap_or(true)
+            ))
+        })?;
+        let s: syn::LitBool = value
+            .parse()
+            .map_err(|e| syn::Error::new(e.span(), "`init_subscriber` must be a bool literal."))?;
+        self.init_subscriber = Some(s.value);
         Ok(())
     }
 
     fn set_shutdown_handler(
         &mut self,
-        shutdown_handler: syn::Lit,
-        span: Span,
+        shutdown_handler: ParseNestedMeta,
     ) -> Result<(), syn::Error> {
         if self.shutdown_handler.is_some() {
-            return Err(syn::Error::new(
-                span,
-                "`shutdown_handler` set multiple times.",
-            ));
+            return Err(shutdown_handler.error("`shutdown_handler` set multiple times."));
         }
-        let shutdown_handler = parse_string(shutdown_handler, span, "shutdown_handler")?;
-        self.shutdown_handler = Some(shutdown_handler);
+        let value = shutdown_handler.value().map_err(|_| {
+            let address = Self::get_accidental_nested_meta(shutdown_handler.input)
+                .ok()
+                .and_then(|x| {
+                    if let Lit::Str(s) = x {
+                        Some(s.value())
+                    } else {
+                        None
+                    }
+                })
+                .unwrap_or_else(|| "<address>".to_string());
+            shutdown_handler.error(format!(
+                r#"`shutdown_handler` should be specified as `shutdown_handler = "{}""#,
+                address
+            ))
+        })?;
+        let s: syn::LitStr = value.parse().map_err(|e| {
+            syn::Error::new(e.span(), "`shutdown_handler` must be a string literal.")
+        })?;
+        self.shutdown_handler = Some(s.value());
         Ok(())
     }
 
-    fn build(self, span: Span) -> Result<FinalConfig, syn::Error> {
-        let services = match self.services {
-            None => {
-                let msg = "At least one service must be specified in `services`";
-                return Err(syn::Error::new(span, msg));
-            }
-            Some(x) => x,
-        };
-        Ok(FinalConfig {
-            services,
+    fn parse(&mut self, meta: ParseNestedMeta) -> Result<(), syn::Error> {
+        if meta.path.is_ident("init_subscriber") {
+            self.set_init_subscriber(meta)?;
+        } else if meta.path.is_ident("shutdown_handler") {
+            self.set_shutdown_handler(meta)?;
+        } else if meta.path.is_ident("services") {
+            self.set_services(meta)?;
+        } else {
+            return Err(meta.error("Unknown attribute. Only `services`, `init_subscriber` and `shutdown_handler` are supported."));
+        }
+        Ok(())
+    }
+
+    fn build(self) -> FinalConfig {
+        FinalConfig {
+            services: self.services.unwrap(),
             init_subscriber: self.init_subscriber.unwrap_or_default(),
             shutdown_handler: self.shutdown_handler,
-        })
+        }
     }
 }
 
@@ -116,6 +156,7 @@ struct Services {
     resource: bool,
 }
 
+#[derive(Default)]
 struct FinalConfig {
     services: Services,
     init_subscriber: bool,
@@ -133,121 +174,6 @@ const DEFAULT_ERROR_CONFIG: FinalConfig = FinalConfig {
     init_subscriber: false,
     shutdown_handler: None,
 };
-
-fn build_config(input: syn::ItemFn, args: AttributeArgs) -> Result<FinalConfig, syn::Error> {
-    if input.sig.asyncness.is_none() {
-        let msg = "the `async` keyword is missing from the function declaration";
-        return Err(syn::Error::new_spanned(input.sig.fn_token, msg));
-    }
-    let mut config = Configuration::new();
-    for arg in &args {
-        match arg {
-            syn::NestedMeta::Meta(syn::Meta::NameValue(namevalue)) => {
-                let ident = namevalue
-                    .path
-                    .get_ident()
-                    .ok_or_else(|| syn::Error::new_spanned(namevalue, "Must have specified ident"))?
-                    .to_string()
-                    .to_lowercase();
-                match ident.as_str() {
-                    "init_subscriber" => config.set_init_subscriber(
-                        namevalue.lit.clone(),
-                        syn::spanned::Spanned::span(&namevalue.lit),
-                    )?,
-                    "shutdown_handler" => config.set_shutdown_handler(
-                        namevalue.lit.clone(),
-                        syn::spanned::Spanned::span(&namevalue.lit),
-                    )?,
-                    name => {
-                        let msg = format!(
-                            "Unknown attribute {name} is specified; expected one of: `services`, `init_subscriber`, `shutdown_handler`",
-                        );
-                        return Err(syn::Error::new_spanned(namevalue, msg));
-                    }
-                }
-            }
-            syn::NestedMeta::Meta(syn::Meta::List(list)) => {
-                let ident = list
-                    .path
-                    .get_ident()
-                    .ok_or_else(|| syn::Error::new_spanned(list, "Must have specified ident"))?
-                    .to_string()
-                    .to_lowercase();
-                match ident.as_str() {
-                    "services" => config
-                        .set_services(&list.nested, syn::spanned::Spanned::span(&list.nested))?,
-                    name @ "init_subscriber" | name @ "shutdown_handler" => {
-                        let val = &list.nested;
-                        let msg = format!(
-                            "`{name}` attribute should be specified as `{name} = {0}`",
-                            quote! { #val },
-                        );
-                        return Err(syn::Error::new_spanned(list, msg));
-                    }
-                    name => {
-                        let msg = format!(
-                            "Unknown attribute {name} is specified; expected one of: `services`, `init_subscriber`, `shutdown_handler`",
-                        );
-                        return Err(syn::Error::new_spanned(list, msg));
-                    }
-                }
-            }
-            other => {
-                return Err(syn::Error::new_spanned(
-                    other,
-                    "Unknown attribute inside the macro",
-                ));
-            }
-        }
-    }
-    config.build(syn::spanned::Spanned::span(&args))
-}
-
-fn parse_string(val: syn::Lit, span: Span, field: &str) -> Result<String, syn::Error> {
-    match val {
-        syn::Lit::Str(s) => Ok(s.value()),
-        syn::Lit::Verbatim(s) => Ok(s.to_string()),
-        _ => Err(syn::Error::new(
-            span,
-            format!("Failed to parse value of `{field}` as string."),
-        )),
-    }
-}
-
-fn parse_bool(bool: syn::Lit, span: Span, field: &str) -> Result<bool, syn::Error> {
-    match bool {
-        syn::Lit::Bool(b) => Ok(b.value),
-        _ => Err(syn::Error::new(
-            span,
-            format!("Failed to parse value of `{field}` as bool."),
-        )),
-    }
-}
-
-fn parse_services(list: &AttributeArgs) -> Result<Vec<String>, syn::Error> {
-    list.iter()
-        .map(|item| match item {
-            syn::NestedMeta::Meta(syn::Meta::Path(path)) => {
-                let svc = path
-                    .get_ident()
-                    .ok_or_else(|| syn::Error::new_spanned(list, "Must have specified ident"))?
-                    .to_string()
-                    .to_lowercase();
-                if !["data", "diagnostics", "resource", "stream"].contains(&svc.as_str()) {
-                    let msg = format!(
-                        "invalid service {svc}; must be one of `data`, `diagnostics`, `resource`, `stream`",
-                    );
-                    return Err(syn::Error::new_spanned(path, msg))
-                }
-                Ok(svc)
-            },
-            other => {
-                let msg = "invalid service specification: must contain one or more of `data`, `diagnostics`, `resource`, `stream`";
-                Err(syn::Error::new_spanned(other, msg))
-            }
-        })
-        .collect()
-}
 
 fn parse_knobs(input: syn::ItemFn, config: FinalConfig) -> TokenStream {
     // If type mismatch occurs, the current rustc points to the last statement.
@@ -662,20 +588,24 @@ pub fn main(args: TokenStream, item: TokenStream) -> TokenStream {
         Err(e) => return token_stream_with_error(item, e),
     };
 
-    let config = if input.sig.ident != "plugin" {
+    let res = if input.sig.ident != "plugin" {
         let msg = "the plugin function must be named 'plugin'";
         Err(syn::Error::new_spanned(&input.sig.ident, msg))
     } else if !input.sig.inputs.is_empty() {
         let msg = "the plugin function cannot accept arguments";
         Err(syn::Error::new_spanned(&input.sig.inputs, msg))
+    } else if input.sig.asyncness.is_none() {
+        let msg = "the `async` keyword is missing from the function declaration";
+        Err(syn::Error::new_spanned(input.sig.fn_token, msg))
     } else {
-        AttributeArgs::parse_terminated
-            .parse(args)
-            .and_then(|args| build_config(input.clone(), args))
+        let mut config = Configuration::default();
+        let config_parser = syn::meta::parser(|meta| config.parse(meta));
+        parse_macro_input!(args with config_parser);
+        Ok(config)
     };
 
-    match config {
-        Ok(c) => parse_knobs(input, c),
+    match res {
+        Ok(c) => parse_knobs(input, c.build()),
         Err(e) => token_stream_with_error(parse_knobs(input, DEFAULT_ERROR_CONFIG), e),
     }
 }

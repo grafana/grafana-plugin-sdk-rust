@@ -1,4 +1,4 @@
-error: `init_subscriber` attribute should be specified as `init_subscriber = true`
+error: `init_subscriber` should be specified as `init_subscriber = true`
   --> tests/ui-fail/invalid_init_subscriber.rs:46:48
    |
 46 |     #[grafana_plugin_sdk::main(services(data), init_subscriber(true))]
