@@ -587,6 +587,22 @@ pub fn main(args: TokenStream, item: TokenStream) -> TokenStream {
         Ok(it) => it,
         Err(e) => return token_stream_with_error(item, e),
     };
+    if args.is_empty() {
+        let span = Span::call_site();
+        let source_text = span
+            .source_text()
+            .unwrap_or_else(|| "grafana_plugin_sdk::main".to_string());
+        return token_stream_with_error(
+            parse_knobs(input, DEFAULT_ERROR_CONFIG),
+            syn::Error::new(
+                span,
+                format!(
+                    "at least one service must be provided, e.g. `#[{}(services(data))]`",
+                    source_text.trim_matches(&['[', ']', '#'] as &[char])
+                ),
+            ),
+        );
+    }
 
     let res = if input.sig.ident != "plugin" {
         let msg = "the plugin function must be named 'plugin'";

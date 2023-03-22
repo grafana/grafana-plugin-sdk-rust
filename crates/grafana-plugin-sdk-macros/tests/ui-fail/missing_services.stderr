@@ -1,4 +1,4 @@
-error: unexpected end of input, unexpected token in nested attribute, expected ident
+error: at least one service must be provided, e.g. `#[grafana_plugin_sdk::main(services(data))]`
  --> tests/ui-fail/missing_services.rs:7:5
   |
 7 |     #[grafana_plugin_sdk::main]
