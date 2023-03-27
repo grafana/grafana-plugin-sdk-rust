@@ -258,6 +258,15 @@ pub mod check_health_response {
                 HealthStatus::Error => "ERROR",
             }
         }
+        /// Creates an enum from field names used in the ProtoBuf definition.
+        pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+            match value {
+                "UNKNOWN" => Some(Self::Unknown),
+                "OK" => Some(Self::Ok),
+                "ERROR" => Some(Self::Error),
+                _ => None,
+            }
+        }
     }
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
@@ -314,6 +323,15 @@ pub mod subscribe_stream_response {
                 Status::Ok => "OK",
                 Status::NotFound => "NOT_FOUND",
                 Status::PermissionDenied => "PERMISSION_DENIED",
+            }
+        }
+        /// Creates an enum from field names used in the ProtoBuf definition.
+        pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+            match value {
+                "OK" => Some(Self::Ok),
+                "NOT_FOUND" => Some(Self::NotFound),
+                "PERMISSION_DENIED" => Some(Self::PermissionDenied),
+                _ => None,
             }
         }
     }
@@ -374,6 +392,15 @@ pub mod publish_stream_response {
                 Status::Ok => "OK",
                 Status::NotFound => "NOT_FOUND",
                 Status::PermissionDenied => "PERMISSION_DENIED",
+            }
+        }
+        /// Creates an enum from field names used in the ProtoBuf definition.
+        pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+            match value {
+                "OK" => Some(Self::Ok),
+                "NOT_FOUND" => Some(Self::NotFound),
+                "PERMISSION_DENIED" => Some(Self::PermissionDenied),
+                _ => None,
             }
         }
     }
