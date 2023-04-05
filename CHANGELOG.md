@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Plugins will only spawn shutdown handlers when compiled in debug mode. When compiled in release mode the shutdown handler attribute will do nothing.
 - Bump arrow2 dependency to 0.17.0
 - Bump syn dependency to 2.0
+- Bump tonic dependency to 0.9.1
 
 ## [0.4.2] - 2022-09-19
 
