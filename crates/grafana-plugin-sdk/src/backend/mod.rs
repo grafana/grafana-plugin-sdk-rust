@@ -733,7 +733,7 @@ where
     serde_json::from_slice(jdoc)
 }
 
- fn read_json_query<T>(jdoc: &[u8]) -> ConvertFromResult<T>
+fn read_json_query<T>(jdoc: &[u8]) -> ConvertFromResult<T>
 where
     T: DeserializeOwned,
 {
