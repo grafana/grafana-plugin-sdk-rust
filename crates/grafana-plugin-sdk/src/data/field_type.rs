@@ -149,7 +149,7 @@ where
     type ElementType = i64;
     const TYPE_INFO_TYPE: TypeInfoType = TypeInfoType::Time;
     fn into_field_type(self) -> Option<Self::ElementType> {
-        Some(self.timestamp_nanos())
+        self.timestamp_nanos_opt()
     }
 }
 
@@ -179,11 +179,9 @@ where
     type ElementType = i64;
     const TYPE_INFO_TYPE: TypeInfoType = TypeInfoType::Time;
     fn into_field_type(self) -> Option<Self::ElementType> {
-        Some(
-            self.and_hms_opt(0, 0, 0)
-                .expect("hms are valid")
-                .timestamp_nanos(),
-        )
+        self.and_hms_opt(0, 0, 0)
+            .expect("hms are valid")
+            .timestamp_nanos_opt()
     }
 }
 
@@ -201,11 +199,9 @@ impl IntoFieldType for NaiveDate {
     type ElementType = i64;
     const TYPE_INFO_TYPE: TypeInfoType = TypeInfoType::Time;
     fn into_field_type(self) -> Option<Self::ElementType> {
-        Some(
-            self.and_hms_opt(0, 0, 0)
-                .expect("hms are valid")
-                .timestamp_nanos(),
-        )
+        self.and_hms_opt(0, 0, 0)
+            .expect("hms are valid")
+            .timestamp_nanos_opt()
     }
 }
 
@@ -223,7 +219,7 @@ impl IntoFieldType for NaiveDateTime {
     type ElementType = i64;
     const TYPE_INFO_TYPE: TypeInfoType = TypeInfoType::Time;
     fn into_field_type(self) -> Option<Self::ElementType> {
-        Some(self.timestamp_nanos())
+        self.timestamp_nanos_opt()
     }
 }
 

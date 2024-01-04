@@ -3,7 +3,7 @@ name = "grafana-plugin-sdk-macros"
 version = "0.4.2"
 authors = ["Ben Sully <ben.sully@grafana.com>"]
 license = "MIT/Apache-2.0"
-edition = "2018"
+edition = "2021"
 repository = "https://github.com/grafana/grafana-plugin-sdk-rust"
 description = "Convenience macros for the Grafana backend plugin SDK."
 
@@ -11,17 +11,17 @@ description = "Convenience macros for the Grafana backend plugin SDK."
 proc-macro = true
 
 [dependencies]
-proc-macro2 = "1.0.53"
-quote = "1.0.10"
-syn = { version = "2.0.4", features = ["full"] }
+proc-macro2 = "1.0.60"
+quote = "1.0.28"
+syn = { version = "2.0.18", features = ["full"] }
 
 [dev-dependencies]
 grafana-plugin-sdk = { path = "../grafana-plugin-sdk" }
-http = "0.2.8"
-serde = { version = "1.0.144", features = ["derive"] }
-thiserror = "1.0.35"
-tokio = { version = "1.13.0", features = ["rt-multi-thread"] }
-trybuild = "1.0.52"
+http = "1.0.0"
+serde = { version = "1.0.164", features = ["derive"] }
+thiserror = "1.0.40"
+tokio = { version = "1.28.2", features = ["rt-multi-thread"] }
+trybuild = "1.0.80"
 
 [package.metadata.docs.rs]
 all-features = true

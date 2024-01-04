@@ -438,7 +438,7 @@ pub mod resource_client {
         /// Attempt to create a new client by connecting to a given endpoint.
         pub async fn connect<D>(dst: D) -> Result<Self, tonic::transport::Error>
         where
-            D: std::convert::TryInto<tonic::transport::Endpoint>,
+            D: TryInto<tonic::transport::Endpoint>,
             D::Error: Into<StdError>,
         {
             let conn = tonic::transport::Endpoint::new(dst)?.connect().await?;
@@ -494,10 +494,26 @@ pub mod resource_client {
             self.inner = self.inner.accept_compressed(encoding);
             self
         }
+        /// Limits the maximum size of a decoded message.
+        ///
+        /// Default: `4MB`
+        #[must_use]
+        pub fn max_decoding_message_size(mut self, limit: usize) -> Self {
+            self.inner = self.inner.max_decoding_message_size(limit);
+            self
+        }
+        /// Limits the maximum size of an encoded message.
+        ///
+        /// Default: `usize::MAX`
+        #[must_use]
+        pub fn max_encoding_message_size(mut self, limit: usize) -> Self {
+            self.inner = self.inner.max_encoding_message_size(limit);
+            self
+        }
         pub async fn call_resource(
             &mut self,
             request: impl tonic::IntoRequest<super::CallResourceRequest>,
-        ) -> Result<
+        ) -> std::result::Result<
             tonic::Response<tonic::codec::Streaming<super::CallResourceResponse>>,
             tonic::Status,
         > {
@@ -514,7 +530,10 @@ pub mod resource_client {
             let path = http::uri::PathAndQuery::from_static(
                 "/pluginv2.Resource/CallResource",
             );
-            self.inner.server_streaming(request.into_request(), path, codec).await
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("pluginv2.Resource", "CallResource"));
+            self.inner.server_streaming(req, path, codec).await
         }
     }
 }
@@ -531,7 +550,7 @@ pub mod data_client {
         /// Attempt to create a new client by connecting to a given endpoint.
         pub async fn connect<D>(dst: D) -> Result<Self, tonic::transport::Error>
         where
-            D: std::convert::TryInto<tonic::transport::Endpoint>,
+            D: TryInto<tonic::transport::Endpoint>,
             D::Error: Into<StdError>,
         {
             let conn = tonic::transport::Endpoint::new(dst)?.connect().await?;
@@ -587,10 +606,29 @@ pub mod data_client {
             self.inner = self.inner.accept_compressed(encoding);
             self
         }
+        /// Limits the maximum size of a decoded message.
+        ///
+        /// Default: `4MB`
+        #[must_use]
+        pub fn max_decoding_message_size(mut self, limit: usize) -> Self {
+            self.inner = self.inner.max_decoding_message_size(limit);
+            self
+        }
+        /// Limits the maximum size of an encoded message.
+        ///
+        /// Default: `usize::MAX`
+        #[must_use]
+        pub fn max_encoding_message_size(mut self, limit: usize) -> Self {
+            self.inner = self.inner.max_encoding_message_size(limit);
+            self
+        }
         pub async fn query_data(
             &mut self,
             request: impl tonic::IntoRequest<super::QueryDataRequest>,
-        ) -> Result<tonic::Response<super::QueryDataResponse>, tonic::Status> {
+        ) -> std::result::Result<
+            tonic::Response<super::QueryDataResponse>,
+            tonic::Status,
+        > {
             self.inner
                 .ready()
                 .await
@@ -602,7 +640,9 @@ pub mod data_client {
                 })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static("/pluginv2.Data/QueryData");
-            self.inner.unary(request.into_request(), path, codec).await
+            let mut req = request.into_request();
+            req.extensions_mut().insert(GrpcMethod::new("pluginv2.Data", "QueryData"));
+            self.inner.unary(req, path, codec).await
         }
     }
 }
@@ -619,7 +659,7 @@ pub mod diagnostics_client {
         /// Attempt to create a new client by connecting to a given endpoint.
         pub async fn connect<D>(dst: D) -> Result<Self, tonic::transport::Error>
         where
-            D: std::convert::TryInto<tonic::transport::Endpoint>,
+            D: TryInto<tonic::transport::Endpoint>,
             D::Error: Into<StdError>,
         {
             let conn = tonic::transport::Endpoint::new(dst)?.connect().await?;
@@ -675,10 +715,29 @@ pub mod diagnostics_client {
             self.inner = self.inner.accept_compressed(encoding);
             self
         }
+        /// Limits the maximum size of a decoded message.
+        ///
+        /// Default: `4MB`
+        #[must_use]
+        pub fn max_decoding_message_size(mut self, limit: usize) -> Self {
+            self.inner = self.inner.max_decoding_message_size(limit);
+            self
+        }
+        /// Limits the maximum size of an encoded message.
+        ///
+        /// Default: `usize::MAX`
+        #[must_use]
+        pub fn max_encoding_message_size(mut self, limit: usize) -> Self {
+            self.inner = self.inner.max_encoding_message_size(limit);
+            self
+        }
         pub async fn check_health(
             &mut self,
             request: impl tonic::IntoRequest<super::CheckHealthRequest>,
-        ) -> Result<tonic::Response<super::CheckHealthResponse>, tonic::Status> {
+        ) -> std::result::Result<
+            tonic::Response<super::CheckHealthResponse>,
+            tonic::Status,
+        > {
             self.inner
                 .ready()
                 .await
@@ -692,12 +751,18 @@ pub mod diagnostics_client {
             let path = http::uri::PathAndQuery::from_static(
                 "/pluginv2.Diagnostics/CheckHealth",
             );
-            self.inner.unary(request.into_request(), path, codec).await
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("pluginv2.Diagnostics", "CheckHealth"));
+            self.inner.unary(req, path, codec).await
         }
         pub async fn collect_metrics(
             &mut self,
             request: impl tonic::IntoRequest<super::CollectMetricsRequest>,
-        ) -> Result<tonic::Response<super::CollectMetricsResponse>, tonic::Status> {
+        ) -> std::result::Result<
+            tonic::Response<super::CollectMetricsResponse>,
+            tonic::Status,
+        > {
             self.inner
                 .ready()
                 .await
@@ -711,7 +776,10 @@ pub mod diagnostics_client {
             let path = http::uri::PathAndQuery::from_static(
                 "/pluginv2.Diagnostics/CollectMetrics",
             );
-            self.inner.unary(request.into_request(), path, codec).await
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("pluginv2.Diagnostics", "CollectMetrics"));
+            self.inner.unary(req, path, codec).await
         }
     }
 }
@@ -728,7 +796,7 @@ pub mod stream_client {
         /// Attempt to create a new client by connecting to a given endpoint.
         pub async fn connect<D>(dst: D) -> Result<Self, tonic::transport::Error>
         where
-            D: std::convert::TryInto<tonic::transport::Endpoint>,
+            D: TryInto<tonic::transport::Endpoint>,
             D::Error: Into<StdError>,
         {
             let conn = tonic::transport::Endpoint::new(dst)?.connect().await?;
@@ -784,6 +852,22 @@ pub mod stream_client {
             self.inner = self.inner.accept_compressed(encoding);
             self
         }
+        /// Limits the maximum size of a decoded message.
+        ///
+        /// Default: `4MB`
+        #[must_use]
+        pub fn max_decoding_message_size(mut self, limit: usize) -> Self {
+            self.inner = self.inner.max_decoding_message_size(limit);
+            self
+        }
+        /// Limits the maximum size of an encoded message.
+        ///
+        /// Default: `usize::MAX`
+        #[must_use]
+        pub fn max_encoding_message_size(mut self, limit: usize) -> Self {
+            self.inner = self.inner.max_encoding_message_size(limit);
+            self
+        }
         /// SubscribeStream called when a user tries to subscribe to a plugin/datasource
         /// managed channel path – thus plugin can check subscribe permissions and communicate
         /// options with Grafana Core. When the first subscriber joins a channel, RunStream
@@ -791,7 +875,10 @@ pub mod stream_client {
         pub async fn subscribe_stream(
             &mut self,
             request: impl tonic::IntoRequest<super::SubscribeStreamRequest>,
-        ) -> Result<tonic::Response<super::SubscribeStreamResponse>, tonic::Status> {
+        ) -> std::result::Result<
+            tonic::Response<super::SubscribeStreamResponse>,
+            tonic::Status,
+        > {
             self.inner
                 .ready()
                 .await
@@ -805,7 +892,10 @@ pub mod stream_client {
             let path = http::uri::PathAndQuery::from_static(
                 "/pluginv2.Stream/SubscribeStream",
             );
-            self.inner.unary(request.into_request(), path, codec).await
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("pluginv2.Stream", "SubscribeStream"));
+            self.inner.unary(req, path, codec).await
         }
         /// RunStream will be initiated by Grafana to consume a stream. RunStream will be
         /// called once for the first client successfully subscribed to a channel path.
@@ -815,7 +905,7 @@ pub mod stream_client {
         pub async fn run_stream(
             &mut self,
             request: impl tonic::IntoRequest<super::RunStreamRequest>,
-        ) -> Result<
+        ) -> std::result::Result<
             tonic::Response<tonic::codec::Streaming<super::StreamPacket>>,
             tonic::Status,
         > {
@@ -832,7 +922,9 @@ pub mod stream_client {
             let path = http::uri::PathAndQuery::from_static(
                 "/pluginv2.Stream/RunStream",
             );
-            self.inner.server_streaming(request.into_request(), path, codec).await
+            let mut req = request.into_request();
+            req.extensions_mut().insert(GrpcMethod::new("pluginv2.Stream", "RunStream"));
+            self.inner.server_streaming(req, path, codec).await
         }
         /// PublishStream called when a user tries to publish to a plugin/datasource
         /// managed channel path. Here plugin can check publish permissions and
@@ -840,7 +932,10 @@ pub mod stream_client {
         pub async fn publish_stream(
             &mut self,
             request: impl tonic::IntoRequest<super::PublishStreamRequest>,
-        ) -> Result<tonic::Response<super::PublishStreamResponse>, tonic::Status> {
+        ) -> std::result::Result<
+            tonic::Response<super::PublishStreamResponse>,
+            tonic::Status,
+        > {
             self.inner
                 .ready()
                 .await
@@ -854,7 +949,10 @@ pub mod stream_client {
             let path = http::uri::PathAndQuery::from_static(
                 "/pluginv2.Stream/PublishStream",
             );
-            self.inner.unary(request.into_request(), path, codec).await
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("pluginv2.Stream", "PublishStream"));
+            self.inner.unary(req, path, codec).await
         }
     }
 }
@@ -866,21 +964,26 @@ pub mod resource_server {
     #[async_trait]
     pub trait Resource: Send + Sync + 'static {
         /// Server streaming response type for the CallResource method.
-        type CallResourceStream: futures_core::Stream<
-                Item = Result<super::CallResourceResponse, tonic::Status>,
+        type CallResourceStream: tonic::codegen::tokio_stream::Stream<
+                Item = std::result::Result<super::CallResourceResponse, tonic::Status>,
             >
             + Send
             + 'static;
         async fn call_resource(
             &self,
             request: tonic::Request<super::CallResourceRequest>,
-        ) -> Result<tonic::Response<Self::CallResourceStream>, tonic::Status>;
+        ) -> std::result::Result<
+            tonic::Response<Self::CallResourceStream>,
+            tonic::Status,
+        >;
     }
     #[derive(Debug)]
     pub struct ResourceServer<T: Resource> {
         inner: _Inner<T>,
         accept_compression_encodings: EnabledCompressionEncodings,
         send_compression_encodings: EnabledCompressionEncodings,
+        max_decoding_message_size: Option<usize>,
+        max_encoding_message_size: Option<usize>,
     }
     struct _Inner<T>(Arc<T>);
     impl<T: Resource> ResourceServer<T> {
@@ -893,6 +996,8 @@ pub mod resource_server {
                 inner,
                 accept_compression_encodings: Default::default(),
                 send_compression_encodings: Default::default(),
+                max_decoding_message_size: None,
+                max_encoding_message_size: None,
             }
         }
         pub fn with_interceptor<F>(
@@ -916,6 +1021,22 @@ pub mod resource_server {
             self.send_compression_encodings.enable(encoding);
             self
         }
+        /// Limits the maximum size of a decoded message.
+        ///
+        /// Default: `4MB`
+        #[must_use]
+        pub fn max_decoding_message_size(mut self, limit: usize) -> Self {
+            self.max_decoding_message_size = Some(limit);
+            self
+        }
+        /// Limits the maximum size of an encoded message.
+        ///
+        /// Default: `usize::MAX`
+        #[must_use]
+        pub fn max_encoding_message_size(mut self, limit: usize) -> Self {
+            self.max_encoding_message_size = Some(limit);
+            self
+        }
     }
     impl<T, B> tonic::codegen::Service<http::Request<B>> for ResourceServer<T>
     where
@@ -929,7 +1050,7 @@ pub mod resource_server {
         fn poll_ready(
             &mut self,
             _cx: &mut Context<'_>,
-        ) -> Poll<Result<(), Self::Error>> {
+        ) -> Poll<std::result::Result<(), Self::Error>> {
             Poll::Ready(Ok(()))
         }
         fn call(&mut self, req: http::Request<B>) -> Self::Future {
@@ -952,15 +1073,17 @@ pub mod resource_server {
                             &mut self,
                             request: tonic::Request<super::CallResourceRequest>,
                         ) -> Self::Future {
-                            let inner = self.0.clone();
+                            let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                (*inner).call_resource(request).await
+                                <T as Resource>::call_resource(&inner, request).await
                             };
                             Box::pin(fut)
                         }
                     }
                     let accept_compression_encodings = self.accept_compression_encodings;
                     let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
                     let inner = self.inner.clone();
                     let fut = async move {
                         let inner = inner.0;
@@ -970,6 +1093,10 @@ pub mod resource_server {
                             .apply_compression_config(
                                 accept_compression_encodings,
                                 send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
                             );
                         let res = grpc.server_streaming(method, req).await;
                         Ok(res)
@@ -998,12 +1125,14 @@ pub mod resource_server {
                 inner,
                 accept_compression_encodings: self.accept_compression_encodings,
                 send_compression_encodings: self.send_compression_encodings,
+                max_decoding_message_size: self.max_decoding_message_size,
+                max_encoding_message_size: self.max_encoding_message_size,
             }
         }
     }
     impl<T: Resource> Clone for _Inner<T> {
         fn clone(&self) -> Self {
-            Self(self.0.clone())
+            Self(Arc::clone(&self.0))
         }
     }
     impl<T: std::fmt::Debug> std::fmt::Debug for _Inner<T> {
@@ -1025,13 +1154,18 @@ pub mod data_server {
         async fn query_data(
             &self,
             request: tonic::Request<super::QueryDataRequest>,
-        ) -> Result<tonic::Response<super::QueryDataResponse>, tonic::Status>;
+        ) -> std::result::Result<
+            tonic::Response<super::QueryDataResponse>,
+            tonic::Status,
+        >;
     }
     #[derive(Debug)]
     pub struct DataServer<T: Data> {
         inner: _Inner<T>,
         accept_compression_encodings: EnabledCompressionEncodings,
         send_compression_encodings: EnabledCompressionEncodings,
+        max_decoding_message_size: Option<usize>,
+        max_encoding_message_size: Option<usize>,
     }
     struct _Inner<T>(Arc<T>);
     impl<T: Data> DataServer<T> {
@@ -1044,6 +1178,8 @@ pub mod data_server {
                 inner,
                 accept_compression_encodings: Default::default(),
                 send_compression_encodings: Default::default(),
+                max_decoding_message_size: None,
+                max_encoding_message_size: None,
             }
         }
         pub fn with_interceptor<F>(
@@ -1067,6 +1203,22 @@ pub mod data_server {
             self.send_compression_encodings.enable(encoding);
             self
         }
+        /// Limits the maximum size of a decoded message.
+        ///
+        /// Default: `4MB`
+        #[must_use]
+        pub fn max_decoding_message_size(mut self, limit: usize) -> Self {
+            self.max_decoding_message_size = Some(limit);
+            self
+        }
+        /// Limits the maximum size of an encoded message.
+        ///
+        /// Default: `usize::MAX`
+        #[must_use]
+        pub fn max_encoding_message_size(mut self, limit: usize) -> Self {
+            self.max_encoding_message_size = Some(limit);
+            self
+        }
     }
     impl<T, B> tonic::codegen::Service<http::Request<B>> for DataServer<T>
     where
@@ -1080,7 +1232,7 @@ pub mod data_server {
         fn poll_ready(
             &mut self,
             _cx: &mut Context<'_>,
-        ) -> Poll<Result<(), Self::Error>> {
+        ) -> Poll<std::result::Result<(), Self::Error>> {
             Poll::Ready(Ok(()))
         }
         fn call(&mut self, req: http::Request<B>) -> Self::Future {
@@ -1100,13 +1252,17 @@ pub mod data_server {
                             &mut self,
                             request: tonic::Request<super::QueryDataRequest>,
                         ) -> Self::Future {
-                            let inner = self.0.clone();
-                            let fut = async move { (*inner).query_data(request).await };
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as Data>::query_data(&inner, request).await
+                            };
                             Box::pin(fut)
                         }
                     }
                     let accept_compression_encodings = self.accept_compression_encodings;
                     let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
                     let inner = self.inner.clone();
                     let fut = async move {
                         let inner = inner.0;
@@ -1116,6 +1272,10 @@ pub mod data_server {
                             .apply_compression_config(
                                 accept_compression_encodings,
                                 send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
                             );
                         let res = grpc.unary(method, req).await;
                         Ok(res)
@@ -1144,12 +1304,14 @@ pub mod data_server {
                 inner,
                 accept_compression_encodings: self.accept_compression_encodings,
                 send_compression_encodings: self.send_compression_encodings,
+                max_decoding_message_size: self.max_decoding_message_size,
+                max_encoding_message_size: self.max_encoding_message_size,
             }
         }
     }
     impl<T: Data> Clone for _Inner<T> {
         fn clone(&self) -> Self {
-            Self(self.0.clone())
+            Self(Arc::clone(&self.0))
         }
     }
     impl<T: std::fmt::Debug> std::fmt::Debug for _Inner<T> {
@@ -1171,17 +1333,25 @@ pub mod diagnostics_server {
         async fn check_health(
             &self,
             request: tonic::Request<super::CheckHealthRequest>,
-        ) -> Result<tonic::Response<super::CheckHealthResponse>, tonic::Status>;
+        ) -> std::result::Result<
+            tonic::Response<super::CheckHealthResponse>,
+            tonic::Status,
+        >;
         async fn collect_metrics(
             &self,
             request: tonic::Request<super::CollectMetricsRequest>,
-        ) -> Result<tonic::Response<super::CollectMetricsResponse>, tonic::Status>;
+        ) -> std::result::Result<
+            tonic::Response<super::CollectMetricsResponse>,
+            tonic::Status,
+        >;
     }
     #[derive(Debug)]
     pub struct DiagnosticsServer<T: Diagnostics> {
         inner: _Inner<T>,
         accept_compression_encodings: EnabledCompressionEncodings,
         send_compression_encodings: EnabledCompressionEncodings,
+        max_decoding_message_size: Option<usize>,
+        max_encoding_message_size: Option<usize>,
     }
     struct _Inner<T>(Arc<T>);
     impl<T: Diagnostics> DiagnosticsServer<T> {
@@ -1194,6 +1364,8 @@ pub mod diagnostics_server {
                 inner,
                 accept_compression_encodings: Default::default(),
                 send_compression_encodings: Default::default(),
+                max_decoding_message_size: None,
+                max_encoding_message_size: None,
             }
         }
         pub fn with_interceptor<F>(
@@ -1217,6 +1389,22 @@ pub mod diagnostics_server {
             self.send_compression_encodings.enable(encoding);
             self
         }
+        /// Limits the maximum size of a decoded message.
+        ///
+        /// Default: `4MB`
+        #[must_use]
+        pub fn max_decoding_message_size(mut self, limit: usize) -> Self {
+            self.max_decoding_message_size = Some(limit);
+            self
+        }
+        /// Limits the maximum size of an encoded message.
+        ///
+        /// Default: `usize::MAX`
+        #[must_use]
+        pub fn max_encoding_message_size(mut self, limit: usize) -> Self {
+            self.max_encoding_message_size = Some(limit);
+            self
+        }
     }
     impl<T, B> tonic::codegen::Service<http::Request<B>> for DiagnosticsServer<T>
     where
@@ -1230,7 +1418,7 @@ pub mod diagnostics_server {
         fn poll_ready(
             &mut self,
             _cx: &mut Context<'_>,
-        ) -> Poll<Result<(), Self::Error>> {
+        ) -> Poll<std::result::Result<(), Self::Error>> {
             Poll::Ready(Ok(()))
         }
         fn call(&mut self, req: http::Request<B>) -> Self::Future {
@@ -1252,15 +1440,17 @@ pub mod diagnostics_server {
                             &mut self,
                             request: tonic::Request<super::CheckHealthRequest>,
                         ) -> Self::Future {
-                            let inner = self.0.clone();
+                            let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                (*inner).check_health(request).await
+                                <T as Diagnostics>::check_health(&inner, request).await
                             };
                             Box::pin(fut)
                         }
                     }
                     let accept_compression_encodings = self.accept_compression_encodings;
                     let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
                     let inner = self.inner.clone();
                     let fut = async move {
                         let inner = inner.0;
@@ -1270,6 +1460,10 @@ pub mod diagnostics_server {
                             .apply_compression_config(
                                 accept_compression_encodings,
                                 send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
                             );
                         let res = grpc.unary(method, req).await;
                         Ok(res)
@@ -1292,15 +1486,17 @@ pub mod diagnostics_server {
                             &mut self,
                             request: tonic::Request<super::CollectMetricsRequest>,
                         ) -> Self::Future {
-                            let inner = self.0.clone();
+                            let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                (*inner).collect_metrics(request).await
+                                <T as Diagnostics>::collect_metrics(&inner, request).await
                             };
                             Box::pin(fut)
                         }
                     }
                     let accept_compression_encodings = self.accept_compression_encodings;
                     let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
                     let inner = self.inner.clone();
                     let fut = async move {
                         let inner = inner.0;
@@ -1310,6 +1506,10 @@ pub mod diagnostics_server {
                             .apply_compression_config(
                                 accept_compression_encodings,
                                 send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
                             );
                         let res = grpc.unary(method, req).await;
                         Ok(res)
@@ -1338,12 +1538,14 @@ pub mod diagnostics_server {
                 inner,
                 accept_compression_encodings: self.accept_compression_encodings,
                 send_compression_encodings: self.send_compression_encodings,
+                max_decoding_message_size: self.max_decoding_message_size,
+                max_encoding_message_size: self.max_encoding_message_size,
             }
         }
     }
     impl<T: Diagnostics> Clone for _Inner<T> {
         fn clone(&self) -> Self {
-            Self(self.0.clone())
+            Self(Arc::clone(&self.0))
         }
     }
     impl<T: std::fmt::Debug> std::fmt::Debug for _Inner<T> {
@@ -1369,10 +1571,13 @@ pub mod stream_server {
         async fn subscribe_stream(
             &self,
             request: tonic::Request<super::SubscribeStreamRequest>,
-        ) -> Result<tonic::Response<super::SubscribeStreamResponse>, tonic::Status>;
+        ) -> std::result::Result<
+            tonic::Response<super::SubscribeStreamResponse>,
+            tonic::Status,
+        >;
         /// Server streaming response type for the RunStream method.
-        type RunStreamStream: futures_core::Stream<
-                Item = Result<super::StreamPacket, tonic::Status>,
+        type RunStreamStream: tonic::codegen::tokio_stream::Stream<
+                Item = std::result::Result<super::StreamPacket, tonic::Status>,
             >
             + Send
             + 'static;
@@ -1384,20 +1589,25 @@ pub mod stream_server {
         async fn run_stream(
             &self,
             request: tonic::Request<super::RunStreamRequest>,
-        ) -> Result<tonic::Response<Self::RunStreamStream>, tonic::Status>;
+        ) -> std::result::Result<tonic::Response<Self::RunStreamStream>, tonic::Status>;
         /// PublishStream called when a user tries to publish to a plugin/datasource
         /// managed channel path. Here plugin can check publish permissions and
         /// modify publication data if required.
         async fn publish_stream(
             &self,
             request: tonic::Request<super::PublishStreamRequest>,
-        ) -> Result<tonic::Response<super::PublishStreamResponse>, tonic::Status>;
+        ) -> std::result::Result<
+            tonic::Response<super::PublishStreamResponse>,
+            tonic::Status,
+        >;
     }
     #[derive(Debug)]
     pub struct StreamServer<T: Stream> {
         inner: _Inner<T>,
         accept_compression_encodings: EnabledCompressionEncodings,
         send_compression_encodings: EnabledCompressionEncodings,
+        max_decoding_message_size: Option<usize>,
+        max_encoding_message_size: Option<usize>,
     }
     struct _Inner<T>(Arc<T>);
     impl<T: Stream> StreamServer<T> {
@@ -1410,6 +1620,8 @@ pub mod stream_server {
                 inner,
                 accept_compression_encodings: Default::default(),
                 send_compression_encodings: Default::default(),
+                max_decoding_message_size: None,
+                max_encoding_message_size: None,
             }
         }
         pub fn with_interceptor<F>(
@@ -1433,6 +1645,22 @@ pub mod stream_server {
             self.send_compression_encodings.enable(encoding);
             self
         }
+        /// Limits the maximum size of a decoded message.
+        ///
+        /// Default: `4MB`
+        #[must_use]
+        pub fn max_decoding_message_size(mut self, limit: usize) -> Self {
+            self.max_decoding_message_size = Some(limit);
+            self
+        }
+        /// Limits the maximum size of an encoded message.
+        ///
+        /// Default: `usize::MAX`
+        #[must_use]
+        pub fn max_encoding_message_size(mut self, limit: usize) -> Self {
+            self.max_encoding_message_size = Some(limit);
+            self
+        }
     }
     impl<T, B> tonic::codegen::Service<http::Request<B>> for StreamServer<T>
     where
@@ -1446,7 +1674,7 @@ pub mod stream_server {
         fn poll_ready(
             &mut self,
             _cx: &mut Context<'_>,
-        ) -> Poll<Result<(), Self::Error>> {
+        ) -> Poll<std::result::Result<(), Self::Error>> {
             Poll::Ready(Ok(()))
         }
         fn call(&mut self, req: http::Request<B>) -> Self::Future {
@@ -1468,15 +1696,17 @@ pub mod stream_server {
                             &mut self,
                             request: tonic::Request<super::SubscribeStreamRequest>,
                         ) -> Self::Future {
-                            let inner = self.0.clone();
+                            let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                (*inner).subscribe_stream(request).await
+                                <T as Stream>::subscribe_stream(&inner, request).await
                             };
                             Box::pin(fut)
                         }
                     }
                     let accept_compression_encodings = self.accept_compression_encodings;
                     let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
                     let inner = self.inner.clone();
                     let fut = async move {
                         let inner = inner.0;
@@ -1486,6 +1716,10 @@ pub mod stream_server {
                             .apply_compression_config(
                                 accept_compression_encodings,
                                 send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
                             );
                         let res = grpc.unary(method, req).await;
                         Ok(res)
@@ -1509,13 +1743,17 @@ pub mod stream_server {
                             &mut self,
                             request: tonic::Request<super::RunStreamRequest>,
                         ) -> Self::Future {
-                            let inner = self.0.clone();
-                            let fut = async move { (*inner).run_stream(request).await };
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as Stream>::run_stream(&inner, request).await
+                            };
                             Box::pin(fut)
                         }
                     }
                     let accept_compression_encodings = self.accept_compression_encodings;
                     let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
                     let inner = self.inner.clone();
                     let fut = async move {
                         let inner = inner.0;
@@ -1525,6 +1763,10 @@ pub mod stream_server {
                             .apply_compression_config(
                                 accept_compression_encodings,
                                 send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
                             );
                         let res = grpc.server_streaming(method, req).await;
                         Ok(res)
@@ -1547,15 +1789,17 @@ pub mod stream_server {
                             &mut self,
                             request: tonic::Request<super::PublishStreamRequest>,
                         ) -> Self::Future {
-                            let inner = self.0.clone();
+                            let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                (*inner).publish_stream(request).await
+                                <T as Stream>::publish_stream(&inner, request).await
                             };
                             Box::pin(fut)
                         }
                     }
                     let accept_compression_encodings = self.accept_compression_encodings;
                     let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
                     let inner = self.inner.clone();
                     let fut = async move {
                         let inner = inner.0;
@@ -1565,6 +1809,10 @@ pub mod stream_server {
                             .apply_compression_config(
                                 accept_compression_encodings,
                                 send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
                             );
                         let res = grpc.unary(method, req).await;
                         Ok(res)
@@ -1593,12 +1841,14 @@ pub mod stream_server {
                 inner,
                 accept_compression_encodings: self.accept_compression_encodings,
                 send_compression_encodings: self.send_compression_encodings,
+                max_decoding_message_size: self.max_decoding_message_size,
+                max_encoding_message_size: self.max_encoding_message_size,
             }
         }
     }
     impl<T: Stream> Clone for _Inner<T> {
         fn clone(&self) -> Self {
-            Self(self.0.clone())
+            Self(Arc::clone(&self.0))
         }
     }
     impl<T: std::fmt::Debug> std::fmt::Debug for _Inner<T> {

@@ -684,7 +684,7 @@ pub enum ConvertToError {
 
 type ConvertFromResult<T> = std::result::Result<T, ConvertFromError>;
 
-pub(self) fn read_json<T>(jdoc: &[u8]) -> ConvertFromResult<T>
+fn read_json<T>(jdoc: &[u8]) -> ConvertFromResult<T>
 where
     T: DeserializeOwned,
 {

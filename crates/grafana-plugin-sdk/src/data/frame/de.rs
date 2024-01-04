@@ -83,7 +83,7 @@ impl<'de> Deserialize<'de> for Frame {
                     fields: schema
                         .fields
                         .into_iter()
-                        .zip(data.values.into_iter())
+                        .zip(data.values)
                         .map(|(f, values)| crate::data::field::Field {
                             name: f.name,
                             labels: f.labels,
