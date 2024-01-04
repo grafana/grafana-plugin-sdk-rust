@@ -8,6 +8,9 @@ error[E0277]: the trait bound `MyPlugin: DataService` is not satisfied
 note: required by a bound in `grafana_plugin_sdk::backend::Plugin::<D, Q, R, S>::data_service`
  --> $WORKSPACE/crates/grafana-plugin-sdk/src/backend/mod.rs
   |
+  |     pub fn data_service<T>(self, service: T) -> Plugin<D, T, R, S>
+  |            ------------ required by a bound in this associated function
+  |     where
   |         T: DataService + Send + Sync + 'static,
   |            ^^^^^^^^^^^ required by this bound in `Plugin::<D, Q, R, S>::data_service`
   = note: this error originates in the attribute macro `grafana_plugin_sdk::main` (in Nightly builds, run with -Z macro-backtrace for more info)

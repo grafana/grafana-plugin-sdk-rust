@@ -11,8 +11,8 @@ use crate::{
     live::Channel,
 };
 
-pub(self) mod de;
-pub(self) mod ser;
+mod de;
+mod ser;
 pub(crate) mod to_arrow;
 
 use ser::{SerializableField, SerializableFrame, SerializableFrameData, SerializableFrameSchema};
