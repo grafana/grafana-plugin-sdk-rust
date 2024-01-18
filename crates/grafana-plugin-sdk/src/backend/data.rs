@@ -308,7 +308,7 @@ impl DataQueryStatus {
 ///     ///
 ///     /// In general the concrete type will be impossible to name in advance,
 ///     /// so the `backend::BoxDataResponseStream` type alias will be useful.
-///     type Stream = backend::BoxDataResponseStream<Self::QueryError>;
+///     type Stream<'a> = backend::BoxDataResponseStream<'a, Self::QueryError>;
 ///
 ///     /// Respond to a request for data from Grafana.
 ///     ///
@@ -318,7 +318,7 @@ impl DataQueryStatus {
 ///     ///
 ///     /// Our plugin must respond to each query and return an iterator of `DataResponse`s,
 ///     /// which themselves can contain zero or more `Frame`s.
-///     async fn query_data(&self, request: backend::QueryDataRequest<Self::Query>) -> Self::Stream {
+///     async fn query_data(&self, request: backend::QueryDataRequest<Self::Query>) -> Self::Stream<'_> {
 ///         Box::pin(
 ///             request
 ///                 .queries
@@ -363,18 +363,23 @@ pub trait DataService {
     ///
     /// This will generally be impossible to name directly, so returning the
     /// [`BoxDataResponseStream`] type alias will probably be more convenient.
-    type Stream: Stream<Item = Result<DataResponse, Self::QueryError>> + Send;
+    type Stream<'a>: Stream<Item = Result<DataResponse, Self::QueryError>> + Send + 'a
+    where
+        Self: 'a;
 
     /// Query data for an input request.
     ///
     /// The request will contain zero or more queries, as well as information about the
     /// origin of the queries (such as the datasource instance) in the `plugin_context` field.
-    async fn query_data(&self, request: QueryDataRequest<Self::Query>) -> Self::Stream;
+    async fn query_data<'st, 's: 'st>(
+        &'s self,
+        request: QueryDataRequest<Self::Query>,
+    ) -> Self::Stream<'st>;
 }
 
 /// Type alias for a boxed iterator of query responses, useful for returning from [`DataService::query_data`].
-pub type BoxDataResponseStream<E> =
-    Pin<Box<dyn Stream<Item = Result<backend::DataResponse, E>> + Send>>;
+pub type BoxDataResponseStream<'a, E> =
+    Pin<Box<dyn Stream<Item = Result<backend::DataResponse, E>> + Send + 'a>>;
 
 /// Serialize a slice of frames to Arrow IPC format.
 ///
