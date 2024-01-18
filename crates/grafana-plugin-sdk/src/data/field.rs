@@ -399,6 +399,32 @@ where
     }
 }
 
+/// Helper trait for creating a [`Field`] from an [`Array`][arrow_array::Array].
+pub trait ArrayRefIntoField {
+    /// Create a `Field` using `self` as the values.
+    ///
+    /// # Errors
+    ///
+    /// This returns an error if the values are not valid field types.
+    fn try_into_field(self, name: impl Into<String>) -> Result<Field, error::Error>;
+}
+
+#[cfg(feature = "arrow")]
+impl ArrayRefIntoField for &dyn ::arrow_array::Array {
+    fn try_into_field(self, name: impl Into<String>) -> Result<Field, error::Error> {
+        Ok(Field {
+            name: name.into(),
+            labels: Default::default(),
+            config: None,
+            type_info: TypeInfo {
+                frame: self.data_type().try_into()?,
+                nullable: Some(true),
+            },
+            values: self.into(),
+        })
+    }
+}
+
 /// The type information for a [`Frame`][crate::data::Frame] as understood by Grafana.
 #[skip_serializing_none]
 #[derive(Debug, Deserialize, PartialEq, Eq, Serialize)]
@@ -492,6 +518,51 @@ impl From<TypeInfoType> for DataType {
             TypeInfoType::String => Self::Utf8,
             TypeInfoType::Bool => Self::Boolean,
             TypeInfoType::Time => Self::Timestamp(TimeUnit::Nanosecond, None),
+        }
+    }
+}
+
+#[cfg(feature = "arrow")]
+impl TryFrom<&::arrow_schema::DataType> for TypeInfoType {
+    type Error = error::Error;
+    fn try_from(other: &::arrow_schema::DataType) -> Result<Self, Self::Error> {
+        Ok(match other {
+            ::arrow_schema::DataType::Int8 => Self::Int8,
+            ::arrow_schema::DataType::Int16 => Self::Int16,
+            ::arrow_schema::DataType::Int32 => Self::Int32,
+            ::arrow_schema::DataType::Int64 => Self::Int64,
+            ::arrow_schema::DataType::UInt8 => Self::UInt8,
+            ::arrow_schema::DataType::UInt16 => Self::UInt16,
+            ::arrow_schema::DataType::UInt32 => Self::UInt32,
+            ::arrow_schema::DataType::UInt64 => Self::UInt64,
+            ::arrow_schema::DataType::Float32 => Self::Float32,
+            ::arrow_schema::DataType::Float64 => Self::Float64,
+            ::arrow_schema::DataType::Utf8 => Self::String,
+            ::arrow_schema::DataType::Boolean => Self::Bool,
+            ::arrow_schema::DataType::Timestamp(..) => Self::Time,
+            // TODO - handle time correctly.
+            other => return Err(error::Error::UnsupportedArrowDataType(other.clone().into())),
+        })
+    }
+}
+
+#[cfg(feature = "arrow")]
+impl From<TypeInfoType> for ::arrow_schema::DataType {
+    fn from(other: TypeInfoType) -> Self {
+        match other {
+            TypeInfoType::Int8 => Self::Int8,
+            TypeInfoType::Int16 => Self::Int16,
+            TypeInfoType::Int32 => Self::Int32,
+            TypeInfoType::Int64 => Self::Int64,
+            TypeInfoType::UInt8 => Self::UInt8,
+            TypeInfoType::UInt16 => Self::UInt16,
+            TypeInfoType::UInt32 => Self::UInt32,
+            TypeInfoType::UInt64 => Self::UInt64,
+            TypeInfoType::Float32 => Self::Float32,
+            TypeInfoType::Float64 => Self::Float64,
+            TypeInfoType::String => Self::Utf8,
+            TypeInfoType::Bool => Self::Boolean,
+            TypeInfoType::Time => Self::Timestamp(::arrow_schema::TimeUnit::Nanosecond, None),
         }
     }
 }
