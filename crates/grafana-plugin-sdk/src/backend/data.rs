@@ -1,14 +1,16 @@
 //! SDK types and traits relevant to plugins that query data.
-use std::{collections::HashMap, pin::Pin, time::Duration};
+use std::{collections::HashMap, fmt, pin::Pin, time::Duration};
 
 use futures_core::Stream;
 use futures_util::StreamExt;
 use serde::de::DeserializeOwned;
 
 use crate::{
-    backend::{self, ConvertFromError, TimeRange},
+    backend::{self, ConvertFromError, InstanceSettings, TimeRange},
     data, pluginv2,
 };
+
+use super::{GrafanaPlugin, PluginType};
 
 /// A request for data made by Grafana.
 ///
@@ -16,16 +18,19 @@ use crate::{
 /// while the actual plugins themselves are in `queries`.
 #[derive(Debug)]
 #[non_exhaustive]
-pub struct QueryDataRequest<Q>
+pub struct InnerQueryDataRequest<Q, IS, JsonData, SecureJsonData>
 where
     Q: DeserializeOwned,
+    JsonData: fmt::Debug + DeserializeOwned,
+    SecureJsonData: DeserializeOwned,
+    IS: InstanceSettings<JsonData, SecureJsonData>,
 {
     /// Details of the plugin instance from which the request originated.
     ///
     /// If the request originates from a datasource instance, this will
     /// include details about the datasource instance in the
     /// `data_source_instance_settings` field.
-    pub plugin_context: backend::PluginContext,
+    pub plugin_context: backend::PluginContext<IS, JsonData, SecureJsonData>,
     /// Headers included along with the request by Grafana.
     pub headers: HashMap<String, String>,
     /// The queries requested by a user or alert.
@@ -36,9 +41,13 @@ where
     pub queries: Vec<DataQuery<Q>>,
 }
 
-impl<Q> TryFrom<pluginv2::QueryDataRequest> for QueryDataRequest<Q>
+impl<Q, IS, JsonData, SecureJsonData> TryFrom<pluginv2::QueryDataRequest>
+    for InnerQueryDataRequest<Q, IS, JsonData, SecureJsonData>
 where
     Q: DeserializeOwned,
+    JsonData: fmt::Debug + DeserializeOwned,
+    SecureJsonData: DeserializeOwned,
+    IS: InstanceSettings<JsonData, SecureJsonData>,
 {
     type Error = ConvertFromError;
     fn try_from(other: pluginv2::QueryDataRequest) -> Result<Self, Self::Error> {
@@ -56,6 +65,29 @@ where
         })
     }
 }
+
+/// A request for data made by Grafana.
+///
+/// Details of the request source can be found in `plugin_context`,
+/// while the actual plugins themselves are in `queries`.
+///
+/// This is a convenience type alias to hide some of the complexity of
+/// the various generics involved.
+///
+/// The type parameter `Q` is the type of the query: generally you can use
+/// `Self::Query` here.
+///
+/// The type parameter `T` is the type of the plugin implementation itself,
+/// which must implement [`ConfiguredPlugin`].
+pub type QueryDataRequest<Q, T> = InnerQueryDataRequest<
+    Q,
+    <<T as GrafanaPlugin>::PluginType as PluginType<
+        <T as GrafanaPlugin>::JsonData,
+        <T as GrafanaPlugin>::SecureJsonData,
+    >>::InstanceSettings,
+    <T as GrafanaPlugin>::JsonData,
+    <T as GrafanaPlugin>::SecureJsonData,
+>;
 
 /// A query made by Grafana to the plugin as part of a [`QueryDataRequest`].
 ///
@@ -106,7 +138,7 @@ where
                 .time_range
                 .map(TimeRange::from)
                 .ok_or(ConvertFromError::MissingTimeRange)?,
-            query: backend::read_json(&other.json)?,
+            query: backend::read_json_query(&other.json)?,
         })
     }
 }
@@ -272,6 +304,8 @@ impl DataQueryStatus {
 /// use grafana_plugin_sdk::{backend, data, prelude::*};
 /// use thiserror::Error;
 ///
+/// #[derive(Clone, Debug, GrafanaPlugin)]
+/// #[grafana_plugin(plugin_type = "datasource")]
 /// struct MyPlugin;
 ///
 /// /// An error that may occur during a query.
@@ -318,7 +352,7 @@ impl DataQueryStatus {
 ///     ///
 ///     /// Our plugin must respond to each query and return an iterator of `DataResponse`s,
 ///     /// which themselves can contain zero or more `Frame`s.
-///     async fn query_data(&self, request: backend::QueryDataRequest<Self::Query>) -> Self::Stream {
+///     async fn query_data(&self, request: backend::QueryDataRequest<Self::Query, Self>) -> Self::Stream {
 ///         Box::pin(
 ///             request
 ///                 .queries
@@ -349,7 +383,7 @@ impl DataQueryStatus {
 /// }
 /// ```
 #[tonic::async_trait]
-pub trait DataService {
+pub trait DataService: GrafanaPlugin {
     /// The type of the JSON query sent from Grafana to the plugin.
     type Query: DeserializeOwned + Send + Sync;
 
@@ -369,7 +403,7 @@ pub trait DataService {
     ///
     /// The request will contain zero or more queries, as well as information about the
     /// origin of the queries (such as the datasource instance) in the `plugin_context` field.
-    async fn query_data(&self, request: QueryDataRequest<Self::Query>) -> Self::Stream;
+    async fn query_data(&self, request: QueryDataRequest<Self::Query, Self>) -> Self::Stream;
 }
 
 /// Type alias for a boxed iterator of query responses, useful for returning from [`DataService::query_data`].

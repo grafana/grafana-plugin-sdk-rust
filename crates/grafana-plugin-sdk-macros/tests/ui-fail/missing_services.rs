@@ -11,4 +11,3 @@ mod a {
 }
 
 fn main() {}
-

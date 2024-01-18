@@ -26,12 +26,18 @@ impl DataQueryError for Infallible {
     }
 }
 
+impl GrafanaPlugin for NoopService {
+    type PluginType = AppPlugin<Self::JsonData, Self::SecureJsonData>;
+    type JsonData = Value;
+    type SecureJsonData = HashMap<String, String>;
+}
+
 #[tonic::async_trait]
 impl DataService for NoopService {
     type Query = ();
     type QueryError = Infallible;
     type Stream = BoxDataResponseStream<Self::QueryError>;
-    async fn query_data(&self, _request: QueryDataRequest<Self::Query>) -> Self::Stream {
+    async fn query_data(&self, _request: QueryDataRequest<Self::Query, Self>) -> Self::Stream {
         unreachable!()
     }
 }
@@ -41,14 +47,14 @@ impl DiagnosticsService for NoopService {
     type CheckHealthError = Infallible;
     async fn check_health(
         &self,
-        _request: CheckHealthRequest,
+        _request: CheckHealthRequest<Self>,
     ) -> Result<CheckHealthResponse, Self::CheckHealthError> {
         unreachable!()
     }
     type CollectMetricsError = Infallible;
     async fn collect_metrics(
         &self,
-        _request: CollectMetricsRequest,
+        _request: CollectMetricsRequest<Self>,
     ) -> Result<CollectMetricsResponse, Self::CollectMetricsError> {
         unreachable!()
     }
@@ -68,7 +74,7 @@ impl ResourceService for NoopService {
     /// is to use `futures_util::stream::once`.
     async fn call_resource(
         &self,
-        _request: CallResourceRequest,
+        _request: CallResourceRequest<Self>,
     ) -> Result<(Self::InitialResponse, Self::Stream), Self::Error> {
         unreachable!()
     }
@@ -78,19 +84,22 @@ impl ResourceService for NoopService {
 impl StreamService for NoopService {
     async fn subscribe_stream(
         &self,
-        _request: SubscribeStreamRequest,
+        _request: SubscribeStreamRequest<Self>,
     ) -> Result<SubscribeStreamResponse, Self::Error> {
         unreachable!()
     }
     type JsonValue = ();
     type Error = Infallible;
     type Stream = BoxRunStream<Self::Error>;
-    async fn run_stream(&self, _request: RunStreamRequest) -> Result<Self::Stream, Self::Error> {
+    async fn run_stream(
+        &self,
+        _request: RunStreamRequest<Self>,
+    ) -> Result<Self::Stream, Self::Error> {
         unreachable!()
     }
     async fn publish_stream(
         &self,
-        _request: PublishStreamRequest,
+        _request: PublishStreamRequest<Self>,
     ) -> Result<PublishStreamResponse, Self::Error> {
         unreachable!()
     }
