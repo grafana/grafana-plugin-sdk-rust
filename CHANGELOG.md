@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Add `VisType::FlameGraph` variant to indicate that a frame should be visualised using the flame graph panel introduced [here](https://github.com/grafana/grafana/pull/56376).
 - Add overrideable `DataQueryError::status` method which must return a `DataQueryStatus`. This can be used by datasource implementations to provide more detail about how an error should be handled.
+- Add `arrow-array` support for Field ([#111](https://github.com/grafana/grafana-plugin-sdk-rust/pull/111) by @kerryeon)
 
 ### Changed
 
