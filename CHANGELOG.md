@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+## [0.4.3] - 2024-01-18
+
 ### Added
 
 - Add `VisType::FlameGraph` variant to indicate that a frame should be visualised using the flame graph panel introduced [here](https://github.com/grafana/grafana/pull/56376).
@@ -121,7 +123,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial release of the SDK
 
 <!-- next-url -->
-[Unreleased]: https://github.com/assert-rs/predicates-rs/compare/v0.4.2...HEAD
+[Unreleased]: https://github.com/assert-rs/predicates-rs/compare/v0.4.3...HEAD
+[0.4.3]: https://github.com/assert-rs/predicates-rs/compare/v0.4.2...v0.4.3
 [0.4.2]: https://github.com/assert-rs/predicates-rs/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/assert-rs/predicates-rs/compare/v0.4.0...v0.4.1
 [unreleased]: https://github.com/grafana/grafana-plugin-sdk-rust/compare/v0.3.0...v0.4.0
