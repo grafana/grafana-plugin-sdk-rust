@@ -3,11 +3,11 @@
 This crate contains a Rust implementation of the Grafana plugin SDK. It is divided into three main modules:
 
 - [`backend`] contains the traits that must be implemented by backend plugins for various pieces of functionality,
-whether querying data, calling resources, or streaming data between Grafana and the plugin.
+  whether querying data, calling resources, or streaming data between Grafana and the plugin.
 - [`data`] contains the fundamental data structures used by backend plugins, such as [`Frame`][data::Frame]s, [`Field`][data::Field]s,
-and their associated metadata.
+  and their associated metadata.
 - [`live`] contains functionality used by [Grafana Live], the streaming messaging service available from
-Grafana 8.0.
+  Grafana 8.0.
 
 The [`prelude`] contains some useful unambiguous traits which are helpful when creating some structures,
 particularly [`Frame`][data::Frame]s and [`Field`][data::Field]s.
@@ -24,7 +24,7 @@ the [crate examples] or [sample app repo] to get started with writing a backend 
 The following feature flags enable additional functionality for this crate:
 
 - `reqwest` - adds an [`IntoHttpResponse`][crate::backend::IntoHttpResponse] implementation for
-    [`reqwest::Response`]
+   [`reqwest::Response`]
 
 [Backend plugins on grafana.com]: https://grafana.com/docs/grafana/latest/developers/plugins/backend/
 [Grafana Live]: https://grafana.com/docs/grafana/latest/live/

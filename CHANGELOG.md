@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+- Bump itertools dependency to 0.13.0
+- Bump prost dependency to 0.13.2
+- Bump reqwest dependency to 0.12.7
+- Bump tonic dependency to 0.12.2
+- Bump tonic-health dependency to 0.12.2
+- Increase MSRV to 1.63, due to tokio-util requiring it
+
 ## [0.4.3] - 2024-01-18
 
 ### Added

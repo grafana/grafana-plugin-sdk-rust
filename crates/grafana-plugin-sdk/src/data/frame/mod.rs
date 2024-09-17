@@ -24,10 +24,6 @@ pub const TIME_FIELD_NAME: &str = "Time";
 /// The standard name for time series value fields.
 pub const VALUE_FIELD_NAME: &str = "Value";
 
-mod sealed {
-    pub trait Sealed {}
-}
-
 /// A structured, two-dimensional data frame.
 ///
 /// `Frame`s can be created manually using [`Frame::new`] if desired.
