@@ -37,7 +37,8 @@ use thiserror::Error;
 use tonic::transport::Server;
 use tracing::info;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, GrafanaPlugin)]
+#[grafana_plugin(plugin_type = "datasource")]
 struct MyPlugin;
 
 /// An error that may occur during a query.
@@ -84,7 +85,7 @@ impl backend::DataService for MyPlugin {
     ///
     /// Our plugin must respond to each query and return an iterator of `DataResponse`s,
     /// which themselves can contain zero or more `Frame`s.
-    async fn query_data(&self, request: backend::QueryDataRequest<Self::Query>) -> Self::Stream {
+    async fn query_data(&self, request: backend::QueryDataRequest<Self::Query, Self>) -> Self::Stream {
         Box::pin(
             request
                 .queries
@@ -124,12 +125,15 @@ async fn plugin() -> MyPlugin {
 
 [tonic]: https://github.com/hyperium/tonic
 */
-use std::{collections::HashMap, fmt::Debug, io, net::SocketAddr, str::FromStr};
+use std::{
+    collections::HashMap, fmt::Debug, io, marker::PhantomData, net::SocketAddr, str::FromStr,
+};
 
 use chrono::prelude::*;
 use futures_util::FutureExt;
-use serde::de::DeserializeOwned;
+use serde::{de::DeserializeOwned, Serialize};
 use serde_json::Value;
+use serde_with::{serde_as, DisplayFromStr};
 use thiserror::Error;
 use tokio::net::TcpListener;
 use tokio_stream::wrappers::TcpListenerStream;
@@ -202,6 +206,10 @@ impl ShutdownHandler {
     }
 }
 
+mod sealed {
+    pub trait Sealed {}
+}
+
 /// Main entrypoint into the Grafana plugin SDK.
 ///
 /// A `Plugin` handles the negotiation with Grafana, adding gRPC health checks,
@@ -244,7 +252,8 @@ impl ShutdownHandler {
 /// use grafana_plugin_sdk::{backend, prelude::*};
 /// use thiserror::Error;
 ///
-/// #[derive(Clone)]
+/// #[derive(Clone, GrafanaPlugin)]
+/// #[grafana_plugin(plugin_type = "datasource")]
 /// struct MyPlugin;
 ///
 /// /// An error that may occur during a query.
@@ -290,7 +299,7 @@ impl ShutdownHandler {
 ///     ///
 ///     /// Our plugin must respond to each query and return an iterator of `DataResponse`s,
 ///     /// which themselves can contain zero or more `Frame`s.
-///     async fn query_data(&self, request: backend::QueryDataRequest<Self::Query>) -> Self::Stream {
+///     async fn query_data(&self, request: backend::QueryDataRequest<Self::Query, Self>) -> Self::Stream {
 ///         Box::pin(
 ///             request
 ///                 .queries
@@ -599,7 +608,9 @@ pub enum Error {
 /// Errors occurring when trying to interpret data passed from Grafana to this SDK.
 ///
 /// Generally any errors should be considered a bug and should be reported.
-#[derive(Debug, Error)]
+#[serde_as]
+#[derive(Debug, Error, Serialize)]
+#[serde(rename_all = "camelCase", tag = "type")]
 #[non_exhaustive]
 pub enum ConvertFromError {
     /// The `time_range` was missing from the query.
@@ -614,24 +625,52 @@ pub enum ConvertFromError {
     /// The `plugin_context` was missing from the request.
     #[error("plugin_context missing from request")]
     MissingPluginContext,
-    /// The JSON provided by Grafana was invalid.
-    #[error("invalid JSON (got {json}): {err}")]
-    InvalidJson {
+    /// The query's JSON data sent by Grafana could not be deserialized.
+    #[error("unexpected query JSON (got {json}): {err}")]
+    UnexpectedQueryJson {
         /// The underlying JSON error.
+        #[serde_as(as = "DisplayFromStr")]
         err: serde_json::Error,
         /// The JSON for which deserialization was attempted.
         json: String,
+    },
+    /// The plugin instance's JSON data sent by Grafana could not be deserialized
+    /// into the backend representation.
+    #[error("unexpected plugin JSON data (got {json}): {err}")]
+    UnexpectedJsonData {
+        /// The underlying JSON error.
+        #[serde_as(as = "DisplayFromStr")]
+        err: serde_json::Error,
+        /// The JSON for which deserialization was attempted.
+        json: String,
+    },
+    /// The plugin instance's 'secure' JSON data sent by Grafana could not be converted into
+    /// the backend representation.
+    #[error(
+        "unexpected plugin secure JSON data (got keys: [{keys}]): {err}",
+        keys = secure_json_keys.join(", ")
+    )]
+    UnexpectedSecureJson {
+        /// The underlying JSON error.
+        #[serde_as(as = "DisplayFromStr")]
+        err: serde_json::Error,
+        /// The keys found in the underlying decrypted secure JSON.
+        ///
+        /// Values are not shown because they are likely to be secret.
+        secure_json_keys: Vec<String>,
     },
     /// The frame provided by Grafana was malformed.
     #[error("invalid frame: {source}")]
     InvalidFrame {
         /// The underlying JSON error.
+        #[serde_as(as = "DisplayFromStr")]
         source: serde_json::Error,
     },
     /// The resource request was not a valid HTTP request.
     #[error("invalid HTTP request: {source}")]
     InvalidRequest {
         /// The underlying `http` error.
+        #[serde_as(as = "DisplayFromStr")]
         source: http::Error,
     },
     /// The role string provided by Grafana didn't match the roles known by the SDK.
@@ -684,14 +723,32 @@ pub enum ConvertToError {
 
 type ConvertFromResult<T> = std::result::Result<T, ConvertFromError>;
 
-fn read_json<T>(jdoc: &[u8]) -> ConvertFromResult<T>
+fn read_json<T>(jdoc: &[u8]) -> Result<T, serde_json::Error>
 where
     T: DeserializeOwned,
 {
     // Grafana sometimes sends an empty string instead of an empty map, probably
     // because of some zero value Golang stuff?
     let jdoc = jdoc.is_empty().then(|| b"{}".as_slice()).unwrap_or(jdoc);
-    serde_json::from_slice(jdoc).map_err(|err| ConvertFromError::InvalidJson {
+    serde_json::from_slice(jdoc)
+}
+
+fn read_json_query<T>(jdoc: &[u8]) -> ConvertFromResult<T>
+where
+    T: DeserializeOwned,
+{
+    read_json(jdoc).map_err(|err| ConvertFromError::UnexpectedQueryJson {
+        err,
+        json: String::from_utf8(jdoc.to_vec())
+            .unwrap_or_else(|_| format!("non-utf8 string: {}", String::from_utf8_lossy(jdoc))),
+    })
+}
+
+fn read_json_data<T>(jdoc: &[u8]) -> ConvertFromResult<T>
+where
+    T: DeserializeOwned,
+{
+    read_json(jdoc).map_err(|err| ConvertFromError::UnexpectedJsonData {
         err,
         json: String::from_utf8(jdoc.to_vec())
             .unwrap_or_else(|_| format!("non-utf8 string: {}", String::from_utf8_lossy(jdoc))),
@@ -773,26 +830,61 @@ impl TryFrom<pluginv2::User> for User {
     }
 }
 
+fn convert_secure_json_data<T: DeserializeOwned>(
+    secure_json: &HashMap<String, String>,
+) -> Result<T, ConvertFromError> {
+    serde_json::from_value(Value::Object(serde_json::Map::from_iter(
+        secure_json
+            .iter()
+            .map(|(k, v)| (k.clone(), Value::String(v.clone()))),
+    )))
+    .map_err(|e| ConvertFromError::UnexpectedSecureJson {
+        err: e,
+        secure_json_keys: secure_json.keys().cloned().collect(),
+    })
+}
+
+/// The instance settings for an app or data source instance.
+pub trait InstanceSettings<JsonData, SecureJsonData>: Sized + sealed::Sealed
+where
+    JsonData: DeserializeOwned,
+    SecureJsonData: DeserializeOwned,
+{
+    #[doc(hidden)]
+    fn from_proto(
+        app_instance_settings: Option<pluginv2::AppInstanceSettings>,
+        datasource_instance_settings: Option<pluginv2::DataSourceInstanceSettings>,
+        plugin_id: String,
+    ) -> Result<Option<Self>, ConvertFromError>;
+    /// Get the JSON data for the app or data source instance.
+    fn json_data(&self) -> &JsonData;
+    /// Get the decrypted secure JSON data for the app or data source instance.
+    fn decrypted_secure_json_data(&self) -> &SecureJsonData;
+}
+
 /// Settings for an app instance.
 ///
 /// An app instance is an app plugin of a certain type that has been configured
 /// and enabled in a Grafana organisation.
 #[derive(Clone)]
 #[non_exhaustive]
-pub struct AppInstanceSettings {
+pub struct AppInstanceSettings<JsonData, SecureJsonData> {
     /// Includes the non-secret settings of the app instance (excluding datasource config).
-    pub json_data: Value,
+    pub json_data: JsonData,
     /// Key-value pairs where the encrypted configuration in Grafana server have been
     /// decrypted before passing them to the plugin.
     ///
     /// This data is not accessible to the Grafana frontend after it has been set, and should
     /// be used for any secrets (such as API keys or passwords).
-    pub decrypted_secure_json_data: HashMap<String, String>,
+    pub decrypted_secure_json_data: SecureJsonData,
     /// The last time the configuration for the app plugin instance was updated.
     pub updated: DateTime<Utc>,
 }
 
-impl Debug for AppInstanceSettings {
+impl<JsonData, SecureJsonData> Debug for AppInstanceSettings<JsonData, SecureJsonData>
+where
+    JsonData: Debug,
+{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("AppInstanceSettings")
             .field("json_data", &self.json_data)
@@ -802,21 +894,45 @@ impl Debug for AppInstanceSettings {
     }
 }
 
-impl TryFrom<pluginv2::AppInstanceSettings> for AppInstanceSettings {
-    type Error = ConvertFromError;
-    fn try_from(other: pluginv2::AppInstanceSettings) -> Result<Self, Self::Error> {
-        Ok(Self {
-            decrypted_secure_json_data: other.decrypted_secure_json_data,
-            json_data: read_json(&other.json_data)?,
-            updated: Utc
-                .timestamp_millis_opt(other.last_updated_ms)
-                .single()
-                .ok_or(ConvertFromError::InvalidTimestamp {
-                    timestamp: other.last_updated_ms,
-                })?,
-        })
+impl<JsonData, SecureJsonData> InstanceSettings<JsonData, SecureJsonData>
+    for AppInstanceSettings<JsonData, SecureJsonData>
+where
+    JsonData: DeserializeOwned,
+    SecureJsonData: DeserializeOwned,
+{
+    fn from_proto(
+        app_instance_settings: Option<pluginv2::AppInstanceSettings>,
+        _datasource_instance_settings: Option<pluginv2::DataSourceInstanceSettings>,
+        _plugin_id: String,
+    ) -> Result<Option<Self>, ConvertFromError> {
+        app_instance_settings
+            .map(|proto| {
+                Ok(Self {
+                    decrypted_secure_json_data: convert_secure_json_data(
+                        &proto.decrypted_secure_json_data,
+                    )?,
+                    json_data: read_json_data(&proto.json_data)?,
+                    updated: Utc
+                        .timestamp_millis_opt(proto.last_updated_ms)
+                        .single()
+                        .ok_or(ConvertFromError::InvalidTimestamp {
+                            timestamp: proto.last_updated_ms,
+                        })?,
+                })
+            })
+            .transpose()
+    }
+
+    fn json_data(&self) -> &JsonData {
+        &self.json_data
+    }
+
+    fn decrypted_secure_json_data(&self) -> &SecureJsonData {
+        &self.decrypted_secure_json_data
     }
 }
+
+impl<JsonData, SecureJsonData> sealed::Sealed for AppInstanceSettings<JsonData, SecureJsonData> {}
 
 /// Settings for a datasource instance.
 ///
@@ -826,7 +942,7 @@ impl TryFrom<pluginv2::AppInstanceSettings> for AppInstanceSettings {
 /// datasource instances configured in a Grafana organisation.
 #[derive(Clone)]
 #[non_exhaustive]
-pub struct DataSourceInstanceSettings {
+pub struct DataSourceInstanceSettings<JsonData, SecureJsonData> {
     /// The Grafana assigned numeric identifier of the the datasource instance.
     pub id: i64,
 
@@ -861,20 +977,23 @@ pub struct DataSourceInstanceSettings {
     /// The raw DataSourceConfig as JSON as stored by the Grafana server.
     ///
     /// It repeats the properties in this object and includes custom properties.
-    pub json_data: Value,
+    pub json_data: JsonData,
 
     /// Key-value pairs where the encrypted configuration in Grafana server have been
     /// decrypted before passing them to the plugin.
     ///
     /// This data is not accessible to the Grafana frontend after it has been set, and should
     /// be used for any secrets (such as API keys or passwords).
-    pub decrypted_secure_json_data: HashMap<String, String>,
+    pub decrypted_secure_json_data: SecureJsonData,
 
     /// The last time the configuration for the datasource instance was updated.
     pub updated: DateTime<Utc>,
 }
 
-impl Debug for DataSourceInstanceSettings {
+impl<JsonData, SecureJsonData> Debug for DataSourceInstanceSettings<JsonData, SecureJsonData>
+where
+    JsonData: Debug,
+{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("DataSourceInstanceSettings")
             .field("id", &self.id)
@@ -893,37 +1012,67 @@ impl Debug for DataSourceInstanceSettings {
     }
 }
 
-impl TryFrom<(pluginv2::DataSourceInstanceSettings, String)> for DataSourceInstanceSettings {
-    type Error = ConvertFromError;
-    fn try_from(
-        (other, type_): (pluginv2::DataSourceInstanceSettings, String),
-    ) -> Result<Self, Self::Error> {
-        Ok(Self {
-            id: other.id,
-            uid: other.uid,
-            type_,
-            name: other.name,
-            url: other.url,
-            user: other.user,
-            database: other.database,
-            basic_auth_enabled: other.basic_auth_enabled,
-            basic_auth_user: other.basic_auth_user,
-            decrypted_secure_json_data: other.decrypted_secure_json_data,
-            json_data: read_json(&other.json_data)?,
-            updated: Utc
-                .timestamp_millis_opt(other.last_updated_ms)
-                .single()
-                .ok_or(ConvertFromError::InvalidTimestamp {
-                    timestamp: other.last_updated_ms,
-                })?,
-        })
+impl<JsonData, SecureJsonData> InstanceSettings<JsonData, SecureJsonData>
+    for DataSourceInstanceSettings<JsonData, SecureJsonData>
+where
+    JsonData: DeserializeOwned,
+    SecureJsonData: DeserializeOwned,
+{
+    fn from_proto(
+        _app_instance_settings: Option<pluginv2::AppInstanceSettings>,
+        datasource_instance_settings: Option<pluginv2::DataSourceInstanceSettings>,
+        plugin_id: String,
+    ) -> Result<Option<Self>, ConvertFromError> {
+        datasource_instance_settings
+            .map(|proto| {
+                Ok(Self {
+                    id: proto.id,
+                    uid: proto.uid,
+                    type_: plugin_id,
+                    name: proto.name,
+                    url: proto.url,
+                    user: proto.user,
+                    database: proto.database,
+                    basic_auth_enabled: proto.basic_auth_enabled,
+                    basic_auth_user: proto.basic_auth_user,
+                    decrypted_secure_json_data: convert_secure_json_data(
+                        &proto.decrypted_secure_json_data,
+                    )?,
+                    json_data: read_json_data(&proto.json_data)?,
+                    updated: Utc
+                        .timestamp_millis_opt(proto.last_updated_ms)
+                        .single()
+                        .ok_or(ConvertFromError::InvalidTimestamp {
+                            timestamp: proto.last_updated_ms,
+                        })?,
+                })
+            })
+            .transpose()
     }
+
+    fn json_data(&self) -> &JsonData {
+        &self.json_data
+    }
+
+    fn decrypted_secure_json_data(&self) -> &SecureJsonData {
+        &self.decrypted_secure_json_data
+    }
+}
+
+impl<JsonData, SecureJsonData> sealed::Sealed
+    for DataSourceInstanceSettings<JsonData, SecureJsonData>
+{
 }
 
 /// Holds contextual information about a plugin request: Grafana org, user, and plugin instance settings.
 #[derive(Clone, Debug)]
 #[non_exhaustive]
-pub struct PluginContext {
+pub struct PluginContext<IS, JsonData = Value, SecureJsonData = Value>
+where
+    JsonData: Debug + DeserializeOwned,
+    SecureJsonData: DeserializeOwned,
+    IS: InstanceSettings<JsonData, SecureJsonData>,
+{
     /// The organisation ID from which the request originated.
     pub org_id: i64,
 
@@ -936,40 +1085,109 @@ pub struct PluginContext {
     /// such as when the request is made on behalf of Grafana Alerting.
     pub user: Option<User>,
 
-    /// The configured app instance settings.
+    /// The instance settings for the plugin.
     ///
-    /// An app instance is an app plugin of a certain type that has been configured
-    /// and enabled in a Grafana organisation.
+    /// The concrete type of this field will depend on the type of the plugin.
+    /// App plugins will contain [`AppInstanceSettings`], while datasource plugins
+    /// will contain [`DataSourceInstanceSettings`].
     ///
-    /// This will be `None` if the request does not target an app instance.
-    pub app_instance_settings: Option<AppInstanceSettings>,
+    /// This may be `None` if the request does not target a plugin instance.
+    pub instance_settings: Option<IS>,
+    // /// The configured app instance settings.
+    // ///
+    // /// An app instance is an app plugin of a certain type that has been configured
+    // /// and enabled in a Grafana organisation.
+    // ///
+    // /// This will be `None` if the request does not target an app instance.
+    // pub app_instance_settings: Option<AppInstanceSettings<JsonData, SecureJsonData>>,
 
-    /// The configured datasource instance settings.
-    ///
-    /// A datasource instance is a datasource plugin of a certain type that has been configured
-    /// and created in a Grafana organisation. For example, the 'datasource' may be
-    /// the Prometheus datasource plugin, and there may be many configured Prometheus
-    /// datasource instances configured in a Grafana organisation.
-    ///
-    /// This will be `None` if the request does not target a datasource instance.
-    pub datasource_instance_settings: Option<DataSourceInstanceSettings>,
+    // /// The configured datasource instance settings.
+    // ///
+    // /// A datasource instance is a datasource plugin of a certain type that has been configured
+    // /// and created in a Grafana organisation. For example, the 'datasource' may be
+    // /// the Prometheus datasource plugin, and there may be many configured Prometheus
+    // /// datasource instances configured in a Grafana organisation.
+    // ///
+    // /// This will be `None` if the request does not target a datasource instance.
+    // pub datasource_instance_settings: Option<DataSourceInstanceSettings<JsonData, SecureJsonData>>,
+    _json_data: PhantomData<JsonData>,
+    _secure_json_data: PhantomData<SecureJsonData>,
 }
 
-impl TryFrom<pluginv2::PluginContext> for PluginContext {
+impl<IS, JsonData, SecureJsonData> TryFrom<pluginv2::PluginContext>
+    for PluginContext<IS, JsonData, SecureJsonData>
+where
+    JsonData: Debug + DeserializeOwned,
+    SecureJsonData: DeserializeOwned,
+    IS: InstanceSettings<JsonData, SecureJsonData>,
+{
     type Error = ConvertFromError;
     fn try_from(other: pluginv2::PluginContext) -> Result<Self, Self::Error> {
+        let instance_settings = IS::from_proto(
+            other.app_instance_settings,
+            other.data_source_instance_settings,
+            other.plugin_id.clone(),
+        )?;
         Ok(Self {
             org_id: other.org_id,
-            plugin_id: other.plugin_id.clone(),
+            plugin_id: other.plugin_id,
             user: other.user.map(TryInto::try_into).transpose()?,
-            app_instance_settings: other
-                .app_instance_settings
-                .map(TryInto::try_into)
-                .transpose()?,
-            datasource_instance_settings: other
-                .data_source_instance_settings
-                .map(|ds| (ds, other.plugin_id).try_into())
-                .transpose()?,
+            instance_settings,
+            _json_data: PhantomData,
+            _secure_json_data: PhantomData,
         })
     }
+}
+
+/// Marker trait for plugins, used to indicate the type of instance settings they will receive.
+///
+/// Plugin implementations must mark themselves as being a certain type in their
+/// [`ConfiguredPlugin`] implementation (often done using the `GrafanaPlugin` proc-macro).
+pub trait PluginType<JsonData, SecureJsonData>: sealed::Sealed
+where
+    JsonData: Debug + DeserializeOwned,
+    SecureJsonData: DeserializeOwned,
+{
+    /// The type of instance settings that requests to this plugin will receive.
+    type InstanceSettings: InstanceSettings<JsonData, SecureJsonData> + Sync + Send;
+}
+
+/// Marker struct for an app plugin.
+pub struct AppPlugin<JsonData, SecureJsonData> {
+    _json_data: PhantomData<JsonData>,
+    _secure_json_data: PhantomData<SecureJsonData>,
+}
+impl<JsonData, SecureJsonData> PluginType<JsonData, SecureJsonData>
+    for AppPlugin<JsonData, SecureJsonData>
+where
+    JsonData: Debug + DeserializeOwned + Sync + Send,
+    SecureJsonData: DeserializeOwned + Sync + Send,
+{
+    type InstanceSettings = AppInstanceSettings<JsonData, SecureJsonData>;
+}
+impl<JsonData, SecureJsonData> sealed::Sealed for AppPlugin<JsonData, SecureJsonData> {}
+
+/// Marker struct for a datasource plugin.
+pub struct DataSourcePlugin<JsonData, SecureJsonData> {
+    _json_data: PhantomData<JsonData>,
+    _secure_json_data: PhantomData<SecureJsonData>,
+}
+impl<JsonData, SecureJsonData> PluginType<JsonData, SecureJsonData>
+    for DataSourcePlugin<JsonData, SecureJsonData>
+where
+    JsonData: Debug + DeserializeOwned + Sync + Send,
+    SecureJsonData: DeserializeOwned + Sync + Send,
+{
+    type InstanceSettings = DataSourceInstanceSettings<JsonData, SecureJsonData>;
+}
+impl<JsonData, SecureJsonData> sealed::Sealed for DataSourcePlugin<JsonData, SecureJsonData> {}
+
+/// Trait marking the types of a plugin's JSON data and secure JSON data.
+pub trait GrafanaPlugin {
+    /// The type of the plugin
+    type PluginType: PluginType<Self::JsonData, Self::SecureJsonData>;
+    /// The type of the plugin's JSON data.
+    type JsonData: DeserializeOwned + Debug + Send + Sync;
+    /// The type of the plugin's secure JSON data.
+    type SecureJsonData: DeserializeOwned + Send + Sync;
 }

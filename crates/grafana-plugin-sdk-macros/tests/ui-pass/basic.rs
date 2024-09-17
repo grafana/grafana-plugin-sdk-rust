@@ -1,10 +1,11 @@
 #![allow(dead_code, unused_variables)]
 
 mod a {
-    use grafana_plugin_sdk::{backend, data};
+    use grafana_plugin_sdk::{backend, data, prelude::*};
     use serde::Deserialize;
 
-    #[derive(Clone)]
+    #[derive(Clone, GrafanaPlugin)]
+    #[grafana_plugin(plugin_type = "datasource")]
     struct MyPlugin;
 
     #[derive(Debug, Deserialize)]
@@ -38,7 +39,10 @@ mod a {
         type Query = Query;
         type QueryError = QueryError;
         type Stream = backend::BoxDataResponseStream<Self::QueryError>;
-        async fn query_data(&self, request: backend::QueryDataRequest<Self::Query>) -> Self::Stream {
+        async fn query_data(
+            &self,
+            request: backend::QueryDataRequest<Self::Query, Self>,
+        ) -> Self::Stream {
             todo!()
         }
     }
@@ -52,12 +56,13 @@ mod a {
 mod b {
     use std::sync::Arc;
 
-    use grafana_plugin_sdk::{backend, data};
+    use grafana_plugin_sdk::{backend, data, prelude::*};
     use http::Response;
     use serde::Deserialize;
     use thiserror::Error;
 
-    #[derive(Clone)]
+    #[derive(Clone, GrafanaPlugin)]
+    #[grafana_plugin(plugin_type = "datasource")]
     struct MyPlugin;
 
     #[derive(Debug, Deserialize)]
@@ -91,7 +96,10 @@ mod b {
         type Query = Query;
         type QueryError = QueryError;
         type Stream = backend::BoxDataResponseStream<Self::QueryError>;
-        async fn query_data(&self, request: backend::QueryDataRequest<Self::Query>) -> Self::Stream {
+        async fn query_data(
+            &self,
+            request: backend::QueryDataRequest<Self::Query, Self>,
+        ) -> Self::Stream {
             todo!()
         }
     }
@@ -102,7 +110,7 @@ mod b {
 
         async fn check_health(
             &self,
-            request: backend::CheckHealthRequest,
+            request: backend::CheckHealthRequest<Self>,
         ) -> Result<backend::CheckHealthResponse, Self::CheckHealthError> {
             todo!()
         }
@@ -111,7 +119,7 @@ mod b {
 
         async fn collect_metrics(
             &self,
-            request: backend::CollectMetricsRequest,
+            request: backend::CollectMetricsRequest<Self>,
         ) -> Result<backend::CollectMetricsResponse, Self::CollectMetricsError> {
             todo!()
         }
@@ -121,11 +129,11 @@ mod b {
     enum ResourceError {
         #[error("HTTP error: {0}")]
         Http(#[from] http::Error),
-   
+
         #[error("Path not found")]
         NotFound,
     }
-   
+
     impl backend::ErrIntoHttpResponse for ResourceError {}
 
     #[backend::async_trait]
@@ -133,7 +141,10 @@ mod b {
         type Error = ResourceError;
         type InitialResponse = Response<Vec<u8>>;
         type Stream = backend::BoxResourceStream<Self::Error>;
-        async fn call_resource(&self, r: backend::CallResourceRequest) -> Result<(Self::InitialResponse, Self::Stream), Self::Error> {
+        async fn call_resource(
+            &self,
+            r: backend::CallResourceRequest<Self>,
+        ) -> Result<(Self::InitialResponse, Self::Stream), Self::Error> {
             todo!()
         }
     }
@@ -143,18 +154,21 @@ mod b {
         type JsonValue = ();
         async fn subscribe_stream(
             &self,
-            request: backend::SubscribeStreamRequest,
+            request: backend::SubscribeStreamRequest<Self>,
         ) -> Result<backend::SubscribeStreamResponse, Self::Error> {
             todo!()
         }
         type Error = Arc<dyn std::error::Error>;
         type Stream = backend::BoxRunStream<Self::Error>;
-        async fn run_stream(&self, _request: backend::RunStreamRequest) -> Result<Self::Stream, Self::Error> {
+        async fn run_stream(
+            &self,
+            _request: backend::RunStreamRequest<Self>,
+        ) -> Result<Self::Stream, Self::Error> {
             todo!()
         }
         async fn publish_stream(
             &self,
-            _request: backend::PublishStreamRequest,
+            _request: backend::PublishStreamRequest<Self>,
         ) -> Result<backend::PublishStreamResponse, Self::Error> {
             todo!()
         }

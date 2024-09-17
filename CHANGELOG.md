@@ -9,6 +9,63 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Added
+
+- Plugins must now specify a custom type for the `json_data` and
+  `decrypted_secure_json_data` fields of their app/datasource instance
+  settings, corresponding to the two type parameters of `DataSourceSettings`
+  in the `@grafana/data` Javascript library.
+
+  Plugin structs must now also implement the `GrafanaPlugin` trait, which is used
+  to declare:
+  - the type of the JSON data and secure JSON data
+  - the type of plugin (`PluginType::App` or `PluginType::Datasource`)
+
+  The simplest way to do so is to use the `GrafanaPlugin` derive macro exporter from the library's prelude:
+  
+  ```rust
+  use std::collections::HashMap;
+
+  use grafana_plugin_sdk::prelude::*;
+  use serde::DeserializeOwned;
+
+  #[derive(Debug, DeserializeOwned)]
+  struct DatasourceSettings {
+      max_retries: usize,
+      other_custom_setting: String,
+  }
+  
+  #[derive(Debug, GrafanaPlugin)]
+  #[grafana_plugin(
+      type = "datasource",
+      json_data = "DatasourceSettings",
+      secure_json_data = "HashMap<String, String>",
+  )]
+  struct Plugin {
+      // any plugin data
+  }
+  ```
+
+  Both `json_data` and `secure_json_data` default to `serde_json::Value` if omitted.
+
+  The various `Request` structs in the `backend` module are now type aliases for more complex structs,
+  and require a type parameter which should be `Self`:
+
+  ```rust
+  impl backend::ResourceService for MyPluginService {
+
+      ...
+
+      async fn call_resource(
+          &self,
+          r: backend::CallResourceRequest<Self>,  // Note the new `Self` type parameter.
+      ) -> Result<(Self::InitialResponse, Self::Stream), Self::Error> {
+          ...
+      }
+  ```
+
+### Changed
+
 - Bump itertools dependency to 0.13.0
 - Bump prost dependency to 0.13.2
 - Bump reqwest dependency to 0.12.7

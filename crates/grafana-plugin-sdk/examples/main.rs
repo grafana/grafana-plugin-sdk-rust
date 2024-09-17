@@ -21,7 +21,18 @@ use grafana_plugin_sdk::{
     prelude::*,
 };
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Deserialize)]
+struct MyJsonData {
+    backend_url: String,
+    max_retries: usize,
+}
+
+#[derive(Clone, Debug, Default, GrafanaPlugin)]
+#[grafana_plugin(
+    plugin_type = "app",
+    json_data = "MyJsonData",
+    secure_json_data = "serde_json::Value"
+)]
 struct MyPluginService(Arc<AtomicUsize>);
 
 impl MyPluginService {
@@ -40,15 +51,19 @@ struct Query {
 }
 
 #[derive(Debug, Error)]
-#[error("Error querying backend for query {ref_id}: {source}")]
-struct QueryError {
-    source: data::Error,
-    ref_id: String,
+enum QueryError {
+    #[error("Missing datasource instance settings")]
+    MissingInstanceSettings { ref_id: String },
+    #[error("Error querying backend for query {ref_id}: {source}")]
+    Backend { source: data::Error, ref_id: String },
 }
 
 impl backend::DataQueryError for QueryError {
     fn ref_id(self) -> String {
-        self.ref_id
+        match self {
+            Self::MissingInstanceSettings { ref_id } => ref_id,
+            Self::Backend { ref_id, .. } => ref_id,
+        }
     }
 
     fn status(&self) -> backend::DataQueryStatus {
@@ -61,41 +76,56 @@ impl backend::DataService for MyPluginService {
     type Query = Query;
     type QueryError = QueryError;
     type Stream = backend::BoxDataResponseStream<Self::QueryError>;
-    async fn query_data(&self, request: backend::QueryDataRequest<Self::Query>) -> Self::Stream {
+    async fn query_data(
+        &self,
+        request: backend::QueryDataRequest<Self::Query, Self>,
+    ) -> Self::Stream {
+        let instance_settings = request.plugin_context.instance_settings;
         Box::pin(
             request
                 .queries
                 .into_iter()
-                .map(|x: DataQuery<Self::Query>| async move {
-                    // We can see the user's query in `x.query`:
-                    debug!(
-                        expression = x.query.expression,
-                        other_user_input = x.query.other_user_input,
-                        "Got backend query",
-                    );
-                    // Here we create a single response Frame for each query.
-                    // Frames can be created from iterators of fields using [`IntoFrame`].
-                    Ok(backend::DataResponse::new(
-                        x.ref_id.clone(),
-                        vec![[
-                            // Fields can be created from iterators of a variety of
-                            // relevant datatypes.
-                            [
-                                Utc.with_ymd_and_hms(2021, 1, 1, 12, 0, 0).single().unwrap(),
-                                Utc.with_ymd_and_hms(2021, 1, 1, 12, 0, 1).single().unwrap(),
-                                Utc.with_ymd_and_hms(2021, 1, 1, 12, 0, 2).single().unwrap(),
+                .map(|x: DataQuery<Self::Query>| {
+                    let instance_settings = instance_settings.clone();
+                    async move {
+                        let instance_settings = instance_settings.ok_or_else(|| {
+                            QueryError::MissingInstanceSettings {
+                                ref_id: x.ref_id.clone(),
+                            }
+                        })?;
+                        let json_data = instance_settings.json_data;
+                        // We can see the user's query in `x.query`:
+                        debug!(
+                            expression = x.query.expression,
+                            other_user_input = x.query.other_user_input,
+                            ?json_data.backend_url,
+                            ?json_data.max_retries,
+                            "Got backend query",
+                        );
+                        // Here we create a single response Frame for each query.
+                        // Frames can be created from iterators of fields using [`IntoFrame`].
+                        Ok(backend::DataResponse::new(
+                            x.ref_id.clone(),
+                            vec![[
+                                // Fields can be created from iterators of a variety of
+                                // relevant datatypes.
+                                [
+                                    Utc.with_ymd_and_hms(2021, 1, 1, 12, 0, 0).single().unwrap(),
+                                    Utc.with_ymd_and_hms(2021, 1, 1, 12, 0, 1).single().unwrap(),
+                                    Utc.with_ymd_and_hms(2021, 1, 1, 12, 0, 2).single().unwrap(),
+                                ]
+                                .into_field("time"),
+                                [1_u32, 2, 3].into_field("x"),
+                                ["a", "b", "c"].into_field("y"),
                             ]
-                            .into_field("time"),
-                            [1_u32, 2, 3].into_field("x"),
-                            ["a", "b", "c"].into_field("y"),
-                        ]
-                        .into_frame("foo")
-                        .check()
-                        .map_err(|source| QueryError {
-                            ref_id: x.ref_id,
-                            source,
-                        })?],
-                    ))
+                            .into_frame("foo")
+                            .check()
+                            .map_err(|source| QueryError::Backend {
+                                ref_id: x.ref_id,
+                                source,
+                            })?],
+                        ))
+                    }
                 })
                 .collect::<FuturesOrdered<_>>(),
         )
@@ -118,7 +148,7 @@ impl backend::StreamService for MyPluginService {
     type JsonValue = ();
     async fn subscribe_stream(
         &self,
-        request: backend::SubscribeStreamRequest,
+        request: backend::SubscribeStreamRequest<Self>,
     ) -> Result<backend::SubscribeStreamResponse, Self::Error> {
         let response = if request.path.as_str() == "stream" {
             backend::SubscribeStreamResponse::ok(None)
@@ -133,7 +163,7 @@ impl backend::StreamService for MyPluginService {
     type Stream = backend::BoxRunStream<Self::Error>;
     async fn run_stream(
         &self,
-        _request: backend::RunStreamRequest,
+        _request: backend::RunStreamRequest<Self>,
     ) -> Result<Self::Stream, Self::Error> {
         info!("Running stream");
         let mut x = 0u32;
@@ -142,9 +172,7 @@ impl backend::StreamService for MyPluginService {
         Ok(Box::pin(
             async_stream::try_stream! {
                 loop {
-                    frame.fields_mut()[0].set_values(
-                        x..x+n
-                    )?;
+                    frame.fields_mut()[0].set_values(x..x+n)?;
                     let packet = backend::StreamPacket::from_frame(frame.check()?)?;
                     debug!("Yielding frame from {} to {}", x, x+n);
                     yield packet;
@@ -157,7 +185,7 @@ impl backend::StreamService for MyPluginService {
 
     async fn publish_stream(
         &self,
-        _request: backend::PublishStreamRequest,
+        _request: backend::PublishStreamRequest<Self>,
     ) -> Result<backend::PublishStreamResponse, Self::Error> {
         info!("Publishing to stream");
         todo!()
@@ -197,7 +225,7 @@ impl backend::ResourceService for MyPluginService {
     type Stream = backend::BoxResourceStream<Self::Error>;
     async fn call_resource(
         &self,
-        r: backend::CallResourceRequest,
+        r: backend::CallResourceRequest<Self>,
     ) -> Result<(Self::InitialResponse, Self::Stream), Self::Error> {
         let count = Arc::clone(&self.0);
         let response_and_stream = match r.request.uri().path() {

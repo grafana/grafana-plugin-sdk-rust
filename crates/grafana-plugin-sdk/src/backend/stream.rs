@@ -1,27 +1,34 @@
 //! SDK types and traits relevant to plugins that stream data.
-use std::pin::Pin;
+use std::{fmt, pin::Pin};
 
 use futures_util::{Stream, StreamExt, TryStreamExt};
 use prost::bytes::Bytes;
-use serde::Serialize;
+use serde::{de::DeserializeOwned, Serialize};
 
 use crate::{
-    backend::{ConvertFromError, ConvertToError, PluginContext},
+    backend::{ConvertFromError, ConvertToError, InstanceSettings, PluginContext},
     data,
     live::Path,
     pluginv2,
 };
 
+use super::{GrafanaPlugin, PluginType};
+
 /// A request to subscribe to a stream.
 #[derive(Debug)]
 #[non_exhaustive]
-pub struct SubscribeStreamRequest {
+pub struct InnerSubscribeStreamRequest<IS, JsonData, SecureJsonData>
+where
+    JsonData: fmt::Debug + DeserializeOwned,
+    SecureJsonData: DeserializeOwned,
+    IS: InstanceSettings<JsonData, SecureJsonData>,
+{
     /// Details of the plugin instance from which the request originated.
     ///
     /// If the request originates from a datasource instance, this will
     /// include details about the datasource instance in the
     /// `data_source_instance_settings` field.
-    pub plugin_context: PluginContext,
+    pub plugin_context: PluginContext<IS, JsonData, SecureJsonData>,
 
     /// The subscription channel path that the request wishes to subscribe to.
     pub path: Path,
@@ -34,7 +41,13 @@ pub struct SubscribeStreamRequest {
     pub data: Bytes,
 }
 
-impl TryFrom<pluginv2::SubscribeStreamRequest> for SubscribeStreamRequest {
+impl<IS, JsonData, SecureJsonData> TryFrom<pluginv2::SubscribeStreamRequest>
+    for InnerSubscribeStreamRequest<IS, JsonData, SecureJsonData>
+where
+    JsonData: fmt::Debug + DeserializeOwned,
+    SecureJsonData: DeserializeOwned,
+    IS: InstanceSettings<JsonData, SecureJsonData>,
+{
     type Error = ConvertFromError;
     fn try_from(other: pluginv2::SubscribeStreamRequest) -> Result<Self, Self::Error> {
         Ok(Self {
@@ -47,6 +60,25 @@ impl TryFrom<pluginv2::SubscribeStreamRequest> for SubscribeStreamRequest {
         })
     }
 }
+
+/// A request to 'run' a stream, i.e. begin streaming data.
+///
+/// This is made by Grafana _after_ a stream subscription request has been accepted,
+/// and will include the same `path` as the subscription request.
+///
+/// This is a convenience type alias to hide some of the complexity of
+/// the various generics involved.
+///
+/// The type parameter `T` is the type of the plugin implementation itself,
+/// which must implement [`ConfiguredPlugin`].
+pub type SubscribeStreamRequest<T> = InnerSubscribeStreamRequest<
+    <<T as GrafanaPlugin>::PluginType as PluginType<
+        <T as GrafanaPlugin>::JsonData,
+        <T as GrafanaPlugin>::SecureJsonData,
+    >>::InstanceSettings,
+    <T as GrafanaPlugin>::JsonData,
+    <T as GrafanaPlugin>::SecureJsonData,
+>;
 
 /// The status of a subscribe stream response.
 #[derive(Clone, Copy, Debug)]
@@ -173,9 +205,14 @@ impl From<SubscribeStreamResponse> for pluginv2::SubscribeStreamResponse {
 /// and will include the same `path` as the subscription request.
 #[derive(Debug)]
 #[non_exhaustive]
-pub struct RunStreamRequest {
+pub struct InnerRunStreamRequest<IS, JsonData, SecureJsonData>
+where
+    JsonData: fmt::Debug + DeserializeOwned,
+    SecureJsonData: DeserializeOwned,
+    IS: InstanceSettings<JsonData, SecureJsonData>,
+{
     /// Metadata about the plugin from which the request originated.
-    pub plugin_context: PluginContext,
+    pub plugin_context: PluginContext<IS, JsonData, SecureJsonData>,
 
     /// The subscription path; see module level comments for details.
     pub path: Path,
@@ -188,7 +225,13 @@ pub struct RunStreamRequest {
     pub data: Bytes,
 }
 
-impl TryFrom<pluginv2::RunStreamRequest> for RunStreamRequest {
+impl<IS, JsonData, SecureJsonData> TryFrom<pluginv2::RunStreamRequest>
+    for InnerRunStreamRequest<IS, JsonData, SecureJsonData>
+where
+    JsonData: fmt::Debug + DeserializeOwned,
+    SecureJsonData: DeserializeOwned,
+    IS: InstanceSettings<JsonData, SecureJsonData>,
+{
     type Error = ConvertFromError;
     fn try_from(other: pluginv2::RunStreamRequest) -> Result<Self, Self::Error> {
         Ok(Self {
@@ -201,6 +244,25 @@ impl TryFrom<pluginv2::RunStreamRequest> for RunStreamRequest {
         })
     }
 }
+
+/// A request to 'run' a stream, i.e. begin streaming data.
+///
+/// This is made by Grafana _after_ a stream subscription request has been accepted,
+/// and will include the same `path` as the subscription request.
+///
+/// This is a convenience type alias to hide some of the complexity of
+/// the various generics involved.
+///
+/// The type parameter `T` is the type of the plugin implementation itself,
+/// which must implement [`ConfiguredPlugin`].
+pub type RunStreamRequest<T> = InnerRunStreamRequest<
+    <<T as GrafanaPlugin>::PluginType as PluginType<
+        <T as GrafanaPlugin>::JsonData,
+        <T as GrafanaPlugin>::SecureJsonData,
+    >>::InstanceSettings,
+    <T as GrafanaPlugin>::JsonData,
+    <T as GrafanaPlugin>::SecureJsonData,
+>;
 
 /// A packet of data to be streamed back to the subscribed client.
 ///
@@ -257,20 +319,31 @@ pub type BoxRunStream<E, T = ()> = Pin<Box<dyn Stream<Item = Result<StreamPacket
 
 /// A request to publish data to a stream.
 #[non_exhaustive]
-pub struct PublishStreamRequest {
+pub struct InnerPublishStreamRequest<IS, JsonData, SecureJsonData>
+where
+    JsonData: fmt::Debug + DeserializeOwned,
+    SecureJsonData: DeserializeOwned,
+    IS: InstanceSettings<JsonData, SecureJsonData>,
+{
     /// Details of the plugin instance from which the request originated.
     ///
     /// If the request originates from a datasource instance, this will
     /// include details about the datasource instance in the
     /// `data_source_instance_settings` field.
-    pub plugin_context: PluginContext,
+    pub plugin_context: PluginContext<IS, JsonData, SecureJsonData>,
     /// The subscription path; see module level comments for details.
     pub path: Path,
     /// Data to be published to the stream.
     pub data: serde_json::Value,
 }
 
-impl TryFrom<pluginv2::PublishStreamRequest> for PublishStreamRequest {
+impl<IS, JsonData, SecureJsonData> TryFrom<pluginv2::PublishStreamRequest>
+    for InnerPublishStreamRequest<IS, JsonData, SecureJsonData>
+where
+    JsonData: fmt::Debug + DeserializeOwned,
+    SecureJsonData: DeserializeOwned,
+    IS: InstanceSettings<JsonData, SecureJsonData>,
+{
     type Error = ConvertFromError;
     fn try_from(other: pluginv2::PublishStreamRequest) -> Result<Self, Self::Error> {
         Ok(Self {
@@ -279,10 +352,26 @@ impl TryFrom<pluginv2::PublishStreamRequest> for PublishStreamRequest {
                 .ok_or(ConvertFromError::MissingPluginContext)
                 .and_then(TryInto::try_into)?,
             path: Path::new(other.path)?,
-            data: super::read_json(&other.data)?,
+            data: super::read_json_query(&other.data)?,
         })
     }
 }
+
+/// A request to publish data to a stream.
+///
+/// This is a convenience type alias to hide some of the complexity of
+/// the various generics involved.
+///
+/// The type parameter `T` is the type of the plugin implementation itself,
+/// which must implement [`ConfiguredPlugin`].
+pub type PublishStreamRequest<T> = InnerPublishStreamRequest<
+    <<T as GrafanaPlugin>::PluginType as PluginType<
+        <T as GrafanaPlugin>::JsonData,
+        <T as GrafanaPlugin>::SecureJsonData,
+    >>::InstanceSettings,
+    <T as GrafanaPlugin>::JsonData,
+    <T as GrafanaPlugin>::SecureJsonData,
+>;
 
 /// The status of a publish stream response.
 #[non_exhaustive]
@@ -380,6 +469,8 @@ impl TryFrom<PublishStreamResponse> for pluginv2::PublishStreamResponse {
 /// use tokio_stream::StreamExt;
 /// use tracing::{debug, info};
 ///
+/// #[derive(Clone, Debug, GrafanaPlugin)]
+/// #[grafana_plugin(plugin_type = "datasource")]
 /// struct MyPlugin;
 ///
 /// #[derive(Debug, Error)]
@@ -411,7 +502,7 @@ impl TryFrom<PublishStreamResponse> for pluginv2::PublishStreamResponse {
 ///     /// and return `NotFound` if not.
 ///     async fn subscribe_stream(
 ///         &self,
-///         request: backend::SubscribeStreamRequest,
+///         request: backend::SubscribeStreamRequest<Self>,
 ///     ) -> Result<backend::SubscribeStreamResponse, Self::Error> {
 ///         let response = if request.path.as_str() == "stream" {
 ///             backend::SubscribeStreamResponse::ok(None)
@@ -430,7 +521,7 @@ impl TryFrom<PublishStreamResponse> for pluginv2::PublishStreamResponse {
 ///     /// This example just creates an in-memory `Frame` in each loop iteration,
 ///     /// sends an updated version of the frame once per second, and updates a loop variable
 ///     /// so that each frame is different.
-///     async fn run_stream(&self, _request: backend::RunStreamRequest) -> Result<Self::Stream, Self::Error> {
+///     async fn run_stream(&self, _request: backend::RunStreamRequest<Self>) -> Result<Self::Stream, Self::Error> {
 ///         info!("Running stream");
 ///         let mut x = 0u32;
 ///         let n = 3;
@@ -454,7 +545,7 @@ impl TryFrom<PublishStreamResponse> for pluginv2::PublishStreamResponse {
 ///     /// Currently unimplemented in this example, but the functionality _should_ work.
 ///     async fn publish_stream(
 ///         &self,
-///         _request: backend::PublishStreamRequest,
+///         _request: backend::PublishStreamRequest<Self>,
 ///     ) -> Result<backend::PublishStreamResponse, Self::Error> {
 ///         info!("Publishing to stream");
 ///         todo!()
@@ -462,7 +553,7 @@ impl TryFrom<PublishStreamResponse> for pluginv2::PublishStreamResponse {
 /// }
 /// ```
 #[tonic::async_trait]
-pub trait StreamService {
+pub trait StreamService: GrafanaPlugin {
     /// Handle requests to begin a subscription to a plugin or datasource managed channel path.
     ///
     ///
@@ -475,7 +566,7 @@ pub trait StreamService {
     /// the [`initial_data`][SubscribeStreamResponse::initial_data].
     async fn subscribe_stream(
         &self,
-        request: SubscribeStreamRequest,
+        request: SubscribeStreamRequest<Self>,
     ) -> Result<SubscribeStreamResponse, Self::Error>;
 
     /// The type of JSON values returned by this stream service.
@@ -508,14 +599,17 @@ pub trait StreamService {
     /// When Grafana detects that there are no longer any subscribers to a channel, the stream
     /// will be terminated until the next active subscriber appears. Stream termination can
     /// may be slightly delayed, generally by a few seconds.
-    async fn run_stream(&self, request: RunStreamRequest) -> Result<Self::Stream, Self::Error>;
+    async fn run_stream(
+        &self,
+        request: RunStreamRequest<Self>,
+    ) -> Result<Self::Stream, Self::Error>;
 
     /// Handle requests to publish to a plugin or datasource managed channel path (currently unimplemented).
     ///
     /// Implementations should check the publish permissions of the incoming request.
     async fn publish_stream(
         &self,
-        request: PublishStreamRequest,
+        request: PublishStreamRequest<Self>,
     ) -> Result<PublishStreamResponse, Self::Error>;
 }
 
