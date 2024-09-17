@@ -30,8 +30,11 @@ impl DataQueryError for Infallible {
 impl DataService for NoopService {
     type Query = ();
     type QueryError = Infallible;
-    type Stream = BoxDataResponseStream<Self::QueryError>;
-    async fn query_data(&self, _request: QueryDataRequest<Self::Query>) -> Self::Stream {
+    type Stream<'a> = BoxDataResponseStream<'static, Self::QueryError>;
+    async fn query_data<'st, 's: 'st>(
+        &'s self,
+        _request: QueryDataRequest<Self::Query>,
+    ) -> Self::Stream<'st> {
         unreachable!()
     }
 }
