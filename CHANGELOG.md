@@ -9,18 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
-- Bump itertools dependency to 0.13.0
-- Bump prost dependency to 0.13.2
-- Bump reqwest dependency to 0.12.7
-- Bump tonic dependency to 0.12.2
-- Bump tonic-health dependency to 0.12.2
-- Increase MSRV to 1.63, due to tokio-util requiring it
-
-## [0.4.3] - 2024-01-18
-
 ### Added
 
-- Plugins can now specify a custom type for the `json_data` and
+- Plugins must now specify a custom type for the `json_data` and
   `decrypted_secure_json_data` fields of their app/datasource instance
   settings, corresponding to the two type parameters of `DataSourceSettings`
   in the `@grafana/data` Javascript library.
@@ -72,6 +63,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
           ...
       }
   ```
+
+### Changed
+
+- Bump itertools dependency to 0.13.0
+- Bump prost dependency to 0.13.2
+- Bump reqwest dependency to 0.12.7
+- Bump tonic dependency to 0.12.2
+- Bump tonic-health dependency to 0.12.2
+- Increase MSRV to 1.63, due to tokio-util requiring it
+
+## [0.4.3] - 2024-01-18
+
+### Added
+
 - Add `VisType::FlameGraph` variant to indicate that a frame should be visualised using the flame graph panel introduced [here](https://github.com/grafana/grafana/pull/56376).
 - Add overrideable `DataQueryError::status` method which must return a `DataQueryStatus`. This can be used by datasource implementations to provide more detail about how an error should be handled.
 - Add `arrow-array` support for Field ([#111](https://github.com/grafana/grafana-plugin-sdk-rust/pull/111) by @kerryeon)
