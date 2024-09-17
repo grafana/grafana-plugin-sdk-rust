@@ -66,7 +66,7 @@ impl TryFrom<pluginv2::CallResourceRequest> for CallResourceRequest {
 impl TryFrom<Response<Bytes>> for pluginv2::CallResourceResponse {
     type Error = ConvertToError;
     fn try_from(mut other: Response<Bytes>) -> Result<Self, Self::Error> {
-        let grouped_headers = other.headers_mut().drain().group_by(|x| x.0.clone());
+        let grouped_headers = other.headers_mut().drain().chunk_by(|x| x.0.clone());
         let headers = grouped_headers
             .into_iter()
             .map(|(k, values)| {
