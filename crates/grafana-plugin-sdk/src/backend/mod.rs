@@ -1093,23 +1093,6 @@ where
     ///
     /// This may be `None` if the request does not target a plugin instance.
     pub instance_settings: Option<IS>,
-    // /// The configured app instance settings.
-    // ///
-    // /// An app instance is an app plugin of a certain type that has been configured
-    // /// and enabled in a Grafana organisation.
-    // ///
-    // /// This will be `None` if the request does not target an app instance.
-    // pub app_instance_settings: Option<AppInstanceSettings<JsonData, SecureJsonData>>,
-
-    // /// The configured datasource instance settings.
-    // ///
-    // /// A datasource instance is a datasource plugin of a certain type that has been configured
-    // /// and created in a Grafana organisation. For example, the 'datasource' may be
-    // /// the Prometheus datasource plugin, and there may be many configured Prometheus
-    // /// datasource instances configured in a Grafana organisation.
-    // ///
-    // /// This will be `None` if the request does not target a datasource instance.
-    // pub datasource_instance_settings: Option<DataSourceInstanceSettings<JsonData, SecureJsonData>>,
     _json_data: PhantomData<JsonData>,
     _secure_json_data: PhantomData<SecureJsonData>,
 }
