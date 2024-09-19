@@ -12,6 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Add `AppInstanceSettings::api_version` and `DataSourceInstanceSettings::api_version` fields.
+- Add `PluginContext::grafana_config` field. This can be used to access a new struct,
+  `GrafanaConfig`, which contains the configuration passed to the plugin from Grafana.
+  Use the methods on `GrafanaConfig` to access the configuration.
 
 ### Changed
 
