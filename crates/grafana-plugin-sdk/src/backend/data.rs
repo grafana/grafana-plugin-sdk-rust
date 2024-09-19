@@ -79,7 +79,7 @@ where
 /// `Self::Query` here.
 ///
 /// The type parameter `T` is the type of the plugin implementation itself,
-/// which must implement [`ConfiguredPlugin`].
+/// which must implement [`GrafanaPlugin`].
 pub type QueryDataRequest<Q, T> = InnerQueryDataRequest<
     Q,
     <<T as GrafanaPlugin>::PluginType as PluginType<

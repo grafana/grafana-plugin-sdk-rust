@@ -119,7 +119,7 @@ impl TryFrom<Response<Bytes>> for pluginv2::CallResourceResponse {
 /// the various generics involved.
 ///
 /// The type parameter `T` is the type of the plugin implementation itself,
-/// which must implement [`ConfiguredPlugin`].
+/// which must implement [`GrafanaPlugin`].
 pub type CallResourceRequest<T> = InnerCallResourceRequest<
     <<T as GrafanaPlugin>::PluginType as PluginType<
         <T as GrafanaPlugin>::JsonData,

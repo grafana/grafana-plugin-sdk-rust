@@ -1139,7 +1139,7 @@ where
 /// Marker trait for plugins, used to indicate the type of instance settings they will receive.
 ///
 /// Plugin implementations must mark themselves as being a certain type in their
-/// [`ConfiguredPlugin`] implementation (often done using the `GrafanaPlugin` proc-macro).
+/// [`GrafanaPlugin`] implementation (often done using the `GrafanaPlugin` proc-macro).
 pub trait PluginType<JsonData, SecureJsonData>: sealed::Sealed
 where
     JsonData: Debug + DeserializeOwned,

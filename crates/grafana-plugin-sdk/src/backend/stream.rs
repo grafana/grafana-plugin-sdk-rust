@@ -70,7 +70,7 @@ where
 /// the various generics involved.
 ///
 /// The type parameter `T` is the type of the plugin implementation itself,
-/// which must implement [`ConfiguredPlugin`].
+/// which must implement [`GrafanaPlugin`].
 pub type SubscribeStreamRequest<T> = InnerSubscribeStreamRequest<
     <<T as GrafanaPlugin>::PluginType as PluginType<
         <T as GrafanaPlugin>::JsonData,
@@ -254,7 +254,7 @@ where
 /// the various generics involved.
 ///
 /// The type parameter `T` is the type of the plugin implementation itself,
-/// which must implement [`ConfiguredPlugin`].
+/// which must implement [`GrafanaPlugin`].
 pub type RunStreamRequest<T> = InnerRunStreamRequest<
     <<T as GrafanaPlugin>::PluginType as PluginType<
         <T as GrafanaPlugin>::JsonData,
@@ -363,7 +363,7 @@ where
 /// the various generics involved.
 ///
 /// The type parameter `T` is the type of the plugin implementation itself,
-/// which must implement [`ConfiguredPlugin`].
+/// which must implement [`GrafanaPlugin`].
 pub type PublishStreamRequest<T> = InnerPublishStreamRequest<
     <<T as GrafanaPlugin>::PluginType as PluginType<
         <T as GrafanaPlugin>::JsonData,
