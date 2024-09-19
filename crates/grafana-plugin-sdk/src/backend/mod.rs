@@ -158,6 +158,7 @@ pub use tonic::async_trait;
 mod data;
 mod diagnostics;
 mod error_source;
+mod grafana_config;
 mod noop;
 mod resource;
 mod stream;
@@ -172,6 +173,7 @@ pub use diagnostics::{
     DiagnosticsService, HealthStatus, Payload as MetricsPayload,
 };
 pub use error_source::ErrorSource;
+pub use grafana_config::{ConfigError, GrafanaConfig};
 pub use resource::{
     BoxResourceFuture, BoxResourceStream, CallResourceRequest, ErrIntoHttpResponse,
     IntoHttpResponse, ResourceService,
@@ -1109,6 +1111,9 @@ where
     pub instance_settings: Option<IS>,
     _json_data: PhantomData<JsonData>,
     _secure_json_data: PhantomData<SecureJsonData>,
+
+    /// Configuration passed to the plugin from Grafana.
+    pub grafana_config: GrafanaConfig,
 }
 
 impl<IS, JsonData, SecureJsonData> TryFrom<pluginv2::PluginContext>
@@ -1132,6 +1137,7 @@ where
             instance_settings,
             _json_data: PhantomData,
             _secure_json_data: PhantomData,
+            grafana_config: GrafanaConfig::new(other.grafana_config),
         })
     }
 }
