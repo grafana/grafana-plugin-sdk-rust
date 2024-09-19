@@ -47,7 +47,13 @@ pub use serde_json;
 #[cfg(feature = "reqwest")]
 extern crate reqwest_lib as reqwest;
 
-#[allow(missing_docs, clippy::all, clippy::nursery, clippy::pedantic)]
+#[allow(
+    missing_docs,
+    clippy::all,
+    clippy::nursery,
+    clippy::pedantic,
+    rustdoc::all
+)]
 pub mod pluginv2 {
     //! The low-level structs generated from protocol definitions.
     include!("pluginv2/pluginv2.rs");
