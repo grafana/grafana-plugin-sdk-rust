@@ -6,11 +6,12 @@ use futures_util::StreamExt;
 use serde::de::DeserializeOwned;
 
 use crate::{
-    backend::{self, ConvertFromError, InstanceSettings, TimeRange},
+    backend::{
+        self, error_source::ErrorSource, ConvertFromError, GrafanaPlugin, InstanceSettings,
+        PluginType, TimeRange,
+    },
     data, pluginv2,
 };
-
-use super::{GrafanaPlugin, PluginType};
 
 /// A request for data made by Grafana.
 ///
@@ -183,6 +184,13 @@ pub trait DataQueryError: std::error::Error {
     /// Defaults to [`DataQueryStatus::Unknown`] if not overridden.
     fn status(&self) -> DataQueryStatus {
         DataQueryStatus::Unknown
+    }
+
+    /// The source of the error.
+    ///
+    /// Defaults to [`ErrorSource::Plugin`] if not overridden.
+    fn source(&self) -> ErrorSource {
+        ErrorSource::default()
     }
 }
 
@@ -454,6 +462,7 @@ where
                                 status: DataQueryStatus::Internal.as_i32(),
                                 error: e.to_string(),
                                 json_meta: vec![],
+                                error_source: ErrorSource::Plugin.to_string(),
                             },
                         )
                     },
@@ -465,6 +474,7 @@ where
                                 status: DataQueryStatus::OK.as_i32(),
                                 error: "".to_string(),
                                 json_meta: vec![],
+                                error_source: "".to_string(),
                             },
                         )
                     },
@@ -472,6 +482,7 @@ where
             }
             Err(e) => {
                 let status = e.status().as_i32();
+                let source = e.source().to_string();
                 let err_string = e.to_string();
                 (
                     e.ref_id(),
@@ -480,6 +491,7 @@ where
                         status,
                         error: err_string,
                         json_meta: vec![],
+                        error_source: source,
                     },
                 )
             }

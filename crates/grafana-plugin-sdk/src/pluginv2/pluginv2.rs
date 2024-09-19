@@ -10,9 +10,14 @@ pub struct AppInstanceSettings {
     >,
     #[prost(int64, tag = "5")]
     pub last_updated_ms: i64,
+    /// The API version when the settings were saved
+    /// NOTE: this may be an older version than the current apiVersion
+    #[prost(string, tag = "6")]
+    pub api_version: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct DataSourceInstanceSettings {
+    /// Deprecatd: Internal ID, do not use this for anythign important
     #[prost(int64, tag = "1")]
     pub id: i64,
     #[prost(string, tag = "2")]
@@ -34,10 +39,16 @@ pub struct DataSourceInstanceSettings {
         ::prost::alloc::string::String,
         ::prost::alloc::string::String,
     >,
+    /// timestamp when the settings where last changed
     #[prost(int64, tag = "10")]
     pub last_updated_ms: i64,
+    /// Datasoruce unique ID (within an org/stack namespace)
     #[prost(string, tag = "11")]
     pub uid: ::prost::alloc::string::String,
+    /// The API version when the settings were saved.
+    /// NOTE: this may be an older version than the current apiVersion
+    #[prost(string, tag = "12")]
+    pub api_version: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct User {
@@ -52,13 +63,13 @@ pub struct User {
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct PluginContext {
-    /// The Grafana organization id the request originating from.
+    /// The Grafana organization id the request originates from.
     #[prost(int64, tag = "1")]
     pub org_id: i64,
-    /// The unique identifier of the plugin the request  originating from.
+    /// The unique identifier of the plugin the request is targeted for.
     #[prost(string, tag = "2")]
     pub plugin_id: ::prost::alloc::string::String,
-    /// The Grafana user the request originating from.
+    /// The Grafana user the request originates from.
     ///
     /// Will not be provided if Grafana backend initiated the request.
     #[prost(message, optional, tag = "3")]
@@ -79,6 +90,21 @@ pub struct PluginContext {
     pub data_source_instance_settings: ::core::option::Option<
         DataSourceInstanceSettings,
     >,
+    /// The grafana configuration as a map of key/value pairs.
+    #[prost(map = "string, string", tag = "6")]
+    pub grafana_config: ::std::collections::HashMap<
+        ::prost::alloc::string::String,
+        ::prost::alloc::string::String,
+    >,
+    /// The version of the plugin the request is targeted for.
+    #[prost(string, tag = "7")]
+    pub plugin_version: ::prost::alloc::string::String,
+    /// The user agent of the Grafana server that initiated the gRPC request.
+    #[prost(string, tag = "8")]
+    pub user_agent: ::prost::alloc::string::String,
+    /// The API version that initiated a request
+    #[prost(string, tag = "9")]
+    pub api_version: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct StringList {
@@ -102,10 +128,13 @@ pub struct CallResourceRequest {
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CallResourceResponse {
+    /// Maps to raw HTTP status codes when passed over HTTP
     #[prost(int32, tag = "1")]
     pub code: i32,
+    /// Raw HTTP headers sent to the client
     #[prost(map = "string, message", tag = "2")]
     pub headers: ::std::collections::HashMap<::prost::alloc::string::String, StringList>,
+    /// Raw HTTP body bytes sent to the client
     #[prost(bytes = "bytes", tag = "3")]
     pub body: ::prost::bytes::Bytes,
 }
@@ -161,17 +190,20 @@ pub struct DataResponse {
     /// Frame has its own meta, warnings, and repeats refId
     #[prost(bytes = "vec", repeated, tag = "1")]
     pub frames: ::prost::alloc::vec::Vec<::prost::alloc::vec::Vec<u8>>,
+    /// Error message
     #[prost(string, tag = "2")]
     pub error: ::prost::alloc::string::String,
-    /// Warning: Current ignored by frontend. Would be for metadata about the query.
+    /// Currently not used and not exposed in the frontend
     #[prost(bytes = "vec", tag = "3")]
     pub json_meta: ::prost::alloc::vec::Vec<u8>,
-    /// When errors exist or a non 2XX status, clients will be passed a 207 HTTP
-    /// error code in /ds/query The status codes should match values from standard
-    /// HTTP status codes If not set explicitly, it will be marshaled to 200 if no
-    /// error exists, or 500 if one does
+    /// When errors exist or a non 2XX status, clients will be passed a 207 HTTP error code in /ds/query
+    /// The status codes should match values from standard HTTP status codes
+    /// If not set explicitly, it will be marshaled to 200 if no error exists, or 500 if one does
     #[prost(int32, tag = "4")]
     pub status: i32,
+    /// Error source
+    #[prost(string, tag = "5")]
+    pub error_source: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CollectMetricsRequest {
@@ -402,6 +434,199 @@ pub struct StreamPacket {
     /// JSON-encoded data to publish into a channel.
     #[prost(bytes = "vec", tag = "1")]
     pub data: ::prost::alloc::vec::Vec<u8>,
+}
+/// Identify the Object properties
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GroupVersionKind {
+    #[prost(string, tag = "1")]
+    pub group: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub version: ::prost::alloc::string::String,
+    #[prost(string, tag = "3")]
+    pub kind: ::prost::alloc::string::String,
+}
+/// AdmissionRequest contains information from a kubernetes Admission request and decoded object(s).
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AdmissionRequest {
+    /// NOTE: this may not include app or datasource instance settings depending on the request
+    #[prost(message, optional, tag = "1")]
+    pub plugin_context: ::core::option::Option<PluginContext>,
+    /// The requested operation
+    #[prost(enumeration = "admission_request::Operation", tag = "2")]
+    pub operation: i32,
+    /// The object kind
+    #[prost(message, optional, tag = "3")]
+    pub kind: ::core::option::Option<GroupVersionKind>,
+    /// Object is the object in the request.  This includes the full metadata envelope.
+    #[prost(bytes = "vec", tag = "4")]
+    pub object_bytes: ::prost::alloc::vec::Vec<u8>,
+    /// OldObject is the object as it currently exists in storage. This includes the full metadata envelope.
+    #[prost(bytes = "vec", tag = "5")]
+    pub old_object_bytes: ::prost::alloc::vec::Vec<u8>,
+}
+/// Nested message and enum types in `AdmissionRequest`.
+pub mod admission_request {
+    /// Operation is the type of resource operation being checked for admission control
+    /// <https://github.com/kubernetes/kubernetes/blob/v1.30.0/pkg/apis/admission/types.go#L158>
+    #[derive(
+        Clone,
+        Copy,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash,
+        PartialOrd,
+        Ord,
+        ::prost::Enumeration
+    )]
+    #[repr(i32)]
+    pub enum Operation {
+        Create = 0,
+        Update = 1,
+        Delete = 2,
+    }
+    impl Operation {
+        /// String value of the enum field names used in the ProtoBuf definition.
+        ///
+        /// The values are not transformed in any way and thus are considered stable
+        /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+        pub fn as_str_name(&self) -> &'static str {
+            match self {
+                Operation::Create => "CREATE",
+                Operation::Update => "UPDATE",
+                Operation::Delete => "DELETE",
+            }
+        }
+        /// Creates an enum from field names used in the ProtoBuf definition.
+        pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+            match value {
+                "CREATE" => Some(Self::Create),
+                "UPDATE" => Some(Self::Update),
+                "DELETE" => Some(Self::Delete),
+                _ => None,
+            }
+        }
+    }
+}
+/// Check if an object can be admitted
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ValidationResponse {
+    /// Allowed indicates whether or not the admission request was permitted.
+    #[prost(bool, tag = "1")]
+    pub allowed: bool,
+    /// Result contains extra details into why an admission request was denied.
+    /// This field IS NOT consulted in any way if "Allowed" is "true".
+    /// +optional
+    #[prost(message, optional, tag = "2")]
+    pub result: ::core::option::Option<StatusResult>,
+    /// warnings is a list of warning messages to return to the requesting API client.
+    /// Warning messages describe a problem the client making the API request should correct or be aware of.
+    /// Limit warnings to 120 characters if possible.
+    /// Warnings over 256 characters and large numbers of warnings may be truncated.
+    /// +optional
+    #[prost(string, repeated, tag = "3")]
+    pub warnings: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+/// Return a mutated copy of the object in a form that can be admitted
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct MutationResponse {
+    /// Allowed indicates whether or not the admission request was permitted.
+    #[prost(bool, tag = "1")]
+    pub allowed: bool,
+    /// Result contains extra details into why an admission request was denied.
+    /// This field IS NOT consulted in any way if "Allowed" is "true".
+    /// +optional
+    #[prost(message, optional, tag = "2")]
+    pub result: ::core::option::Option<StatusResult>,
+    /// warnings is a list of warning messages to return to the requesting API client.
+    /// Warning messages describe a problem the client making the API request should correct or be aware of.
+    /// Limit warnings to 120 characters if possible.
+    /// Warnings over 256 characters and large numbers of warnings may be truncated.
+    /// +optional
+    #[prost(string, repeated, tag = "3")]
+    pub warnings: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Mutated object bytes
+    #[prost(bytes = "vec", tag = "4")]
+    pub object_bytes: ::prost::alloc::vec::Vec<u8>,
+}
+/// GroupVersion represents the API group and version of a resource.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GroupVersion {
+    #[prost(string, tag = "1")]
+    pub group: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub version: ::prost::alloc::string::String,
+}
+/// RawObject contains a resource serialized into a byte array with a content type
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RawObject {
+    /// Raw is the serialized object
+    #[prost(bytes = "vec", tag = "1")]
+    pub raw: ::prost::alloc::vec::Vec<u8>,
+    /// ContentType is the media type of the raw object
+    #[prost(string, tag = "2")]
+    pub content_type: ::prost::alloc::string::String,
+}
+/// ConversionRequest supports converting objects from one version to another
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ConversionRequest {
+    /// NOTE: this may not include app or datasource instance settings depending on the request
+    #[prost(message, optional, tag = "1")]
+    pub plugin_context: ::core::option::Option<PluginContext>,
+    /// uid is an identifier for the individual request/response. It allows distinguishing instances of requests which are
+    /// otherwise identical (parallel requests, etc).
+    /// The UID is meant to track the round trip (request/response) between the Kubernetes API server and the webhook, not the user request.
+    /// It is suitable for correlating log entries between the webhook and apiserver, for either auditing or debugging.
+    #[prost(string, tag = "2")]
+    pub uid: ::prost::alloc::string::String,
+    /// Objects to convert
+    /// +listType=atomic
+    #[prost(message, repeated, tag = "3")]
+    pub objects: ::prost::alloc::vec::Vec<RawObject>,
+    /// Target converted version
+    #[prost(message, optional, tag = "4")]
+    pub target_version: ::core::option::Option<GroupVersion>,
+}
+/// ConversionResponse contains the converted objects
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ConversionResponse {
+    /// uid is an identifier for the individual request/response.
+    /// This should be copied over from the corresponding `request.uid`.
+    #[prost(string, tag = "1")]
+    pub uid: ::prost::alloc::string::String,
+    /// result contains extra details into why an admission request was denied.
+    #[prost(message, optional, tag = "2")]
+    pub result: ::core::option::Option<StatusResult>,
+    /// objects is the list of converted version of `request.objects` if the `result` is successful, otherwise empty.
+    /// +listType=atomic
+    #[prost(message, repeated, tag = "3")]
+    pub objects: ::prost::alloc::vec::Vec<RawObject>,
+}
+/// Status structure is copied from:
+/// <https://github.com/kubernetes/apimachinery/blob/v0.30.1/pkg/apis/meta/v1/generated.proto#L979>
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct StatusResult {
+    /// Status of the operation.
+    /// One of: "Success" or "Failure".
+    /// More info: <https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status>
+    /// +optional
+    #[prost(string, tag = "1")]
+    pub status: ::prost::alloc::string::String,
+    /// A human-readable description of the status of this operation.
+    /// +optional
+    #[prost(string, tag = "2")]
+    pub message: ::prost::alloc::string::String,
+    /// A machine-readable description of why this operation is in the
+    /// "Failure" status. If this value is empty there
+    /// is no information available. A Reason clarifies an HTTP status
+    /// code but does not override it.
+    /// +optional
+    #[prost(string, tag = "3")]
+    pub reason: ::prost::alloc::string::String,
+    /// Suggested HTTP return code for this status, 0 if not set.
+    /// +optional
+    #[prost(int32, tag = "4")]
+    pub code: i32,
 }
 /// Generated client implementations.
 pub mod resource_client {
@@ -930,6 +1155,268 @@ pub mod stream_client {
             let mut req = request.into_request();
             req.extensions_mut()
                 .insert(GrpcMethod::new("pluginv2.Stream", "PublishStream"));
+            self.inner.unary(req, path, codec).await
+        }
+    }
+}
+/// Generated client implementations.
+pub mod admission_control_client {
+    #![allow(unused_variables, dead_code, missing_docs, clippy::let_unit_value)]
+    use tonic::codegen::*;
+    use tonic::codegen::http::Uri;
+    /// Admission control is a service based on the kubernetes admission webhook patterns.
+    /// This service can be used to verify if objects are valid and convert between versions
+    /// See: https://github.com/kubernetes/kubernetes/blob/v1.30.0/pkg/apis/admission/types.go#L41
+    /// And: https://github.com/grafana/grafana-app-sdk/blob/main/resource/admission.go#L14
+    #[derive(Debug, Clone)]
+    pub struct AdmissionControlClient<T> {
+        inner: tonic::client::Grpc<T>,
+    }
+    impl AdmissionControlClient<tonic::transport::Channel> {
+        /// Attempt to create a new client by connecting to a given endpoint.
+        pub async fn connect<D>(dst: D) -> Result<Self, tonic::transport::Error>
+        where
+            D: TryInto<tonic::transport::Endpoint>,
+            D::Error: Into<StdError>,
+        {
+            let conn = tonic::transport::Endpoint::new(dst)?.connect().await?;
+            Ok(Self::new(conn))
+        }
+    }
+    impl<T> AdmissionControlClient<T>
+    where
+        T: tonic::client::GrpcService<tonic::body::BoxBody>,
+        T::Error: Into<StdError>,
+        T::ResponseBody: Body<Data = Bytes> + std::marker::Send + 'static,
+        <T::ResponseBody as Body>::Error: Into<StdError> + std::marker::Send,
+    {
+        pub fn new(inner: T) -> Self {
+            let inner = tonic::client::Grpc::new(inner);
+            Self { inner }
+        }
+        pub fn with_origin(inner: T, origin: Uri) -> Self {
+            let inner = tonic::client::Grpc::with_origin(inner, origin);
+            Self { inner }
+        }
+        pub fn with_interceptor<F>(
+            inner: T,
+            interceptor: F,
+        ) -> AdmissionControlClient<InterceptedService<T, F>>
+        where
+            F: tonic::service::Interceptor,
+            T::ResponseBody: Default,
+            T: tonic::codegen::Service<
+                http::Request<tonic::body::BoxBody>,
+                Response = http::Response<
+                    <T as tonic::client::GrpcService<tonic::body::BoxBody>>::ResponseBody,
+                >,
+            >,
+            <T as tonic::codegen::Service<
+                http::Request<tonic::body::BoxBody>,
+            >>::Error: Into<StdError> + std::marker::Send + std::marker::Sync,
+        {
+            AdmissionControlClient::new(InterceptedService::new(inner, interceptor))
+        }
+        /// Compress requests with the given encoding.
+        ///
+        /// This requires the server to support it otherwise it might respond with an
+        /// error.
+        #[must_use]
+        pub fn send_compressed(mut self, encoding: CompressionEncoding) -> Self {
+            self.inner = self.inner.send_compressed(encoding);
+            self
+        }
+        /// Enable decompressing responses.
+        #[must_use]
+        pub fn accept_compressed(mut self, encoding: CompressionEncoding) -> Self {
+            self.inner = self.inner.accept_compressed(encoding);
+            self
+        }
+        /// Limits the maximum size of a decoded message.
+        ///
+        /// Default: `4MB`
+        #[must_use]
+        pub fn max_decoding_message_size(mut self, limit: usize) -> Self {
+            self.inner = self.inner.max_decoding_message_size(limit);
+            self
+        }
+        /// Limits the maximum size of an encoded message.
+        ///
+        /// Default: `usize::MAX`
+        #[must_use]
+        pub fn max_encoding_message_size(mut self, limit: usize) -> Self {
+            self.inner = self.inner.max_encoding_message_size(limit);
+            self
+        }
+        /// Validate a resource -- the response is a simple yes/no
+        pub async fn validate_admission(
+            &mut self,
+            request: impl tonic::IntoRequest<super::AdmissionRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::ValidationResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/pluginv2.AdmissionControl/ValidateAdmission",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new("pluginv2.AdmissionControl", "ValidateAdmission"),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        /// Return a modified copy of the request that can be saved or a descriptive error
+        pub async fn mutate_admission(
+            &mut self,
+            request: impl tonic::IntoRequest<super::AdmissionRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::MutationResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/pluginv2.AdmissionControl/MutateAdmission",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("pluginv2.AdmissionControl", "MutateAdmission"));
+            self.inner.unary(req, path, codec).await
+        }
+    }
+}
+/// Generated client implementations.
+pub mod resource_conversion_client {
+    #![allow(unused_variables, dead_code, missing_docs, clippy::let_unit_value)]
+    use tonic::codegen::*;
+    use tonic::codegen::http::Uri;
+    /// ResourceConversion is a service that can be used to convert resources between versions
+    /// See: https://kubernetes.io/docs/tasks/extend-kubernetes/custom-resources/custom-resource-definition-versioning/#webhook-request-and-response
+    #[derive(Debug, Clone)]
+    pub struct ResourceConversionClient<T> {
+        inner: tonic::client::Grpc<T>,
+    }
+    impl ResourceConversionClient<tonic::transport::Channel> {
+        /// Attempt to create a new client by connecting to a given endpoint.
+        pub async fn connect<D>(dst: D) -> Result<Self, tonic::transport::Error>
+        where
+            D: TryInto<tonic::transport::Endpoint>,
+            D::Error: Into<StdError>,
+        {
+            let conn = tonic::transport::Endpoint::new(dst)?.connect().await?;
+            Ok(Self::new(conn))
+        }
+    }
+    impl<T> ResourceConversionClient<T>
+    where
+        T: tonic::client::GrpcService<tonic::body::BoxBody>,
+        T::Error: Into<StdError>,
+        T::ResponseBody: Body<Data = Bytes> + std::marker::Send + 'static,
+        <T::ResponseBody as Body>::Error: Into<StdError> + std::marker::Send,
+    {
+        pub fn new(inner: T) -> Self {
+            let inner = tonic::client::Grpc::new(inner);
+            Self { inner }
+        }
+        pub fn with_origin(inner: T, origin: Uri) -> Self {
+            let inner = tonic::client::Grpc::with_origin(inner, origin);
+            Self { inner }
+        }
+        pub fn with_interceptor<F>(
+            inner: T,
+            interceptor: F,
+        ) -> ResourceConversionClient<InterceptedService<T, F>>
+        where
+            F: tonic::service::Interceptor,
+            T::ResponseBody: Default,
+            T: tonic::codegen::Service<
+                http::Request<tonic::body::BoxBody>,
+                Response = http::Response<
+                    <T as tonic::client::GrpcService<tonic::body::BoxBody>>::ResponseBody,
+                >,
+            >,
+            <T as tonic::codegen::Service<
+                http::Request<tonic::body::BoxBody>,
+            >>::Error: Into<StdError> + std::marker::Send + std::marker::Sync,
+        {
+            ResourceConversionClient::new(InterceptedService::new(inner, interceptor))
+        }
+        /// Compress requests with the given encoding.
+        ///
+        /// This requires the server to support it otherwise it might respond with an
+        /// error.
+        #[must_use]
+        pub fn send_compressed(mut self, encoding: CompressionEncoding) -> Self {
+            self.inner = self.inner.send_compressed(encoding);
+            self
+        }
+        /// Enable decompressing responses.
+        #[must_use]
+        pub fn accept_compressed(mut self, encoding: CompressionEncoding) -> Self {
+            self.inner = self.inner.accept_compressed(encoding);
+            self
+        }
+        /// Limits the maximum size of a decoded message.
+        ///
+        /// Default: `4MB`
+        #[must_use]
+        pub fn max_decoding_message_size(mut self, limit: usize) -> Self {
+            self.inner = self.inner.max_decoding_message_size(limit);
+            self
+        }
+        /// Limits the maximum size of an encoded message.
+        ///
+        /// Default: `usize::MAX`
+        #[must_use]
+        pub fn max_encoding_message_size(mut self, limit: usize) -> Self {
+            self.inner = self.inner.max_encoding_message_size(limit);
+            self
+        }
+        /// Convert objects to a target version
+        pub async fn convert_objects(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ConversionRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::ConversionResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/pluginv2.ResourceConversion/ConvertObjects",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new("pluginv2.ResourceConversion", "ConvertObjects"),
+                );
             self.inner.unary(req, path, codec).await
         }
     }
@@ -1796,6 +2283,414 @@ pub mod stream_server {
     /// Generated gRPC service name
     pub const SERVICE_NAME: &str = "pluginv2.Stream";
     impl<T> tonic::server::NamedService for StreamServer<T> {
+        const NAME: &'static str = SERVICE_NAME;
+    }
+}
+/// Generated server implementations.
+pub mod admission_control_server {
+    #![allow(unused_variables, dead_code, missing_docs, clippy::let_unit_value)]
+    use tonic::codegen::*;
+    /// Generated trait containing gRPC methods that should be implemented for use with AdmissionControlServer.
+    #[async_trait]
+    pub trait AdmissionControl: std::marker::Send + std::marker::Sync + 'static {
+        /// Validate a resource -- the response is a simple yes/no
+        async fn validate_admission(
+            &self,
+            request: tonic::Request<super::AdmissionRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::ValidationResponse>,
+            tonic::Status,
+        >;
+        /// Return a modified copy of the request that can be saved or a descriptive error
+        async fn mutate_admission(
+            &self,
+            request: tonic::Request<super::AdmissionRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::MutationResponse>,
+            tonic::Status,
+        >;
+    }
+    /// Admission control is a service based on the kubernetes admission webhook patterns.
+    /// This service can be used to verify if objects are valid and convert between versions
+    /// See: https://github.com/kubernetes/kubernetes/blob/v1.30.0/pkg/apis/admission/types.go#L41
+    /// And: https://github.com/grafana/grafana-app-sdk/blob/main/resource/admission.go#L14
+    #[derive(Debug)]
+    pub struct AdmissionControlServer<T> {
+        inner: Arc<T>,
+        accept_compression_encodings: EnabledCompressionEncodings,
+        send_compression_encodings: EnabledCompressionEncodings,
+        max_decoding_message_size: Option<usize>,
+        max_encoding_message_size: Option<usize>,
+    }
+    impl<T> AdmissionControlServer<T> {
+        pub fn new(inner: T) -> Self {
+            Self::from_arc(Arc::new(inner))
+        }
+        pub fn from_arc(inner: Arc<T>) -> Self {
+            Self {
+                inner,
+                accept_compression_encodings: Default::default(),
+                send_compression_encodings: Default::default(),
+                max_decoding_message_size: None,
+                max_encoding_message_size: None,
+            }
+        }
+        pub fn with_interceptor<F>(
+            inner: T,
+            interceptor: F,
+        ) -> InterceptedService<Self, F>
+        where
+            F: tonic::service::Interceptor,
+        {
+            InterceptedService::new(Self::new(inner), interceptor)
+        }
+        /// Enable decompressing requests with the given encoding.
+        #[must_use]
+        pub fn accept_compressed(mut self, encoding: CompressionEncoding) -> Self {
+            self.accept_compression_encodings.enable(encoding);
+            self
+        }
+        /// Compress responses with the given encoding, if the client supports it.
+        #[must_use]
+        pub fn send_compressed(mut self, encoding: CompressionEncoding) -> Self {
+            self.send_compression_encodings.enable(encoding);
+            self
+        }
+        /// Limits the maximum size of a decoded message.
+        ///
+        /// Default: `4MB`
+        #[must_use]
+        pub fn max_decoding_message_size(mut self, limit: usize) -> Self {
+            self.max_decoding_message_size = Some(limit);
+            self
+        }
+        /// Limits the maximum size of an encoded message.
+        ///
+        /// Default: `usize::MAX`
+        #[must_use]
+        pub fn max_encoding_message_size(mut self, limit: usize) -> Self {
+            self.max_encoding_message_size = Some(limit);
+            self
+        }
+    }
+    impl<T, B> tonic::codegen::Service<http::Request<B>> for AdmissionControlServer<T>
+    where
+        T: AdmissionControl,
+        B: Body + std::marker::Send + 'static,
+        B::Error: Into<StdError> + std::marker::Send + 'static,
+    {
+        type Response = http::Response<tonic::body::BoxBody>;
+        type Error = std::convert::Infallible;
+        type Future = BoxFuture<Self::Response, Self::Error>;
+        fn poll_ready(
+            &mut self,
+            _cx: &mut Context<'_>,
+        ) -> Poll<std::result::Result<(), Self::Error>> {
+            Poll::Ready(Ok(()))
+        }
+        fn call(&mut self, req: http::Request<B>) -> Self::Future {
+            match req.uri().path() {
+                "/pluginv2.AdmissionControl/ValidateAdmission" => {
+                    #[allow(non_camel_case_types)]
+                    struct ValidateAdmissionSvc<T: AdmissionControl>(pub Arc<T>);
+                    impl<
+                        T: AdmissionControl,
+                    > tonic::server::UnaryService<super::AdmissionRequest>
+                    for ValidateAdmissionSvc<T> {
+                        type Response = super::ValidationResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::AdmissionRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as AdmissionControl>::validate_admission(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ValidateAdmissionSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/pluginv2.AdmissionControl/MutateAdmission" => {
+                    #[allow(non_camel_case_types)]
+                    struct MutateAdmissionSvc<T: AdmissionControl>(pub Arc<T>);
+                    impl<
+                        T: AdmissionControl,
+                    > tonic::server::UnaryService<super::AdmissionRequest>
+                    for MutateAdmissionSvc<T> {
+                        type Response = super::MutationResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::AdmissionRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as AdmissionControl>::mutate_admission(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = MutateAdmissionSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                _ => {
+                    Box::pin(async move {
+                        Ok(
+                            http::Response::builder()
+                                .status(200)
+                                .header("grpc-status", tonic::Code::Unimplemented as i32)
+                                .header(
+                                    http::header::CONTENT_TYPE,
+                                    tonic::metadata::GRPC_CONTENT_TYPE,
+                                )
+                                .body(empty_body())
+                                .unwrap(),
+                        )
+                    })
+                }
+            }
+        }
+    }
+    impl<T> Clone for AdmissionControlServer<T> {
+        fn clone(&self) -> Self {
+            let inner = self.inner.clone();
+            Self {
+                inner,
+                accept_compression_encodings: self.accept_compression_encodings,
+                send_compression_encodings: self.send_compression_encodings,
+                max_decoding_message_size: self.max_decoding_message_size,
+                max_encoding_message_size: self.max_encoding_message_size,
+            }
+        }
+    }
+    /// Generated gRPC service name
+    pub const SERVICE_NAME: &str = "pluginv2.AdmissionControl";
+    impl<T> tonic::server::NamedService for AdmissionControlServer<T> {
+        const NAME: &'static str = SERVICE_NAME;
+    }
+}
+/// Generated server implementations.
+pub mod resource_conversion_server {
+    #![allow(unused_variables, dead_code, missing_docs, clippy::let_unit_value)]
+    use tonic::codegen::*;
+    /// Generated trait containing gRPC methods that should be implemented for use with ResourceConversionServer.
+    #[async_trait]
+    pub trait ResourceConversion: std::marker::Send + std::marker::Sync + 'static {
+        /// Convert objects to a target version
+        async fn convert_objects(
+            &self,
+            request: tonic::Request<super::ConversionRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::ConversionResponse>,
+            tonic::Status,
+        >;
+    }
+    /// ResourceConversion is a service that can be used to convert resources between versions
+    /// See: https://kubernetes.io/docs/tasks/extend-kubernetes/custom-resources/custom-resource-definition-versioning/#webhook-request-and-response
+    #[derive(Debug)]
+    pub struct ResourceConversionServer<T> {
+        inner: Arc<T>,
+        accept_compression_encodings: EnabledCompressionEncodings,
+        send_compression_encodings: EnabledCompressionEncodings,
+        max_decoding_message_size: Option<usize>,
+        max_encoding_message_size: Option<usize>,
+    }
+    impl<T> ResourceConversionServer<T> {
+        pub fn new(inner: T) -> Self {
+            Self::from_arc(Arc::new(inner))
+        }
+        pub fn from_arc(inner: Arc<T>) -> Self {
+            Self {
+                inner,
+                accept_compression_encodings: Default::default(),
+                send_compression_encodings: Default::default(),
+                max_decoding_message_size: None,
+                max_encoding_message_size: None,
+            }
+        }
+        pub fn with_interceptor<F>(
+            inner: T,
+            interceptor: F,
+        ) -> InterceptedService<Self, F>
+        where
+            F: tonic::service::Interceptor,
+        {
+            InterceptedService::new(Self::new(inner), interceptor)
+        }
+        /// Enable decompressing requests with the given encoding.
+        #[must_use]
+        pub fn accept_compressed(mut self, encoding: CompressionEncoding) -> Self {
+            self.accept_compression_encodings.enable(encoding);
+            self
+        }
+        /// Compress responses with the given encoding, if the client supports it.
+        #[must_use]
+        pub fn send_compressed(mut self, encoding: CompressionEncoding) -> Self {
+            self.send_compression_encodings.enable(encoding);
+            self
+        }
+        /// Limits the maximum size of a decoded message.
+        ///
+        /// Default: `4MB`
+        #[must_use]
+        pub fn max_decoding_message_size(mut self, limit: usize) -> Self {
+            self.max_decoding_message_size = Some(limit);
+            self
+        }
+        /// Limits the maximum size of an encoded message.
+        ///
+        /// Default: `usize::MAX`
+        #[must_use]
+        pub fn max_encoding_message_size(mut self, limit: usize) -> Self {
+            self.max_encoding_message_size = Some(limit);
+            self
+        }
+    }
+    impl<T, B> tonic::codegen::Service<http::Request<B>> for ResourceConversionServer<T>
+    where
+        T: ResourceConversion,
+        B: Body + std::marker::Send + 'static,
+        B::Error: Into<StdError> + std::marker::Send + 'static,
+    {
+        type Response = http::Response<tonic::body::BoxBody>;
+        type Error = std::convert::Infallible;
+        type Future = BoxFuture<Self::Response, Self::Error>;
+        fn poll_ready(
+            &mut self,
+            _cx: &mut Context<'_>,
+        ) -> Poll<std::result::Result<(), Self::Error>> {
+            Poll::Ready(Ok(()))
+        }
+        fn call(&mut self, req: http::Request<B>) -> Self::Future {
+            match req.uri().path() {
+                "/pluginv2.ResourceConversion/ConvertObjects" => {
+                    #[allow(non_camel_case_types)]
+                    struct ConvertObjectsSvc<T: ResourceConversion>(pub Arc<T>);
+                    impl<
+                        T: ResourceConversion,
+                    > tonic::server::UnaryService<super::ConversionRequest>
+                    for ConvertObjectsSvc<T> {
+                        type Response = super::ConversionResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ConversionRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as ResourceConversion>::convert_objects(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ConvertObjectsSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                _ => {
+                    Box::pin(async move {
+                        Ok(
+                            http::Response::builder()
+                                .status(200)
+                                .header("grpc-status", tonic::Code::Unimplemented as i32)
+                                .header(
+                                    http::header::CONTENT_TYPE,
+                                    tonic::metadata::GRPC_CONTENT_TYPE,
+                                )
+                                .body(empty_body())
+                                .unwrap(),
+                        )
+                    })
+                }
+            }
+        }
+    }
+    impl<T> Clone for ResourceConversionServer<T> {
+        fn clone(&self) -> Self {
+            let inner = self.inner.clone();
+            Self {
+                inner,
+                accept_compression_encodings: self.accept_compression_encodings,
+                send_compression_encodings: self.send_compression_encodings,
+                max_decoding_message_size: self.max_decoding_message_size,
+                max_encoding_message_size: self.max_encoding_message_size,
+            }
+        }
+    }
+    /// Generated gRPC service name
+    pub const SERVICE_NAME: &str = "pluginv2.ResourceConversion";
+    impl<T> tonic::server::NamedService for ResourceConversionServer<T> {
         const NAME: &'static str = SERVICE_NAME;
     }
 }

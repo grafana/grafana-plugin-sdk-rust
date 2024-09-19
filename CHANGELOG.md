@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Added
+
+- Add `AppInstanceSettings::api_version` and `DataSourceInstanceSettings::api_version` fields.
+
+### Changed
+
+- Update the vendored protobuf definitions to match version 0.249.0 of the Go SDK.
+  This has also added a new field, `api_version`, to the `AppInstanceSettings` and
+  `DataSourceInstanceSettings` structs.
+
 ## [0.5.0] - 2024-09-17
 
 ### Added

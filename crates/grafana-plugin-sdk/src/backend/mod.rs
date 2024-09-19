@@ -157,6 +157,7 @@ pub use tonic::async_trait;
 
 mod data;
 mod diagnostics;
+mod error_source;
 mod noop;
 mod resource;
 mod stream;
@@ -170,6 +171,7 @@ pub use diagnostics::{
     CheckHealthRequest, CheckHealthResponse, CollectMetricsRequest, CollectMetricsResponse,
     DiagnosticsService, HealthStatus, Payload as MetricsPayload,
 };
+pub use error_source::ErrorSource;
 pub use resource::{
     BoxResourceFuture, BoxResourceStream, CallResourceRequest, ErrIntoHttpResponse,
     IntoHttpResponse, ResourceService,
@@ -879,6 +881,10 @@ pub struct AppInstanceSettings<JsonData, SecureJsonData> {
     pub decrypted_secure_json_data: SecureJsonData,
     /// The last time the configuration for the app plugin instance was updated.
     pub updated: DateTime<Utc>,
+
+    /// The API version when the settings were saved.
+    /// NOTE: this may be an older version than the current apiVersion.
+    pub api_version: String,
 }
 
 impl<JsonData, SecureJsonData> Debug for AppInstanceSettings<JsonData, SecureJsonData>
@@ -890,6 +896,7 @@ where
             .field("json_data", &self.json_data)
             .field("decrypted_secure_json_data", &"<redacted>")
             .field("updated", &self.updated)
+            .field("api_version", &self.api_version)
             .finish()
     }
 }
@@ -918,6 +925,7 @@ where
                         .ok_or(ConvertFromError::InvalidTimestamp {
                             timestamp: proto.last_updated_ms,
                         })?,
+                    api_version: proto.api_version,
                 })
             })
             .transpose()
@@ -988,6 +996,10 @@ pub struct DataSourceInstanceSettings<JsonData, SecureJsonData> {
 
     /// The last time the configuration for the datasource instance was updated.
     pub updated: DateTime<Utc>,
+
+    /// The API version when the settings were saved.
+    /// NOTE: this may be an older version than the current apiVersion.
+    pub api_version: String,
 }
 
 impl<JsonData, SecureJsonData> Debug for DataSourceInstanceSettings<JsonData, SecureJsonData>
@@ -1008,6 +1020,7 @@ where
             .field("json_data", &self.json_data)
             .field("decrypted_secure_json_data", &"<redacted>")
             .field("updated", &self.updated)
+            .field("api_version", &self.api_version)
             .finish()
     }
 }
@@ -1045,6 +1058,7 @@ where
                         .ok_or(ConvertFromError::InvalidTimestamp {
                             timestamp: proto.last_updated_ms,
                         })?,
+                    api_version: proto.api_version,
                 })
             })
             .transpose()
