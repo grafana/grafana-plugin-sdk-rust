@@ -6,7 +6,7 @@ use thiserror::Error;
 
 use crate::data::{field::Field, frame::CheckedFrame};
 
-/// Errors occurring when serializing a [`Frame`] to the Arrow IPC format.
+/// Errors occurring when serializing a [`Frame`][crate::data::Frame] to the Arrow IPC format.
 #[derive(Debug, Error)]
 #[non_exhaustive]
 pub enum Error {
@@ -54,7 +54,7 @@ impl CheckedFrame<'_> {
         Ok(Schema::from(fields).with_metadata(metadata))
     }
 
-    /// Convert this [`Frame`] to Arrow using the IPC format.
+    /// Convert this [`Frame`][crate::data::Frame] to Arrow using the IPC format.
     ///
     /// If `ref_id` is provided, it is passed down to the various conversion
     /// function and takes precedence over the `ref_id` set on the frame.

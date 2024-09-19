@@ -371,7 +371,7 @@ where
     }
 }
 
-/// Helper trait for creating a [`Field`] from an [`Array`][arrow2::array::Array].
+/// Helper trait for creating a [`Field`] from an [`Array`].
 pub trait ArrayIntoField {
     /// Create a `Field` using `self` as the values.
     ///
