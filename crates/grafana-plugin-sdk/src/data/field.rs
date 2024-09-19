@@ -400,6 +400,7 @@ where
 }
 
 /// Helper trait for creating a [`Field`] from an [`Array`][arrow_array::Array].
+#[cfg(feature = "arrow")]
 pub trait ArrayRefIntoField {
     /// Create a `Field` using `self` as the values.
     ///

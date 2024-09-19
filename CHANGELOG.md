@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Update the vendored protobuf definitions to match version 0.249.0 of the Go SDK.
   This has also added a new field, `api_version`, to the `AppInstanceSettings` and
   `DataSourceInstanceSettings` structs.
+- The `ArrayRefIntoField` trait is now correctly hidden behind the `arrow` feature flag.
 
 ## [0.5.0] - 2024-09-17
 
