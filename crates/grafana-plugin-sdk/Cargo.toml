@@ -9,9 +9,7 @@ repository = "https://github.com/grafana/grafana-plugin-sdk-rust"
 description = "SDK for building Grafana backend plugins."
 
 [dependencies]
-arrow-array = { version = ">=40", optional = true } # synced with arrow2
-arrow-schema = { version = ">=40", optional = true } # synced with arrow2
-arrow2 = { version = "0.18.0", features = ["io_ipc"] }
+arrow = { version = "53.0.0", default-features = false, features = ["ipc"] }
 cfg-if = "1.0.0"
 chrono = "0.4.26"
 futures-core = "0.3.28"
@@ -63,7 +61,6 @@ all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
-arrow = ["dep:arrow-array", "dep:arrow-schema", "arrow2/arrow"]
 reqwest = ["reqwest_lib"]
 # Since prost 0.11 we no longer use prost-build at build time to generate code,
 # because it requires protoc. The generated code is instead checked in to source

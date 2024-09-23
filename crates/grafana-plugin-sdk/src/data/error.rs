@@ -1,5 +1,5 @@
 //! Error types returned by the SDK.
-use arrow2::datatypes::DataType;
+use arrow::datatypes::DataType;
 use itertools::Itertools;
 use thiserror::Error;
 

@@ -1,19 +1,22 @@
 //! Deserialization of [`Frame`]s from the JSON format.
-use std::{collections::BTreeMap, fmt, marker::PhantomData};
+use std::{collections::BTreeMap, fmt, marker::PhantomData, sync::Arc};
 
-use arrow2::{
+use arrow::{
     array::{
-        Array, MutableArray, MutableBooleanArray, MutablePrimitiveArray, MutableUtf8Array, TryPush,
+        Array, BooleanArray, Float32Array, Float64Array, Int16Array, Int32Array, Int64Array,
+        Int8Array, StringArray, TimestampNanosecondArray, UInt16Array, UInt32Array, UInt64Array,
+        UInt8Array,
     },
-    datatypes::{DataType, TimeUnit},
-    types::{NativeType, Offset},
+    datatypes::{
+        ArrowPrimitiveType, Float32Type, Float64Type, Int16Type, Int32Type, Int64Type, Int8Type,
+        UInt16Type, UInt32Type, UInt64Type, UInt8Type,
+    },
 };
 use num_traits::Float;
 use serde::{
-    de::{Deserializer, Error, MapAccess, SeqAccess, Visitor},
+    de::{DeserializeOwned, DeserializeSeed, Deserializer, Error, MapAccess, SeqAccess, Visitor},
     Deserialize,
 };
-use serde_json::from_str;
 
 use crate::data::{
     field::{FieldConfig, SimpleType, TypeInfo, TypeInfoType},
@@ -136,7 +139,7 @@ struct RawData<'a> {
 
 #[derive(Debug)]
 struct Data {
-    values: Vec<Box<dyn Array>>,
+    values: Vec<Arc<dyn Array>>,
 }
 
 impl TryFrom<(&'_ Schema, RawData<'_>)> for Data {
@@ -161,50 +164,33 @@ impl TryFrom<(&'_ Schema, RawData<'_>)> for Data {
                 .zip(entities)
                 .map(|((f, v), e)| {
                     let s = v.get();
-                    let arr: Box<dyn Array> = match f.type_info.frame {
-                        TypeInfoType::Int8 => {
-                            parse_array::<MutablePrimitiveArray<i8>, i8, ()>(s)?.as_box()
-                        }
-                        TypeInfoType::Int16 => {
-                            parse_array::<MutablePrimitiveArray<i16>, i16, ()>(s)?.as_box()
-                        }
-                        TypeInfoType::Int32 => {
-                            parse_array::<MutablePrimitiveArray<i32>, i32, ()>(s)?.as_box()
-                        }
-                        TypeInfoType::Int64 => {
-                            parse_array::<MutablePrimitiveArray<i64>, i64, ()>(s)?.as_box()
-                        }
-                        TypeInfoType::UInt8 => {
-                            parse_array::<MutablePrimitiveArray<u8>, u8, ()>(s)?.as_box()
-                        }
+                    let arr: Arc<dyn Array> = match f.type_info.frame {
+                        TypeInfoType::Int8 => parse_primitive_array::<Int8Array, Int8Type>(s)?,
+                        TypeInfoType::Int16 => parse_primitive_array::<Int16Array, Int16Type>(s)?,
+                        TypeInfoType::Int32 => parse_primitive_array::<Int32Array, Int32Type>(s)?,
+                        TypeInfoType::Int64 => parse_primitive_array::<Int64Array, Int64Type>(s)?,
+                        TypeInfoType::UInt8 => parse_primitive_array::<UInt8Array, UInt8Type>(s)?,
                         TypeInfoType::UInt16 => {
-                            parse_array::<MutablePrimitiveArray<u16>, u16, ()>(s)?.as_box()
+                            parse_primitive_array::<UInt16Array, UInt16Type>(s)?
                         }
                         TypeInfoType::UInt32 => {
-                            parse_array::<MutablePrimitiveArray<u32>, u32, ()>(s)?.as_box()
+                            parse_primitive_array::<UInt32Array, UInt32Type>(s)?
                         }
                         TypeInfoType::UInt64 => {
-                            parse_array::<MutablePrimitiveArray<u64>, u64, ()>(s)?.as_box()
+                            parse_primitive_array::<UInt64Array, UInt64Type>(s)?
                         }
+                        // TypeInfoType::Float16 => {
+                        //     parse_array_with_entities::<Float16Array, Float16Type>(s, e)?
+                        // }
                         TypeInfoType::Float32 => {
-                            parse_array_with_entities::<MutablePrimitiveArray<f32>, f32>(s, e)?
-                                .as_box()
+                            parse_array_with_entities::<Float32Array, Float32Type>(s, e)?
                         }
                         TypeInfoType::Float64 => {
-                            parse_array_with_entities::<MutablePrimitiveArray<f64>, f64>(s, e)?
-                                .as_box()
+                            parse_array_with_entities::<Float64Array, Float64Type>(s, e)?
                         }
-                        TypeInfoType::String => {
-                            parse_array::<MutableUtf8Array<i32>, String, ()>(s)?.as_box()
-                        }
-                        TypeInfoType::Bool => {
-                            parse_array::<MutableBooleanArray, bool, ()>(s)?.as_box()
-                        }
-                        TypeInfoType::Time => {
-                            parse_array::<MutablePrimitiveArray<i64>, i64, TimestampProcessor>(s)?
-                                .to(DataType::Timestamp(TimeUnit::Nanosecond, None))
-                                .as_box()
-                        }
+                        TypeInfoType::String => parse_string_array(s)?,
+                        TypeInfoType::Bool => parse_bool_array(s)?,
+                        TypeInfoType::Time => parse_timestamp_array(s)?,
                     };
                     Ok(arr)
                 })
@@ -220,13 +206,32 @@ impl TryFrom<(&'_ Schema, RawData<'_>)> for Data {
 /// Returns an error if the string is invalid JSON, if the elements of
 /// the array are not of type `U`,  or if the Arrow buffer could not be
 /// created.
-fn parse_array<'de, T, U, V>(s: &'de str) -> Result<T, serde_json::Error>
+fn parse_primitive_array<T, U>(s: &str) -> Result<Arc<dyn Array>, serde_json::Error>
 where
-    T: Default + MutableArray + TryPush<Option<U>> + WithCapacity,
-    U: Deserialize<'de>,
-    V: ElementProcessor<U>,
+    T: From<Vec<Option<U::Native>>> + Array + 'static,
+    U: ArrowPrimitiveType,
+    U::Native: DeserializeOwned,
 {
-    Ok(from_str::<DeArray<T, U, V>>(s)?.array)
+    let v: Vec<Option<U::Native>> = serde_json::from_str(s)?;
+    Ok(Arc::new(T::from(v)))
+}
+
+fn parse_timestamp_array(s: &str) -> Result<Arc<dyn Array>, serde_json::Error> {
+    let v: Vec<Option<i64>> = serde_json::from_str::<Vec<Option<i64>>>(s)?
+        .into_iter()
+        .map(|opt| opt.map(|x| x * 1_000_000))
+        .collect();
+    Ok(Arc::new(TimestampNanosecondArray::from(v)))
+}
+
+fn parse_string_array(s: &str) -> Result<Arc<dyn Array>, serde_json::Error> {
+    let v: Vec<Option<String>> = serde_json::from_str(s)?;
+    Ok(Arc::new(StringArray::from(v)))
+}
+
+fn parse_bool_array(s: &str) -> Result<Arc<dyn Array>, serde_json::Error> {
+    let v: Vec<Option<bool>> = serde_json::from_str(s)?;
+    Ok(Arc::new(BooleanArray::from(v)))
 }
 
 /// Parse a JSON array containing elements of `U` into a mutable Arrow array `T`,
@@ -242,48 +247,38 @@ where
 ///
 /// Panics if any of the indexes in `entities` are greater than the length
 /// of the parsed array.
-fn parse_array_with_entities<'de, T, U>(
-    s: &'de str,
+fn parse_array_with_entities<T, U>(
+    s: &str,
     entities: Option<Entities>,
-) -> Result<T, serde_json::Error>
+) -> Result<Arc<dyn Array>, serde_json::Error>
 where
-    T: Default + MutableArray + SetArray<Option<U>> + TryPush<Option<U>> + WithCapacity,
-    U: Deserialize<'de> + Float,
+    T: From<Vec<Option<U::Native>>> + Array + 'static,
+    U: ArrowPrimitiveType,
+    U::Native: DeserializeOwned + Float,
 {
-    let mut arr = from_str::<DeArray<T, U>>(s)?.array;
-    if let Some(e) = entities {
-        e.nan.iter().for_each(|idx| arr.set(*idx, Some(U::nan())));
-        e.inf
-            .iter()
-            .for_each(|idx| arr.set(*idx, Some(U::infinity())));
-        e.neg_inf
-            .iter()
-            .for_each(|idx| arr.set(*idx, Some(U::neg_infinity())));
-    }
-    Ok(arr)
-}
-
-trait ElementProcessor<T> {
-    fn process_element(el: T) -> T {
-        el
-    }
-}
-
-impl<T> ElementProcessor<T> for () {}
-
-struct TimestampProcessor;
-impl ElementProcessor<i64> for TimestampProcessor {
-    fn process_element(el: i64) -> i64 {
-        el * 1_000_000
-    }
+    let de = DeArray::<T, U>::new(entities);
+    let mut deserializer = serde_json::Deserializer::from_str(s);
+    Ok(Arc::new(de.deserialize(&mut deserializer)?))
 }
 
 /// Helper struct used to deserialize a sequence into an Arrow `Array`.
 #[derive(Debug)]
-struct DeArray<T, U, V = ()> {
-    array: T,
+struct DeArray<T, U> {
+    entities: Option<Entities>,
+    // The type of the final array.
+    t: PhantomData<T>,
+    // The type of the elements in the array.
     u: PhantomData<U>,
-    v: PhantomData<V>,
+}
+
+impl<T, U> DeArray<T, U> {
+    fn new(entities: Option<Entities>) -> Self {
+        Self {
+            entities,
+            t: PhantomData,
+            u: PhantomData,
+        }
+    }
 }
 
 // Deserialization for mutable Arrow arrays.
@@ -292,25 +287,27 @@ struct DeArray<T, U, V = ()> {
 // All of the `Mutable` variants of Arrow arrays implement `TryPush<Option<U>>`
 // for some relevant `U`, and here we just impose that the `U` is `Deserialize`
 // and gradually build up the array.
-impl<'de, T, U, V> Deserialize<'de> for DeArray<T, U, V>
+impl<'de, T, U> DeserializeSeed<'de> for DeArray<T, U>
 where
-    T: Default + TryPush<Option<U>> + WithCapacity,
-    U: Deserialize<'de>,
-    V: ElementProcessor<U>,
+    T: From<Vec<Option<U::Native>>> + Array + 'static,
+    U: ArrowPrimitiveType,
+    U::Native: Deserialize<'de> + Float,
 {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    type Value = T;
+
+    fn deserialize<D>(self, deserializer: D) -> Result<T, D::Error>
     where
         D: Deserializer<'de>,
     {
-        struct ArrayVisitor<T, U, V>(PhantomData<T>, PhantomData<U>, PhantomData<V>);
+        struct ArrayVisitor<T, U>(Option<Entities>, PhantomData<T>, PhantomData<U>);
 
-        impl<'de, T, U, V> Visitor<'de> for ArrayVisitor<T, U, V>
+        impl<'de, T, U> Visitor<'de> for ArrayVisitor<T, U>
         where
-            T: Default + TryPush<Option<U>> + WithCapacity,
-            U: Deserialize<'de>,
-            V: ElementProcessor<U>,
+            T: From<Vec<Option<U::Native>>> + Array + 'static,
+            U: ArrowPrimitiveType,
+            U::Native: Deserialize<'de> + Float,
         {
-            type Value = DeArray<T, U, V>;
+            type Value = T;
 
             fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
                 formatter.write_str("a heterogeneous array of compatible values")
@@ -320,67 +317,37 @@ where
             where
                 S: SeqAccess<'de>,
             {
-                let mut array = seq.size_hint().map_or_else(T::default, T::with_capacity);
-                while let Some(x) = seq.next_element::<Option<U>>()? {
-                    array.try_push(x.map(V::process_element)).map_err(|e| {
-                        S::Error::custom(format!("could not push to Arrow array: {}", e))
-                    })?;
+                let mut array = Vec::with_capacity(seq.size_hint().unwrap_or(0));
+                while let Some(opt) = seq.next_element::<Option<U::Native>>()? {
+                    array.push(opt);
                 }
-                Ok(Self::Value {
-                    array,
-                    u: PhantomData,
-                    v: PhantomData,
-                })
+
+                if let Some(e) = self.0 {
+                    e.nan.iter().for_each(|idx| {
+                        if let Some(v) = array.get_mut(*idx) {
+                            *v = Some(U::Native::nan());
+                        }
+                    });
+                    e.inf.iter().for_each(|idx| {
+                        if let Some(v) = array.get_mut(*idx) {
+                            *v = Some(U::Native::infinity());
+                        }
+                    });
+                    e.neg_inf.iter().for_each(|idx| {
+                        if let Some(v) = array.get_mut(*idx) {
+                            *v = Some(U::Native::neg_infinity());
+                        }
+                    });
+                }
+                Ok(array.into())
             }
         }
 
-        deserializer.deserialize_seq(ArrayVisitor(PhantomData, PhantomData, PhantomData))
-    }
-}
-
-/// Indicates that an array can have its elements mutated.
-trait SetArray<T> {
-    /// Set the value at `index` to `value`.
-    ///
-    /// Note that if it is the first time a null appears in this array,
-    /// this initializes the validity bitmap (`O(N)`).
-    ///
-    /// # Panics
-    ///
-    /// Panics iff index is larger than `self.len()`.
-    fn set(&mut self, index: usize, value: T);
-}
-
-impl<T: NativeType> SetArray<Option<T>> for MutablePrimitiveArray<T> {
-    fn set(&mut self, index: usize, value: Option<T>) {
-        self.set(index, value);
-    }
-}
-
-/// Indicates that an array can be created with a specified capacity.
-trait WithCapacity {
-    /// Create `Self` with the given `capacity` preallocated.
-    ///
-    /// This generally just delegates to the `with_capacity` method on
-    /// individual arrays.
-    fn with_capacity(capacity: usize) -> Self;
-}
-
-impl<T: NativeType> WithCapacity for MutablePrimitiveArray<T> {
-    fn with_capacity(capacity: usize) -> Self {
-        Self::with_capacity(capacity)
-    }
-}
-
-impl WithCapacity for MutableBooleanArray {
-    fn with_capacity(capacity: usize) -> Self {
-        Self::with_capacity(capacity)
-    }
-}
-
-impl<T: Offset> WithCapacity for MutableUtf8Array<T> {
-    fn with_capacity(capacity: usize) -> Self {
-        Self::with_capacity(capacity)
+        deserializer.deserialize_seq(ArrayVisitor::<T, U>(
+            self.entities,
+            PhantomData,
+            PhantomData,
+        ))
     }
 }
 

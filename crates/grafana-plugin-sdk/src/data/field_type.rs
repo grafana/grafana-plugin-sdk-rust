@@ -1,9 +1,12 @@
 //! Types of field understood by the Grafana plugin SDK.
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use arrow2::{
-    array::{BooleanArray, PrimitiveArray, Utf8Array},
-    datatypes::{DataType, TimeUnit},
+use arrow::{
+    array::{BooleanArray, PrimitiveArray, StringArray},
+    datatypes::{
+        DataType, Float32Type, Float64Type, Int16Type, Int32Type, Int64Type, Int8Type, TimeUnit,
+        TimestampNanosecondType, UInt16Type, UInt32Type, UInt64Type, UInt8Type,
+    },
 };
 use chrono::prelude::*;
 
@@ -12,17 +15,14 @@ use crate::data::TypeInfoType;
 /// Indicates that a type is can be stored in an Arrow array.
 pub trait FieldType {
     /// The type of arrow array this field type is stored in.
-    type Array;
+    type InArray;
+    /// The type of arrow array to convert to when storing values in a `Field`.
+    type OutArray;
     /// The logical arrow data type that an arrow array of this data should have.
     const ARROW_DATA_TYPE: DataType;
 
-    /// Convert the logical type of `Self::Array`, if needed.
-    ///
-    /// The default implementation is a no-op, but some field types may need to
-    /// implement this to ensure the underlying boxed Arrow array can be downcast correctly.
-    fn convert_arrow_array(array: Self::Array, _data_type: DataType) -> Self::Array {
-        array
-    }
+    /// Convert the logical type of `Self::InArray`.
+    fn convert_arrow_array(array: Self::InArray) -> Self::OutArray;
 }
 
 /// Indicates that a type can be converted to one that is [`FieldType`], and holds associated metadata.
@@ -56,12 +56,13 @@ where
 }
 
 macro_rules! impl_fieldtype_for_primitive {
-    ($ty: ty, $arrow_ty: expr, $type_info: expr) => {
+    ($ty: ty, $arrow_ty: ty, $arrow_data_ty: expr, $type_info: expr) => {
         impl FieldType for $ty {
-            type Array = PrimitiveArray<$ty>;
-            const ARROW_DATA_TYPE: DataType = $arrow_ty;
-            fn convert_arrow_array(array: Self::Array, data_type: DataType) -> Self::Array {
-                array.to(data_type)
+            type InArray = PrimitiveArray<$arrow_ty>;
+            type OutArray = PrimitiveArray<$arrow_ty>;
+            const ARROW_DATA_TYPE: DataType = $arrow_data_ty;
+            fn convert_arrow_array(array: Self::InArray) -> Self::OutArray {
+                array
             }
         }
 
@@ -75,24 +76,25 @@ macro_rules! impl_fieldtype_for_primitive {
     };
 }
 
-impl_fieldtype_for_primitive!(i8, DataType::Int8, TypeInfoType::Int8);
-impl_fieldtype_for_primitive!(i16, DataType::Int16, TypeInfoType::Int16);
-impl_fieldtype_for_primitive!(i32, DataType::Int32, TypeInfoType::Int32);
-impl_fieldtype_for_primitive!(i64, DataType::Int64, TypeInfoType::Int64);
-impl_fieldtype_for_primitive!(u8, DataType::UInt8, TypeInfoType::UInt8);
-impl_fieldtype_for_primitive!(u16, DataType::UInt16, TypeInfoType::UInt16);
-impl_fieldtype_for_primitive!(u32, DataType::UInt32, TypeInfoType::UInt32);
-impl_fieldtype_for_primitive!(u64, DataType::UInt64, TypeInfoType::UInt64);
-impl_fieldtype_for_primitive!(f32, DataType::Float32, TypeInfoType::Float32);
-impl_fieldtype_for_primitive!(f64, DataType::Float64, TypeInfoType::Float64);
+impl_fieldtype_for_primitive!(i8, Int8Type, DataType::Int8, TypeInfoType::Int8);
+impl_fieldtype_for_primitive!(i16, Int16Type, DataType::Int16, TypeInfoType::Int16);
+impl_fieldtype_for_primitive!(i32, Int32Type, DataType::Int32, TypeInfoType::Int32);
+impl_fieldtype_for_primitive!(i64, Int64Type, DataType::Int64, TypeInfoType::Int64);
+impl_fieldtype_for_primitive!(u8, UInt8Type, DataType::UInt8, TypeInfoType::UInt8);
+impl_fieldtype_for_primitive!(u16, UInt16Type, DataType::UInt16, TypeInfoType::UInt16);
+impl_fieldtype_for_primitive!(u32, UInt32Type, DataType::UInt32, TypeInfoType::UInt32);
+impl_fieldtype_for_primitive!(u64, UInt64Type, DataType::UInt64, TypeInfoType::UInt64);
+impl_fieldtype_for_primitive!(f32, Float32Type, DataType::Float32, TypeInfoType::Float32);
+impl_fieldtype_for_primitive!(f64, Float64Type, DataType::Float64, TypeInfoType::Float64);
 
 // Boolean impl.
 
 impl FieldType for bool {
-    type Array = BooleanArray;
+    type InArray = BooleanArray;
+    type OutArray = BooleanArray;
     const ARROW_DATA_TYPE: DataType = DataType::Boolean;
 
-    fn convert_arrow_array(array: Self::Array, _data_type: DataType) -> Self::Array {
+    fn convert_arrow_array(array: Self::InArray) -> Self::OutArray {
         array
     }
 }
@@ -109,12 +111,13 @@ impl IntoFieldType for bool {
 // DateTime impls.
 
 impl FieldType for SystemTime {
-    type Array = PrimitiveArray<i64>;
+    type InArray = PrimitiveArray<Int64Type>;
+    type OutArray = PrimitiveArray<TimestampNanosecondType>;
     const ARROW_DATA_TYPE: DataType = DataType::Timestamp(TimeUnit::Nanosecond, None);
 
     /// Convert the logical type of `Self::Array` to `DataType::Timestamp`.
-    fn convert_arrow_array(array: Self::Array, data_type: DataType) -> Self::Array {
-        array.to(data_type)
+    fn convert_arrow_array(array: Self::InArray) -> Self::OutArray {
+        array.reinterpret_cast()
     }
 }
 
@@ -133,12 +136,13 @@ impl<T> FieldType for DateTime<T>
 where
     T: Offset + TimeZone,
 {
-    type Array = PrimitiveArray<i64>;
+    type InArray = PrimitiveArray<Int64Type>;
+    type OutArray = PrimitiveArray<TimestampNanosecondType>;
     const ARROW_DATA_TYPE: DataType = DataType::Timestamp(TimeUnit::Nanosecond, None);
 
     /// Convert the logical type of `Self::Array` to `DataType::Timestamp`.
-    fn convert_arrow_array(array: Self::Array, data_type: DataType) -> Self::Array {
-        array.to(data_type)
+    fn convert_arrow_array(array: Self::InArray) -> Self::OutArray {
+        array.reinterpret_cast()
     }
 }
 
@@ -160,12 +164,13 @@ impl<T> FieldType for Date<T>
 where
     T: Offset + TimeZone,
 {
-    type Array = PrimitiveArray<i64>;
+    type InArray = PrimitiveArray<Int64Type>;
+    type OutArray = PrimitiveArray<TimestampNanosecondType>;
     const ARROW_DATA_TYPE: DataType = DataType::Timestamp(TimeUnit::Nanosecond, None);
 
     /// Convert the logical type of `Self::Array` to `DataType::Timestamp`.
-    fn convert_arrow_array(array: Self::Array, data_type: DataType) -> Self::Array {
-        array.to(data_type)
+    fn convert_arrow_array(array: Self::InArray) -> Self::OutArray {
+        array.reinterpret_cast()
     }
 }
 
@@ -186,12 +191,13 @@ where
 }
 
 impl FieldType for NaiveDate {
-    type Array = PrimitiveArray<i64>;
+    type InArray = PrimitiveArray<Int64Type>;
+    type OutArray = PrimitiveArray<TimestampNanosecondType>;
     const ARROW_DATA_TYPE: DataType = DataType::Timestamp(TimeUnit::Nanosecond, None);
 
     /// Convert the logical type of `Self::Array` to `DataType::Timestamp`.
-    fn convert_arrow_array(array: Self::Array, data_type: DataType) -> Self::Array {
-        array.to(data_type)
+    fn convert_arrow_array(array: Self::InArray) -> Self::OutArray {
+        array.reinterpret_cast()
     }
 }
 
@@ -207,12 +213,13 @@ impl IntoFieldType for NaiveDate {
 }
 
 impl FieldType for NaiveDateTime {
-    type Array = PrimitiveArray<i64>;
+    type InArray = PrimitiveArray<Int64Type>;
+    type OutArray = PrimitiveArray<TimestampNanosecondType>;
     const ARROW_DATA_TYPE: DataType = DataType::Timestamp(TimeUnit::Nanosecond, None);
 
     /// Convert the logical type of `Self::Array` to `DataType::Timestamp`.
-    fn convert_arrow_array(array: Self::Array, data_type: DataType) -> Self::Array {
-        array.to(data_type)
+    fn convert_arrow_array(array: Self::InArray) -> Self::OutArray {
+        array.reinterpret_cast()
     }
 }
 
@@ -227,8 +234,13 @@ impl IntoFieldType for NaiveDateTime {
 // String impls.
 
 impl FieldType for &str {
-    type Array = Utf8Array<i32>;
+    type InArray = StringArray;
+    type OutArray = StringArray;
     const ARROW_DATA_TYPE: DataType = DataType::Utf8;
+
+    fn convert_arrow_array(array: Self::InArray) -> Self::OutArray {
+        array
+    }
 }
 
 impl<'a> IntoFieldType for &'a str {
@@ -240,8 +252,13 @@ impl<'a> IntoFieldType for &'a str {
 }
 
 impl FieldType for String {
-    type Array = Utf8Array<i32>;
+    type InArray = StringArray;
+    type OutArray = StringArray;
     const ARROW_DATA_TYPE: DataType = DataType::Utf8;
+
+    fn convert_arrow_array(array: Self::InArray) -> Self::OutArray {
+        array
+    }
 }
 
 impl IntoFieldType for String {

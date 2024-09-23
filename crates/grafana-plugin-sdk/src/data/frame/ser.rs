@@ -1,11 +1,15 @@
 //! Serialization of [`Frame`]s to the JSON format.
 use std::{cell::RefCell, collections::BTreeMap};
 
-use arrow2::{
-    array::{Array, BooleanArray, PrimitiveArray, Utf8Array},
-    datatypes::{DataType, TimeUnit},
+use arrow::{
+    array::{Array, BooleanArray, PrimitiveArray, StringArray},
+    datatypes::{
+        ArrowPrimitiveType, DataType, Date32Type, Date64Type, Float32Type, Float64Type, Int16Type,
+        Int32Type, Int64Type, Int8Type, TimeUnit, TimestampMicrosecondType,
+        TimestampMillisecondType, TimestampNanosecondType, TimestampSecondType, UInt16Type,
+        UInt32Type, UInt64Type, UInt8Type,
+    },
     temporal_conversions::MILLISECONDS_IN_DAY,
-    types::NativeType,
 };
 use num_traits::Float;
 use serde::{
@@ -153,62 +157,62 @@ impl<'a> Serialize for SerializableArray<'a> {
                     .unwrap()
                     .iter(),
             ),
-            DataType::Utf8 | DataType::LargeUtf8 => serializer.collect_seq(
-                array
-                    .as_any()
-                    .downcast_ref::<Utf8Array<i32>>()
-                    .unwrap()
-                    .iter(),
-            ),
-            DataType::Int8 => serializer.collect_seq(primitive_array_iter::<i8>(array)),
-            DataType::Int16 => serializer.collect_seq(primitive_array_iter::<i16>(array)),
-            DataType::Int32 => serializer.collect_seq(primitive_array_iter::<i32>(array)),
-            DataType::Int64 => serializer.collect_seq(primitive_array_iter::<i64>(array)),
+            DataType::Utf8 | DataType::LargeUtf8 => {
+                serializer.collect_seq(array.as_any().downcast_ref::<StringArray>().unwrap().iter())
+            }
+            DataType::Int8 => serializer.collect_seq(primitive_array_iter::<Int8Type>(array)),
+            DataType::Int16 => serializer.collect_seq(primitive_array_iter::<Int16Type>(array)),
+            DataType::Int32 => serializer.collect_seq(primitive_array_iter::<Int32Type>(array)),
+            DataType::Int64 => serializer.collect_seq(primitive_array_iter::<Int64Type>(array)),
             DataType::Date32 => serializer.collect_seq(
-                primitive_array_iter::<i32>(array)
-                    .map(|opt| opt.map(|&x| i64::from(x) * MILLISECONDS_IN_DAY)),
+                primitive_array_iter::<Date32Type>(array)
+                    .map(|opt| opt.map(|x| i64::from(x) * MILLISECONDS_IN_DAY)),
             ),
-            DataType::Date64 => serializer.collect_seq(primitive_array_iter::<i64>(array)),
+            DataType::Date64 => serializer.collect_seq(primitive_array_iter::<Date64Type>(array)),
             DataType::Timestamp(TimeUnit::Second, _) => {
                 // Timestamps should be serialized to JSON as milliseconds.
                 serializer.collect_seq(
-                    primitive_array_iter::<i64>(array).map(|opt| opt.map(|x| x * 1_000)),
+                    primitive_array_iter::<TimestampSecondType>(array)
+                        .map(|opt| opt.map(|x| x * 1_000)),
                 )
             }
             DataType::Timestamp(TimeUnit::Millisecond, _) => {
                 // Timestamps should be serialized to JSON as milliseconds.
-                serializer.collect_seq(primitive_array_iter::<i64>(array))
+                serializer.collect_seq(primitive_array_iter::<TimestampMillisecondType>(array))
             }
             DataType::Timestamp(TimeUnit::Microsecond, _) => {
                 // Timestamps should be serialized to JSON as milliseconds.
                 serializer.collect_seq(
-                    primitive_array_iter::<i64>(array).map(|opt| opt.map(|x| x / 1_000)),
+                    primitive_array_iter::<TimestampMicrosecondType>(array)
+                        .map(|opt| opt.map(|x| x / 1_000)),
                 )
             }
             DataType::Timestamp(TimeUnit::Nanosecond, _) => {
                 // Timestamps should be serialized to JSON as milliseconds.
                 serializer.collect_seq(
-                    primitive_array_iter::<i64>(array).map(|opt| opt.map(|x| x / 1_000_000)),
+                    primitive_array_iter::<TimestampNanosecondType>(array)
+                        .map(|opt| opt.map(|x| x / 1_000_000)),
                 )
             }
-            DataType::UInt8 => serializer.collect_seq(primitive_array_iter::<u8>(array)),
-            DataType::UInt16 => serializer.collect_seq(primitive_array_iter::<u16>(array)),
-            DataType::UInt32 => serializer.collect_seq(primitive_array_iter::<u32>(array)),
-            DataType::UInt64 => serializer.collect_seq(primitive_array_iter::<u64>(array)),
+            DataType::UInt8 => serializer.collect_seq(primitive_array_iter::<UInt8Type>(array)),
+            DataType::UInt16 => serializer.collect_seq(primitive_array_iter::<UInt16Type>(array)),
+            DataType::UInt32 => serializer.collect_seq(primitive_array_iter::<UInt32Type>(array)),
+            DataType::UInt64 => serializer.collect_seq(primitive_array_iter::<UInt64Type>(array)),
             DataType::Float32 => {
-                serialize_floats_and_collect_entities::<S, f32>(serializer, array, self.1)
+                serialize_floats_and_collect_entities::<S, Float32Type>(serializer, array, self.1)
             }
             DataType::Float64 => {
-                serialize_floats_and_collect_entities::<S, f64>(serializer, array, self.1)
+                serialize_floats_and_collect_entities::<S, Float64Type>(serializer, array, self.1)
             }
             _ => Err(S::Error::custom("unsupported arrow datatype")),
         }
     }
 }
 
-fn primitive_array_iter<T>(array: &dyn Array) -> impl Iterator<Item = Option<&T>>
+fn primitive_array_iter<T>(array: &dyn Array) -> impl Iterator<Item = Option<T::Native>> + '_
 where
-    T: NativeType + Clone,
+    T: ArrowPrimitiveType,
+    <T as ArrowPrimitiveType>::Native: Clone,
 {
     array
         .as_any()
@@ -224,7 +228,8 @@ fn serialize_floats_and_collect_entities<S, T>(
 ) -> Result<S::Ok, S::Error>
 where
     S: Serializer,
-    T: NativeType + Float + Serialize,
+    T: ArrowPrimitiveType,
+    <T as ArrowPrimitiveType>::Native: Float + Serialize,
 {
     let array = array.as_any().downcast_ref::<PrimitiveArray<T>>().unwrap();
     let mut seq = serializer.serialize_seq(Some(array.len()))?;
@@ -256,10 +261,8 @@ pub(crate) struct Entities {
 
 #[cfg(test)]
 mod test {
-    use arrow2::{
-        array::PrimitiveArray,
-        datatypes::{DataType, TimeUnit},
-    };
+
+    use chrono::{NaiveDate, TimeZone, Utc};
     use pretty_assertions::assert_eq;
     use serde_json::{from_str, json, to_string, to_string_pretty};
 
@@ -285,123 +288,20 @@ mod test {
                 ..Default::default()
             }),
             fields: vec![
-                Field {
-                    name: "int8_values".to_string(),
-                    labels: Default::default(),
-                    config: None,
-                    values: Box::new(PrimitiveArray::<i8>::from_slice([-128, -128, 0, 127, 127])),
-                    type_info: TypeInfo {
-                        frame: TypeInfoType::Int8,
-                        nullable: Some(false),
-                    },
-                },
-                Field {
-                    name: "date32_values".to_string(),
-                    labels: Default::default(),
-                    config: None,
-                    values: Box::new(
-                        PrimitiveArray::<i32>::from_slice([18895, 18896, 18897, 18898, 18899])
-                            .to(DataType::Date32),
-                    ),
-                    type_info: TypeInfo {
-                        frame: TypeInfoType::Time,
-                        nullable: Some(false),
-                    },
-                },
-                Field {
-                    name: "date64_values".to_string(),
-                    labels: Default::default(),
-                    config: None,
-                    values: Box::new(
-                        PrimitiveArray::<i64>::from_slice([
-                            1632528000000,
-                            1632614400000,
-                            1632700800000,
-                            1632787200000,
-                            1632873600000,
-                        ])
-                        .to(DataType::Date64),
-                    ),
-                    type_info: TypeInfo {
-                        frame: TypeInfoType::Time,
-                        nullable: Some(false),
-                    },
-                },
-                Field {
-                    name: "timestamp_s_values".to_string(),
-                    labels: Default::default(),
-                    config: None,
-                    values: Box::new(
-                        PrimitiveArray::<i64>::from_slice([
-                            1632855151, 1632855152, 1632855153, 1632855154, 1632855155,
-                        ])
-                        .to(DataType::Timestamp(TimeUnit::Second, None)),
-                    ),
-                    type_info: TypeInfo {
-                        frame: TypeInfoType::Time,
-                        nullable: Some(false),
-                    },
-                },
-                Field {
-                    name: "timestamp_ms_values".to_string(),
-                    labels: Default::default(),
-                    config: None,
-                    values: Box::new(
-                        PrimitiveArray::<i64>::from_slice([
-                            1632855151000,
-                            1632855152000,
-                            1632855153000,
-                            1632855154000,
-                            1632855155000,
-                        ])
-                        .to(DataType::Timestamp(TimeUnit::Millisecond, None)),
-                    ),
-                    type_info: TypeInfo {
-                        frame: TypeInfoType::Time,
-                        nullable: Some(false),
-                    },
-                },
-                Field {
-                    name: "timestamp_us_values".to_string(),
-                    labels: Default::default(),
-                    config: None,
-                    values: Box::new(
-                        PrimitiveArray::<i64>::from_slice([
-                            1632855151000000,
-                            1632855152000000,
-                            1632855153000000,
-                            1632855154000000,
-                            1632855155000000,
-                        ])
-                        .to(DataType::Timestamp(TimeUnit::Microsecond, None)),
-                    ),
-                    type_info: TypeInfo {
-                        frame: TypeInfoType::Time,
-                        nullable: Some(false),
-                    },
-                },
-                Field {
-                    name: "timestamp_ns_values".to_string(),
-                    labels: Default::default(),
-                    config: None,
-                    values: Box::new(
-                        PrimitiveArray::<i64>::from_slice([
-                            1632855151000000000,
-                            1632855152000000000,
-                            1632855153000000000,
-                            1632855154000000000,
-                            1632855155000000000,
-                        ])
-                        .to(DataType::Timestamp(
-                            TimeUnit::Nanosecond,
-                            Some("+12:00".to_string()),
-                        )),
-                    ),
-                    type_info: TypeInfo {
-                        frame: TypeInfoType::Time,
-                        nullable: Some(false),
-                    },
-                },
+                vec![-128i8, -128, 0, 127, 127].into_field("int8_values"),
+                vec!["foo", "bar", "baz", "qux", "quux"].into_field("string_values"),
+                vec![10000i32, 20000, 30000, 40000, 50000].into_field("int32_values"),
+                vec![10000u32, 20000, 30000, 40000, 50000].into_field("uint32_values"),
+                vec![1.0f32, 2.0, f32::NAN, f32::INFINITY, f32::NEG_INFINITY]
+                    .into_field("float32_values"),
+                vec![1.0f64, 2.0, f64::NAN, f64::INFINITY, f64::NEG_INFINITY]
+                    .into_field("float64_values"),
+                vec![Utc
+                    .with_ymd_and_hms(2024, 1, 1, 12, 13, 14)
+                    .single()
+                    .unwrap()]
+                .into_field("datetime_values"),
+                vec![NaiveDate::from_ymd_opt(2024, 1, 1).unwrap()].into_field("date_values"),
             ],
         };
         let jdoc = to_string_pretty(&f).unwrap();
