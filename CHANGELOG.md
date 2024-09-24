@@ -22,6 +22,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   This has also added a new field, `api_version`, to the `AppInstanceSettings` and
   `DataSourceInstanceSettings` structs.
 - The `ArrayRefIntoField` trait is now correctly hidden behind the `arrow` feature flag.
+- Switch from `arrow2` to `arrow`.
+  The `arrow2` crate has been deprecated and is no longer maintained. The SDK now uses the
+  `arrow` crate instead, which is maintained by the Arrow project.
+  This is a breaking change because the `Field::values()` method now returns an
+  `Arc<dyn arrow::array::Array>` instead of the `arrow2` equivalent, and the
+  APIs for working with arrow arrays differs between the two crates.
+  Users who are just using the simple `Field::set_values` method or the various
+  `IntoField` / `IntoOptField` traits should not be affected.
 
 ## [0.5.0] - 2024-09-17
 

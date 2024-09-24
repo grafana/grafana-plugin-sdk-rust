@@ -180,7 +180,7 @@ impl Frame {
     /// # Example
     ///
     /// ```rust
-    /// use arrow2::array::{PrimitiveArray, Utf8Array};
+    /// use arrow::{array::{PrimitiveArray, StringArray}, datatypes::UInt32Type};
     /// use grafana_plugin_sdk::prelude::*;
     ///
     /// // Create an initial `Frame`.
@@ -199,18 +199,18 @@ impl Frame {
     ///         .fields()[0]
     ///         .values()
     ///         .as_any()
-    ///         .downcast_ref::<PrimitiveArray<u32>>()
+    ///         .downcast_ref::<PrimitiveArray<UInt32Type>>()
     ///         .unwrap()
     ///         .iter()
-    ///         .collect::<Vec<_>>(),
-    ///     vec![Some(&4), Some(&5), Some(&6)],
+    ///         .collect::<Vec<Option<u32>>>(),
+    ///     vec![Some(4), Some(5), Some(6)],
     /// );
     /// assert_eq!(
     ///     frame
     ///         .fields()[1]
     ///         .values()
     ///         .as_any()
-    ///         .downcast_ref::<Utf8Array<i32>>()
+    ///         .downcast_ref::<StringArray>()
     ///         .unwrap()
     ///         .iter()
     ///         .collect::<Vec<_>>(),
@@ -236,7 +236,6 @@ impl Frame {
     /// # Example
     ///
     /// ```rust
-    /// use arrow2::array::{PrimitiveArray, Utf8Array};
     /// use grafana_plugin_sdk::prelude::*;
     ///
     /// assert!(

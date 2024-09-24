@@ -2,9 +2,10 @@
 use std::{
     collections::{BTreeMap, HashMap},
     iter::FromIterator,
+    sync::Arc,
 };
 
-use arrow2::{
+use arrow::{
     array::Array,
     datatypes::{DataType, Field as ArrowField, TimeUnit},
 };
@@ -40,7 +41,7 @@ pub struct Field {
     /// The types of values contained within the `Array` MUST match the
     /// type information in `type_info` at all times. The various `into_field`-like
     /// functions and the `set_values` methods should ensure this.
-    pub(crate) values: Box<dyn Array>,
+    pub(crate) values: Arc<dyn Array>,
     /// Type information for this field, as understood by Grafana.
     pub(crate) type_info: TypeInfo,
 }
@@ -62,12 +63,12 @@ impl Field {
             .into_iter()
             .collect(),
         };
-        Ok(ArrowField {
-            name: self.name.clone(),
-            data_type: self.type_info.frame.into(),
-            is_nullable: self.type_info.nullable.unwrap_or_default(),
-            metadata,
-        })
+        Ok(ArrowField::new(
+            self.name.clone(),
+            self.type_info.frame.into(),
+            self.type_info.nullable.unwrap_or_default(),
+        )
+        .with_metadata(metadata))
     }
 
     /// Return a new field with the given name.
@@ -131,11 +132,6 @@ impl Field {
 
     /// Get the values of this field as a [`&dyn Array`].
     pub fn values(&self) -> &dyn Array {
-        // This nightly clippy lint creates spurious suggestions for `&dyn Trait` return
-        // types. This can be uncommented when https://github.com/rust-lang/rust-clippy/pull/9126
-        // is released.
-        #[allow(unknown_lints)]
-        #[allow(clippy::explicit_auto_deref)]
         &*self.values
     }
 
@@ -147,7 +143,7 @@ impl Field {
     /// do not match the types of the existing data.
     ///
     /// ```rust
-    /// use arrow2::array::Utf8Array;
+    /// use arrow::array::StringArray;
     /// use grafana_plugin_sdk::prelude::*;
     ///
     /// let mut field = ["a", "b", "c"]
@@ -157,7 +153,7 @@ impl Field {
     ///     field
     ///         .values()
     ///         .as_any()
-    ///         .downcast_ref::<Utf8Array<i32>>()
+    ///         .downcast_ref::<StringArray>()
     ///         .unwrap()
     ///         .iter()
     ///         .collect::<Vec<_>>(),
@@ -171,7 +167,8 @@ impl Field {
         T: IntoIterator<Item = U>,
         U: IntoFieldType<ElementType = V>,
         V: FieldType,
-        V::Array: Array + FromIterator<Option<V>> + 'static,
+        V::InArray: Array + FromIterator<Option<V>> + 'static,
+        V::OutArray: Array + FromIterator<Option<V>> + 'static,
     {
         let new_data_type: DataType = U::TYPE_INFO_TYPE.into();
         if self.values.data_type() != &new_data_type {
@@ -181,12 +178,11 @@ impl Field {
                 field: self.name.clone(),
             });
         }
-        self.values = Box::new(V::convert_arrow_array(
+        self.values = Arc::new(V::convert_arrow_array(
             values
                 .into_iter()
                 .map(U::into_field_type)
-                .collect::<V::Array>(),
-            new_data_type,
+                .collect::<V::InArray>(),
         ));
         self.type_info.nullable = Some(false);
         Ok(())
@@ -200,7 +196,7 @@ impl Field {
     /// do not match the types of the existing data.
     ///
     /// ```rust
-    /// use arrow2::array::Utf8Array;
+    /// use arrow::array::StringArray;
     /// use grafana_plugin_sdk::prelude::*;
     ///
     /// let mut field = ["a", "b", "c"]
@@ -210,7 +206,7 @@ impl Field {
     ///     field
     ///         .values()
     ///         .as_any()
-    ///         .downcast_ref::<Utf8Array<i32>>()
+    ///         .downcast_ref::<StringArray>()
     ///         .unwrap()
     ///         .iter()
     ///         .collect::<Vec<_>>(),
@@ -224,7 +220,8 @@ impl Field {
         T: IntoIterator<Item = Option<U>>,
         U: IntoFieldType<ElementType = V>,
         V: FieldType,
-        V::Array: Array + FromIterator<Option<V>> + 'static,
+        V::InArray: Array + FromIterator<Option<V>> + 'static,
+        V::OutArray: Array + FromIterator<Option<V>> + 'static,
     {
         let new_data_type: DataType = U::TYPE_INFO_TYPE.into();
         if self.values.data_type() != &new_data_type {
@@ -234,12 +231,11 @@ impl Field {
                 field: self.name.clone(),
             });
         }
-        self.values = Box::new(V::convert_arrow_array(
+        self.values = Arc::new(V::convert_arrow_array(
             values
                 .into_iter()
                 .map(|x| x.and_then(U::into_field_type))
-                .collect::<V::Array>(),
-            new_data_type,
+                .collect::<V::InArray>(),
         ));
         self.type_info.nullable = Some(true);
         Ok(())
@@ -253,25 +249,25 @@ impl Field {
     /// do not match the types of the existing data.
     ///
     /// ```rust
-    /// use arrow2::array::{PrimitiveArray, Utf8Array};
+    /// use arrow::array::{PrimitiveArray, StringArray};
     /// use grafana_plugin_sdk::prelude::*;
     ///
     /// let mut field = ["a", "b", "c"]
     ///     .into_field("x");
-    /// let new_values = Utf8Array::<i32>::from(["d", "e", "f"].map(Some));
+    /// let new_values = StringArray::from(["d", "e", "f"].map(Some).to_vec());
     /// assert!(field.set_values_array(new_values).is_ok());
     /// assert_eq!(
     ///     field
     ///         .values()
     ///         .as_any()
-    ///         .downcast_ref::<Utf8Array<i32>>()
+    ///         .downcast_ref::<StringArray>()
     ///         .unwrap()
     ///         .iter()
     ///         .collect::<Vec<_>>(),
     ///     vec![Some("d"), Some("e"), Some("f")],
     /// );
     ///
-    /// let bad_values = PrimitiveArray::<u32>::from([1, 2, 3].map(Some));
+    /// let bad_values = PrimitiveArray::from([1u32, 2, 3].map(Some).to_vec());
     /// assert!(field.set_values_array(bad_values).is_err());
     /// ```
     pub fn set_values_array<T>(&mut self, values: T) -> Result<(), crate::data::error::Error>
@@ -285,7 +281,7 @@ impl Field {
                 field: self.name.clone(),
             });
         }
-        self.values = Box::new(values);
+        self.values = Arc::new(values);
         Ok(())
     }
 }
@@ -296,7 +292,7 @@ impl PartialEq for Field {
             && self.labels == other.labels
             && self.config == other.config
             && self.type_info == other.type_info
-            && arrow2::array::equal(&*self.values, &*other.values)
+            && other.values.eq(&self.values)
     }
 }
 
@@ -316,9 +312,9 @@ pub trait IntoField {
 impl<T, U, V> IntoField for T
 where
     T: IntoIterator<Item = U>,
-    U: IntoFieldType<ElementType = V>,
-    V: FieldType,
-    V::Array: Array + FromIterator<Option<V>> + 'static,
+    U: FieldType + IntoFieldType<ElementType = V>,
+    U::InArray: Array + FromIterator<Option<V>> + 'static,
+    U::OutArray: Array + FromIterator<Option<V>> + 'static,
 {
     fn into_field(self, name: impl Into<String>) -> Field {
         Field {
@@ -329,11 +325,10 @@ where
                 frame: U::TYPE_INFO_TYPE,
                 nullable: Some(false),
             },
-            values: Box::new(V::convert_arrow_array(
+            values: Arc::new(U::convert_arrow_array(
                 self.into_iter()
                     .map(U::into_field_type)
-                    .collect::<V::Array>(),
-                U::TYPE_INFO_TYPE.into(),
+                    .collect::<U::InArray>(),
             )),
         }
     }
@@ -348,9 +343,9 @@ pub trait IntoOptField {
 impl<T, U, V> IntoOptField for T
 where
     T: IntoIterator<Item = Option<U>>,
-    U: IntoFieldType<ElementType = V>,
-    V: FieldType,
-    V::Array: Array + FromIterator<Option<V>> + 'static,
+    U: FieldType + IntoFieldType<ElementType = V>,
+    U::InArray: Array + FromIterator<Option<V>> + 'static,
+    U::OutArray: Array + FromIterator<Option<V>> + 'static,
 {
     fn into_opt_field(self, name: impl Into<String>) -> Field {
         Field {
@@ -361,11 +356,10 @@ where
                 frame: U::TYPE_INFO_TYPE,
                 nullable: Some(true),
             },
-            values: Box::new(V::convert_arrow_array(
+            values: Arc::new(U::convert_arrow_array(
                 self.into_iter()
                     .map(|x| x.and_then(U::into_field_type))
-                    .collect::<V::Array>(),
-                U::TYPE_INFO_TYPE.into(),
+                    .collect::<U::InArray>(),
             )),
         }
     }
@@ -394,13 +388,12 @@ where
                 frame: self.data_type().try_into()?,
                 nullable: Some(true),
             },
-            values: Box::new(self),
+            values: Arc::new(self),
         })
     }
 }
 
-/// Helper trait for creating a [`Field`] from an [`Array`][arrow_array::Array].
-#[cfg(feature = "arrow")]
+/// Helper trait for creating a [`Field`] from an [`Array`].
 pub trait ArrayRefIntoField {
     /// Create a `Field` using `self` as the values.
     ///
@@ -410,8 +403,7 @@ pub trait ArrayRefIntoField {
     fn try_into_field(self, name: impl Into<String>) -> Result<Field, error::Error>;
 }
 
-#[cfg(feature = "arrow")]
-impl ArrayRefIntoField for &dyn ::arrow_array::Array {
+impl ArrayRefIntoField for Arc<dyn arrow::array::Array> {
     fn try_into_field(self, name: impl Into<String>) -> Result<Field, error::Error> {
         Ok(Field {
             name: name.into(),
@@ -421,7 +413,7 @@ impl ArrayRefIntoField for &dyn ::arrow_array::Array {
                 frame: self.data_type().try_into()?,
                 nullable: Some(true),
             },
-            values: self.into(),
+            values: self,
         })
     }
 }
@@ -519,51 +511,6 @@ impl From<TypeInfoType> for DataType {
             TypeInfoType::String => Self::Utf8,
             TypeInfoType::Bool => Self::Boolean,
             TypeInfoType::Time => Self::Timestamp(TimeUnit::Nanosecond, None),
-        }
-    }
-}
-
-#[cfg(feature = "arrow")]
-impl TryFrom<&::arrow_schema::DataType> for TypeInfoType {
-    type Error = error::Error;
-    fn try_from(other: &::arrow_schema::DataType) -> Result<Self, Self::Error> {
-        Ok(match other {
-            ::arrow_schema::DataType::Int8 => Self::Int8,
-            ::arrow_schema::DataType::Int16 => Self::Int16,
-            ::arrow_schema::DataType::Int32 => Self::Int32,
-            ::arrow_schema::DataType::Int64 => Self::Int64,
-            ::arrow_schema::DataType::UInt8 => Self::UInt8,
-            ::arrow_schema::DataType::UInt16 => Self::UInt16,
-            ::arrow_schema::DataType::UInt32 => Self::UInt32,
-            ::arrow_schema::DataType::UInt64 => Self::UInt64,
-            ::arrow_schema::DataType::Float32 => Self::Float32,
-            ::arrow_schema::DataType::Float64 => Self::Float64,
-            ::arrow_schema::DataType::Utf8 => Self::String,
-            ::arrow_schema::DataType::Boolean => Self::Bool,
-            ::arrow_schema::DataType::Timestamp(..) => Self::Time,
-            // TODO - handle time correctly.
-            other => return Err(error::Error::UnsupportedArrowDataType(other.clone().into())),
-        })
-    }
-}
-
-#[cfg(feature = "arrow")]
-impl From<TypeInfoType> for ::arrow_schema::DataType {
-    fn from(other: TypeInfoType) -> Self {
-        match other {
-            TypeInfoType::Int8 => Self::Int8,
-            TypeInfoType::Int16 => Self::Int16,
-            TypeInfoType::Int32 => Self::Int32,
-            TypeInfoType::Int64 => Self::Int64,
-            TypeInfoType::UInt8 => Self::UInt8,
-            TypeInfoType::UInt16 => Self::UInt16,
-            TypeInfoType::UInt32 => Self::UInt32,
-            TypeInfoType::UInt64 => Self::UInt64,
-            TypeInfoType::Float32 => Self::Float32,
-            TypeInfoType::Float64 => Self::Float64,
-            TypeInfoType::String => Self::Utf8,
-            TypeInfoType::Bool => Self::Boolean,
-            TypeInfoType::Time => Self::Timestamp(::arrow_schema::TimeUnit::Nanosecond, None),
         }
     }
 }
@@ -860,8 +807,8 @@ mod tests {
 
                 #[test]
                 #[allow(non_snake_case)]
-                fn [< create_field_from_array_ $t >]() {
-                    let array = <$t as FieldType>::Array::from_slice([<$t>::default()]);
+                fn [< create_field_from_vec_ $t >]() {
+                    let array = <$t as FieldType>::InArray::from(vec![<$t>::default()]);
                     let field = array.try_into_field("x".to_string()).unwrap();
                     assert_eq!(field.name, "x");
                     assert_eq!(field.values.len(), 1)
