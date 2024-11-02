@@ -1,0 +1,1 @@
+searchState.loadedDescShard("grafana_plugin_sdk_macros", 0, "Generates a <code>main</code> function that starts a <code>Plugin</code> with the …")
