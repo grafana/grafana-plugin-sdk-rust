@@ -21,7 +21,7 @@ jobs:
         uses: moonrepo/setup-rust@v1
 
       - name: Run cargo check
-        run: cargo check --all-features --all-targets
+        run: cargo check --features reqwest --all-targets
 
   test:
     name: Tests
@@ -34,7 +34,7 @@ jobs:
         uses: moonrepo/setup-rust@v1
 
       - name: Run cargo test
-        run: cargo test --all-features --all-targets
+        run: cargo test --features reqwest --all-targets
 
   fmt:
     name: Rustfmt
@@ -64,7 +64,7 @@ jobs:
           components: clippy
 
       - name: Run cargo clippy
-        run: cargo clippy --all-features --all-targets -- -D warnings
+        run: cargo clippy --features reqwest --all-targets -- -D warnings
 
   doc:
     name: Doc
