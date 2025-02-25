@@ -30,6 +30,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   APIs for working with arrow arrays differs between the two crates.
   Users who are just using the simple `Field::set_values` method or the various
   `IntoField` / `IntoOptField` traits should not be affected.
+- Bump itertools dependency to 0.14.0
+- Bump thiserror dependency to 2.0.11
+- Bump tracing-serde dependency to 0.2.0
 
 ## [0.5.0] - 2024-09-17
 
