@@ -25,7 +25,7 @@ jobs:
         components: rustfmt, rust-src
 
     - name: Build Documentation
-      run: cargo doc --no-deps --features reqwest
+      run: cargo +nightly doc --no-deps --features reqwest
 
     - name: Deploy Docs
       uses: peaceiris/actions-gh-pages@v4.0.0
