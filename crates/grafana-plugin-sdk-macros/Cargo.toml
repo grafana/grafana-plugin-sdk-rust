@@ -20,7 +20,7 @@ syn = { version = "2.0.18", features = ["full"] }
 grafana-plugin-sdk = { path = "../grafana-plugin-sdk" }
 http = "1.0.0"
 serde = { version = "1.0.164", features = ["derive"] }
-thiserror = "1.0.40"
+thiserror = "2.0.11"
 tokio = { version = "1.28.2", features = ["rt-multi-thread"] }
 trybuild = "1.0.80"
 
