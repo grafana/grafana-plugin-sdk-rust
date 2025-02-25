@@ -21,7 +21,7 @@ jobs:
     - name: Install Rust toolchain
       uses: moonrepo/setup-rust@v1
       with:
-        toolchain: nightly
+        channel: nightly
         components: rustfmt, rust-src
 
     - name: Build Documentation
