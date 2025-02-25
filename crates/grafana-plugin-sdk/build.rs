@@ -10,7 +10,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         ]);
         Ok(tonic_build::configure()
             .out_dir("src/pluginv2")
-            .compile_with_config(
+            .compile_protos_with_config(
                 config,
                 &["./vendor/proto/backend.proto"],
                 &["./vendor/proto"],
