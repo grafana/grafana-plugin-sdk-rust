@@ -8,11 +8,11 @@ updates:
       - sd2k
     assignees:
       - sd2k
-  - package-ecosystem: cargo
-    directory: "/grafana-plugin-sdk-macros"
-    schedule:
-      interval: daily
-    reviewers:
-      - sd2k
-    assignees:
-      - sd2k
+    groups:
+      rust-dependencies:
+        patterns:
+          - "*"
+        update-types:
+          - "major"
+          - "minor"
+          - "patch"
