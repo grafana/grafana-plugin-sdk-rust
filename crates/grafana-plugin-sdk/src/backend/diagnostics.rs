@@ -4,12 +4,10 @@ use std::{collections::HashMap, fmt};
 
 use serde::de::DeserializeOwned;
 use serde_json::Value;
-use tracing::instrument;
 
-use crate::{
-    backend::{ConvertFromError, InstanceSettings, PluginContext},
-    pluginv2,
-};
+use crate::backend::{InstanceSettings, PluginContext};
+#[cfg(feature = "grpc")]
+use crate::{backend::ConvertFromError, pluginv2};
 
 use super::{GrafanaPlugin, PluginType};
 
@@ -25,6 +23,7 @@ pub enum HealthStatus {
     Error,
 }
 
+#[cfg(feature = "grpc")]
 impl From<HealthStatus> for pluginv2::check_health_response::HealthStatus {
     fn from(other: HealthStatus) -> Self {
         match other {
@@ -50,6 +49,7 @@ where
     pub headers: HashMap<String, String>,
 }
 
+#[cfg(feature = "grpc")]
 impl<IS, JsonData, SecureJsonData> TryFrom<pluginv2::CheckHealthRequest>
     for InnerCheckHealthRequest<IS, JsonData, SecureJsonData>
 where
@@ -58,7 +58,7 @@ where
     IS: InstanceSettings<JsonData, SecureJsonData>,
 {
     type Error = ConvertFromError;
-    #[instrument(err)]
+    #[tracing::instrument(err)]
     fn try_from(other: pluginv2::CheckHealthRequest) -> Result<Self, Self::Error> {
         Ok(Self {
             plugin_context: other
@@ -162,6 +162,7 @@ impl Default for CheckHealthResponse {
     }
 }
 
+#[cfg(feature = "grpc")]
 impl From<CheckHealthResponse> for pluginv2::CheckHealthResponse {
     fn from(other: CheckHealthResponse) -> Self {
         let mut response = pluginv2::CheckHealthResponse {
@@ -188,6 +189,7 @@ where
     pub plugin_context: PluginContext<IS, JsonData, SecureJsonData>,
 }
 
+#[cfg(feature = "grpc")]
 impl<IS, JsonData, SecureJsonData> TryFrom<pluginv2::CollectMetricsRequest>
     for InnerCollectMetricsRequest<IS, JsonData, SecureJsonData>
 where
@@ -237,6 +239,7 @@ impl Payload {
     }
 }
 
+#[cfg(feature = "grpc")]
 impl From<Payload> for pluginv2::collect_metrics_response::Payload {
     fn from(other: Payload) -> Self {
         Self {
@@ -260,6 +263,7 @@ impl CollectMetricsResponse {
     }
 }
 
+#[cfg(feature = "grpc")]
 impl From<CollectMetricsResponse> for pluginv2::CollectMetricsResponse {
     fn from(other: CollectMetricsResponse) -> Self {
         Self {
@@ -316,7 +320,7 @@ impl From<CollectMetricsResponse> for pluginv2::CollectMetricsResponse {
 ///     }
 /// }
 /// ```
-#[tonic::async_trait]
+#[async_trait::async_trait]
 pub trait DiagnosticsService: GrafanaPlugin {
     /// The type of error that can occur when performing a health check request.
     type CheckHealthError: std::error::Error;
@@ -347,7 +351,8 @@ pub trait DiagnosticsService: GrafanaPlugin {
     ) -> Result<CollectMetricsResponse, Self::CollectMetricsError>;
 }
 
-#[tonic::async_trait]
+#[cfg(feature = "grpc")]
+#[async_trait::async_trait]
 impl<T> pluginv2::diagnostics_server::Diagnostics for T
 where
     T: DiagnosticsService + Send + Sync + 'static,

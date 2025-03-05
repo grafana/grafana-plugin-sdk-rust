@@ -1,0 +1,19 @@
+package grafana:plugins@0.1.0;
+
+use wasi:io/streams@0.2.0;
+
+interface query-data {
+    use types.{query-data-request, query-data-response};
+
+    type error = string;
+
+    query-data: func(request: query-data-request) -> result<query-data-response, error>;
+}
+
+world backend {
+    include wasi:cli/imports@0.2.0;
+    import wasi:http/outgoing-handler@0.2.0;
+    import wasi:http/types@0.2.0;
+
+    export query-data;
+}

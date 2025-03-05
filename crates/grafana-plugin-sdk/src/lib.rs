@@ -47,6 +47,7 @@ pub use serde_json;
 #[cfg(feature = "reqwest")]
 extern crate reqwest_lib as reqwest;
 
+#[cfg(feature = "grpc")]
 #[allow(
     missing_docs,
     clippy::all,
@@ -58,6 +59,16 @@ pub mod pluginv2 {
     //! The low-level structs generated from protocol definitions.
     include!("pluginv2/pluginv2.rs");
 }
+
+// #[cfg(feature = "wit")]
+#[allow(
+    missing_docs,
+    clippy::all,
+    clippy::nursery,
+    clippy::pedantic,
+    rustdoc::all
+)]
+pub mod pluginv3;
 
 pub mod backend;
 pub mod data;
@@ -74,6 +85,7 @@ pub mod prelude {
 pub use grafana_plugin_sdk_macros::*;
 
 /// WARNING: Do not use this method outside of the SDK.
+#[cfg(feature = "grpc")]
 #[doc(hidden)]
 pub fn async_main<R>(fut: impl std::future::Future<Output = R> + Send) -> R {
     tokio::runtime::Builder::new_multi_thread()

@@ -1,15 +1,16 @@
 //! SDK types and traits relevant to plugins that stream data.
 use std::{fmt, pin::Pin};
 
-use futures_util::{Stream, StreamExt, TryStreamExt};
-use prost::bytes::Bytes;
+use bytes::Bytes;
+use futures_util::{Stream, TryStreamExt};
 use serde::{de::DeserializeOwned, Serialize};
 
+#[cfg(feature = "grpc")]
+use crate::pluginv2;
 use crate::{
-    backend::{ConvertFromError, ConvertToError, InstanceSettings, PluginContext},
+    backend::{ConvertToError, InstanceSettings, PluginContext},
     data,
     live::Path,
-    pluginv2,
 };
 
 use super::{GrafanaPlugin, PluginType};
@@ -41,6 +42,7 @@ where
     pub data: Bytes,
 }
 
+#[cfg(feature = "grpc")]
 impl<IS, JsonData, SecureJsonData> TryFrom<pluginv2::SubscribeStreamRequest>
     for InnerSubscribeStreamRequest<IS, JsonData, SecureJsonData>
 where
@@ -92,6 +94,7 @@ pub enum SubscribeStreamStatus {
     PermissionDenied,
 }
 
+#[cfg(feature = "grpc")]
 impl From<SubscribeStreamStatus> for pluginv2::subscribe_stream_response::Status {
     fn from(other: SubscribeStreamStatus) -> Self {
         match other {
@@ -188,6 +191,7 @@ impl SubscribeStreamResponse {
     }
 }
 
+#[cfg(feature = "grpc")]
 impl From<SubscribeStreamResponse> for pluginv2::SubscribeStreamResponse {
     fn from(other: SubscribeStreamResponse) -> Self {
         let mut response = pluginv2::SubscribeStreamResponse {
@@ -225,6 +229,7 @@ where
     pub data: Bytes,
 }
 
+#[cfg(feature = "grpc")]
 impl<IS, JsonData, SecureJsonData> TryFrom<pluginv2::RunStreamRequest>
     for InnerRunStreamRequest<IS, JsonData, SecureJsonData>
 where
@@ -309,6 +314,7 @@ impl<J> StreamPacket<J> {
         }
     }
 
+    #[cfg(feature = "grpc")]
     fn into_plugin_packet(self) -> pluginv2::StreamPacket {
         pluginv2::StreamPacket { data: self.data }
     }
@@ -337,6 +343,7 @@ where
     pub data: serde_json::Value,
 }
 
+#[cfg(feature = "grpc")]
 impl<IS, JsonData, SecureJsonData> TryFrom<pluginv2::PublishStreamRequest>
     for InnerPublishStreamRequest<IS, JsonData, SecureJsonData>
 where
@@ -384,6 +391,7 @@ pub enum PublishStreamStatus {
     PermissionDenied,
 }
 
+#[cfg(feature = "grpc")]
 impl From<PublishStreamStatus> for pluginv2::publish_stream_response::Status {
     fn from(other: PublishStreamStatus) -> Self {
         match other {
@@ -444,6 +452,7 @@ impl PublishStreamResponse {
     }
 }
 
+#[cfg(feature = "grpc")]
 impl TryFrom<PublishStreamResponse> for pluginv2::PublishStreamResponse {
     type Error = serde_json::Error;
     fn try_from(other: PublishStreamResponse) -> Result<Self, Self::Error> {
@@ -552,7 +561,7 @@ impl TryFrom<PublishStreamResponse> for pluginv2::PublishStreamResponse {
 ///     }
 /// }
 /// ```
-#[tonic::async_trait]
+#[async_trait::async_trait]
 pub trait StreamService: GrafanaPlugin {
     /// Handle requests to begin a subscription to a plugin or datasource managed channel path.
     ///
@@ -613,7 +622,8 @@ pub trait StreamService: GrafanaPlugin {
     ) -> Result<PublishStreamResponse, Self::Error>;
 }
 
-#[tonic::async_trait]
+#[cfg(feature = "grpc")]
+#[async_trait::async_trait]
 impl<T> pluginv2::stream_server::Stream for T
 where
     T: Send + Sync + StreamService + 'static,

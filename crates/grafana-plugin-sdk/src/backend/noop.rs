@@ -32,7 +32,7 @@ impl GrafanaPlugin for NoopService {
     type SecureJsonData = HashMap<String, String>;
 }
 
-#[tonic::async_trait]
+#[async_trait::async_trait]
 impl DataService for NoopService {
     type Query = ();
     type QueryError = Infallible;
@@ -42,7 +42,7 @@ impl DataService for NoopService {
     }
 }
 
-#[tonic::async_trait]
+#[async_trait::async_trait]
 impl DiagnosticsService for NoopService {
     type CheckHealthError = Infallible;
     async fn check_health(
@@ -60,7 +60,7 @@ impl DiagnosticsService for NoopService {
     }
 }
 
-#[tonic::async_trait]
+#[async_trait::async_trait]
 impl ResourceService for NoopService {
     type Error = Infallible;
     type InitialResponse = Vec<u8>;
@@ -80,7 +80,7 @@ impl ResourceService for NoopService {
     }
 }
 
-#[tonic::async_trait]
+#[async_trait::async_trait]
 impl StreamService for NoopService {
     async fn subscribe_stream(
         &self,

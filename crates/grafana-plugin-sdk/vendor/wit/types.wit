@@ -1,0 +1,18 @@
+interface types {
+
+  record plugin-context {
+    org-id: s64,
+  }
+
+  record query-data-request {
+    plugin-context: plugin-context,
+  }
+
+  record data-response {
+    frames: list<list<u8>>,
+  }
+
+  record query-data-response {
+    responses: list<tuple<string, data-response>>,
+  }
+}

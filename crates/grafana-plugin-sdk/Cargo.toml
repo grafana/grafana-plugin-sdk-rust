@@ -8,8 +8,13 @@ rust-version = "1.77"
 repository = "https://github.com/grafana/grafana-plugin-sdk-rust"
 description = "SDK for building Grafana backend plugins."
 
+[lib]
+crate-type = ["rlib", "cdylib"]
+
 [dependencies]
 arrow = { version = "54.2.0", default-features = false, features = ["ipc"] }
+async-trait = "0.1.87"
+bytes = "1.4.0"
 cfg-if = "1.0.0"
 chrono = "0.4.26"
 futures-core = "0.3.28"
@@ -18,17 +23,17 @@ grafana-plugin-sdk-macros = { version = "0.5.0", path = "../grafana-plugin-sdk-m
 http = "1.0.0"
 itertools = "0.14.0"
 num-traits = "0.2.15"
-prost = "0.13.2"
+prost = { version = "0.13.2", optional = true }
 reqwest_lib = { package = "reqwest", version = "0.12.7", optional = true }
 serde = { version = "1.0.164", features = ["derive"] }
 serde_json = { version = "1.0.96", features = ["float_roundtrip", "raw_value"] }
 serde_with = "3.0.0"
 thiserror = "2.0.11"
 time = { version = "0.3.22", features = ["formatting", "macros"] }
-tokio = { version = "1.28.2", features = ["rt-multi-thread"] }
-tokio-stream = { version = "0.1.14", features = ["net"] }
-tonic = "0.12.2"
-tonic-health = "0.12.2"
+tokio = { version = "1.28.2", features = ["rt-multi-thread"], optional = true }
+tokio-stream = { version = "0.1.14", features = ["net"], optional = true }
+tonic = { version = "0.12.2", optional = true }
+tonic-health = { version = "0.12.2", optional = true }
 tracing = "0.1.37"
 tracing-core = "0.1.31"
 tracing-log = "0.2.0"
@@ -38,6 +43,7 @@ tracing-subscriber = { version = "0.3.17", features = [
   "json",
   "time",
 ] }
+wit-bindgen = { version = "0.39.0" }
 
 [dev-dependencies]
 async-stream = "0.3.5"
@@ -67,3 +73,5 @@ reqwest = ["reqwest_lib"]
 # control. To regenerate code in the case of updated .proto definitions, build
 # with this feature enabled.
 gen-proto = ["dep:tonic-build", "dep:prost-build"]
+grpc = ["dep:tonic", "dep:tokio", "dep:tokio-stream", "dep:prost"]
+# wit = ["dep:wit-bindgen"]

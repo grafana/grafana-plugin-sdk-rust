@@ -5,12 +5,13 @@ use futures_core::Stream;
 use futures_util::StreamExt;
 use serde::de::DeserializeOwned;
 
+#[cfg(feature = "grpc")]
+use crate::{backend::ConvertFromError, pluginv2};
 use crate::{
     backend::{
-        self, error_source::ErrorSource, ConvertFromError, GrafanaPlugin, InstanceSettings,
-        PluginType, TimeRange,
+        self, error_source::ErrorSource, GrafanaPlugin, InstanceSettings, PluginType, TimeRange,
     },
-    data, pluginv2,
+    data,
 };
 
 /// A request for data made by Grafana.
@@ -42,6 +43,7 @@ where
     pub queries: Vec<DataQuery<Q>>,
 }
 
+#[cfg(feature = "grpc")]
 impl<Q, IS, JsonData, SecureJsonData> TryFrom<pluginv2::QueryDataRequest>
     for InnerQueryDataRequest<Q, IS, JsonData, SecureJsonData>
 where
@@ -124,6 +126,7 @@ where
     pub query: Q,
 }
 
+#[cfg(feature = "grpc")]
 impl<Q> TryFrom<pluginv2::DataQuery> for DataQuery<Q>
 where
     Q: DeserializeOwned,
@@ -390,7 +393,7 @@ impl DataQueryStatus {
 ///     }
 /// }
 /// ```
-#[tonic::async_trait]
+#[async_trait::async_trait]
 pub trait DataService: GrafanaPlugin {
     /// The type of the JSON query sent from Grafana to the plugin.
     type Query: DeserializeOwned + Send + Sync;
@@ -432,6 +435,7 @@ pub(crate) fn to_arrow<'a>(
         .collect()
 }
 
+#[cfg(feature = "grpc")]
 #[tonic::async_trait]
 impl<T> pluginv2::data_server::Data for T
 where

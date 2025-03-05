@@ -1,19 +1,14 @@
 //! Resource services, which allow backend plugins to handle custom HTTP requests and responses.
 use std::{fmt, marker::PhantomData, pin::Pin};
 
+use bytes::Bytes;
 use futures_util::StreamExt;
-use http::{
-    header::{HeaderName, HeaderValue},
-    Request, Response, StatusCode,
-};
-use itertools::Itertools;
-use prost::bytes::Bytes;
+use http::{Request, Response, StatusCode};
 use serde::de::DeserializeOwned;
 
-use crate::{
-    backend::{ConvertFromError, ConvertToError, PluginContext},
-    pluginv2,
-};
+use crate::backend::PluginContext;
+#[cfg(feature = "grpc")]
+use crate::pluginv2;
 
 use super::{GrafanaPlugin, InstanceSettings, PluginType};
 
@@ -35,6 +30,7 @@ where
     _secure_json_data: PhantomData<SecureJsonData>,
 }
 
+#[cfg(feature = "grpc")]
 impl<IS, JsonData, SecureJsonData> TryFrom<pluginv2::CallResourceRequest>
     for InnerCallResourceRequest<IS, JsonData, SecureJsonData>
 where
@@ -81,6 +77,7 @@ where
     }
 }
 
+#[cfg(feature = "grpc")]
 impl TryFrom<Response<Bytes>> for pluginv2::CallResourceResponse {
     type Error = ConvertToError;
     fn try_from(mut other: Response<Bytes>) -> Result<Self, Self::Error> {
@@ -129,6 +126,7 @@ pub type CallResourceRequest<T> = InnerCallResourceRequest<
     <T as GrafanaPlugin>::SecureJsonData,
 >;
 
+#[cfg(feature = "grpc")]
 fn body_to_response(body: Bytes) -> pluginv2::CallResourceResponse {
     pluginv2::CallResourceResponse {
         code: 200,
@@ -238,7 +236,7 @@ pub type BoxResourceStream<E> = Pin<Box<dyn futures_core::Stream<Item = Result<B
 ///     }
 /// }
 /// ```
-#[tonic::async_trait]
+#[async_trait::async_trait]
 pub trait ResourceService: GrafanaPlugin {
     /// The error type that can be returned by individual responses.
     type Error: std::error::Error + ErrIntoHttpResponse + Send;
@@ -266,7 +264,8 @@ pub trait ResourceService: GrafanaPlugin {
     ) -> Result<(Self::InitialResponse, Self::Stream), Self::Error>;
 }
 
-#[tonic::async_trait]
+#[cfg(feature = "grpc")]
+#[async_trait::async_trait]
 impl<T> pluginv2::resource_server::Resource for T
 where
     T: ResourceService + Send + Sync + 'static,
@@ -323,20 +322,20 @@ where
 ///
 /// This is a separate trait (rather than using `TryFrom`/`TryInto`) because it may
 /// need to be async.
-#[tonic::async_trait]
+#[async_trait::async_trait]
 pub trait IntoHttpResponse {
     /// Performs the conversion.
     async fn into_http_response(self) -> Result<http::Response<Bytes>, Box<dyn std::error::Error>>;
 }
 
-#[tonic::async_trait]
+#[async_trait::async_trait]
 impl IntoHttpResponse for http::Response<Bytes> {
     async fn into_http_response(self) -> Result<http::Response<Bytes>, Box<dyn std::error::Error>> {
         Ok(self)
     }
 }
 
-#[tonic::async_trait]
+#[async_trait::async_trait]
 impl IntoHttpResponse for http::Response<Vec<u8>> {
     async fn into_http_response(self) -> Result<http::Response<Bytes>, Box<dyn std::error::Error>> {
         Ok(self.map(Bytes::from))
@@ -344,21 +343,21 @@ impl IntoHttpResponse for http::Response<Vec<u8>> {
 }
 
 #[cfg(feature = "reqwest")]
-#[tonic::async_trait]
+#[async_trait::async_trait]
 impl IntoHttpResponse for reqwest::Response {
     async fn into_http_response(self) -> Result<http::Response<Bytes>, Box<dyn std::error::Error>> {
         Ok(self.bytes().await.map(http::Response::new)?)
     }
 }
 
-#[tonic::async_trait]
+#[async_trait::async_trait]
 impl IntoHttpResponse for Vec<u8> {
     async fn into_http_response(self) -> Result<http::Response<Bytes>, Box<dyn std::error::Error>> {
         Ok(http::Response::new(self.into()))
     }
 }
 
-#[tonic::async_trait]
+#[async_trait::async_trait]
 impl IntoHttpResponse for serde_json::Value {
     async fn into_http_response(self) -> Result<http::Response<Bytes>, Box<dyn std::error::Error>> {
         Ok(serde_json::to_vec(&self).map(|v| http::Response::new(v.into()))?)

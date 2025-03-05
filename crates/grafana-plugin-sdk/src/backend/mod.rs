@@ -135,24 +135,24 @@ use serde::{de::DeserializeOwned, Serialize};
 use serde_json::Value;
 use serde_with::{serde_as, DisplayFromStr};
 use thiserror::Error;
+#[cfg(feature = "grpc")]
 use tokio::net::TcpListener;
+#[cfg(feature = "grpc")]
 use tokio_stream::wrappers::TcpListenerStream;
 use tracing_subscriber::{
     fmt::{format::JsonFields, time::UtcTime},
-    prelude::*,
     registry::LookupSpan,
-    EnvFilter,
 };
 
-use crate::{
-    live,
-    pluginv2::{
-        self, data_server::DataServer, diagnostics_server::DiagnosticsServer,
-        resource_server::ResourceServer, stream_server::StreamServer,
-    },
+use crate::live;
+#[cfg(feature = "grpc")]
+use crate::pluginv2::{
+    self, data_server::DataServer, diagnostics_server::DiagnosticsServer,
+    resource_server::ResourceServer, stream_server::StreamServer,
 };
 
 /// Re-export of `async_trait` proc macro, so plugin implementations don't have to import tonic manually.
+#[cfg(feature = "grpc")]
 pub use tonic::async_trait;
 
 mod data;
@@ -197,6 +197,7 @@ impl ShutdownHandler {
         Self { address }
     }
 
+    #[cfg(feature = "grpc")]
     fn spawn(self) -> impl std::future::Future<Output = ()> {
         tokio::spawn(async move {
             let listener = TcpListener::bind(&self.address).await.map_err(|e| {
@@ -483,6 +484,7 @@ where
     R: ResourceService + Send + Sync + 'static,
     S: StreamService + Send + Sync + 'static,
 {
+    #[cfg(feature = "grpc")]
     /// Start the plugin.
     ///
     /// This adds all of the configured services, spawns a shutdown handler
@@ -496,8 +498,8 @@ where
     /// Grafana-compatible `tokio_subscriber::fmt::Layer` to your subscriber.
     pub async fn start(self, listener: TcpListener) -> Result<(), Error> {
         if self.init_subscriber {
-            let filter =
-                EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
+            let filter = tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info"));
             tracing_subscriber::registry()
                 .with(layer())
                 .with(filter)
@@ -558,6 +560,7 @@ where
 ///
 /// [go-plugin]: https://github.com/hashicorp/go-plugin
 /// [guide]: https://github.com/hashicorp/go-plugin/blob/master/docs/guide-plugin-write-non-go.md
+#[cfg(feature = "grpc")]
 pub async fn initialize() -> Result<TcpListener, io::Error> {
     let listener = TcpListener::bind("127.0.0.1:0").await?;
     println!("1|2|tcp|{}|grpc", listener.local_addr()?);
@@ -605,6 +608,7 @@ pub enum Error {
     #[error("error converting to Grafana: {0}")]
     ConvertTo(#[from] ConvertToError),
     /// An error occurred while starting the plugin.
+    #[cfg(feature = "grpc")]
     #[error("error serving plugin: {0}")]
     Serve(#[from] tonic::transport::Error),
 }
@@ -689,12 +693,13 @@ pub enum ConvertFromError {
     },
 }
 
+#[cfg(feature = "grpc")]
 impl From<ConvertFromError> for tonic::Status {
     fn from(other: ConvertFromError) -> Self {
         Self::invalid_argument(other.to_string())
     }
 }
-
+#[cfg(feature = "grpc")]
 impl ConvertFromError {
     fn into_tonic_status(self) -> tonic::Status {
         self.into()
@@ -769,6 +774,7 @@ pub struct TimeRange {
     pub to: DateTime<Utc>,
 }
 
+#[cfg(feature = "grpc")]
 impl From<pluginv2::TimeRange> for TimeRange {
     fn from(other: pluginv2::TimeRange) -> Self {
         Self {
@@ -822,6 +828,7 @@ pub struct User {
     pub role: Role,
 }
 
+#[cfg(feature = "grpc")]
 impl TryFrom<pluginv2::User> for User {
     type Error = ConvertFromError;
     fn try_from(other: pluginv2::User) -> Result<Self, Self::Error> {
@@ -854,6 +861,7 @@ where
     JsonData: DeserializeOwned,
     SecureJsonData: DeserializeOwned,
 {
+    #[cfg(feature = "grpc")]
     #[doc(hidden)]
     fn from_proto(
         app_instance_settings: Option<pluginv2::AppInstanceSettings>,
@@ -909,6 +917,7 @@ where
     JsonData: DeserializeOwned,
     SecureJsonData: DeserializeOwned,
 {
+    #[cfg(feature = "grpc")]
     fn from_proto(
         app_instance_settings: Option<pluginv2::AppInstanceSettings>,
         _datasource_instance_settings: Option<pluginv2::DataSourceInstanceSettings>,
@@ -1033,6 +1042,7 @@ where
     JsonData: DeserializeOwned,
     SecureJsonData: DeserializeOwned,
 {
+    #[cfg(feature = "grpc")]
     fn from_proto(
         _app_instance_settings: Option<pluginv2::AppInstanceSettings>,
         datasource_instance_settings: Option<pluginv2::DataSourceInstanceSettings>,
@@ -1116,6 +1126,7 @@ where
     pub grafana_config: GrafanaConfig,
 }
 
+#[cfg(feature = "grpc")]
 impl<IS, JsonData, SecureJsonData> TryFrom<pluginv2::PluginContext>
     for PluginContext<IS, JsonData, SecureJsonData>
 where

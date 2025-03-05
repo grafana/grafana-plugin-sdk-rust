@@ -42,7 +42,6 @@ impl MyPluginService {
 }
 
 // Data service implementation.
-
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct Query {
@@ -71,7 +70,7 @@ impl backend::DataQueryError for QueryError {
     }
 }
 
-#[tonic::async_trait]
+#[async_trait::async_trait]
 impl backend::DataService for MyPluginService {
     type Query = Query;
     type QueryError = QueryError;
@@ -133,7 +132,6 @@ impl backend::DataService for MyPluginService {
 }
 
 // Stream service implementation.
-
 #[derive(Debug, Error)]
 #[error("Error streaming data")]
 enum StreamError {
@@ -143,7 +141,7 @@ enum StreamError {
     InvalidFrame(#[from] data::Error),
 }
 
-#[tonic::async_trait]
+#[async_trait::async_trait]
 impl backend::StreamService for MyPluginService {
     type JsonValue = ();
     async fn subscribe_stream(
@@ -193,7 +191,6 @@ impl backend::StreamService for MyPluginService {
 }
 
 // Resource service implementation.
-
 #[derive(Debug, Error)]
 enum ResourceError {
     #[error("HTTP error: {0}")]
@@ -218,7 +215,7 @@ impl backend::ErrIntoHttpResponse for ResourceError {
     }
 }
 
-#[tonic::async_trait]
+#[async_trait::async_trait]
 impl backend::ResourceService for MyPluginService {
     type Error = ResourceError;
     type InitialResponse = http::Response<Bytes>;
@@ -261,11 +258,13 @@ impl backend::ResourceService for MyPluginService {
     }
 }
 
-#[grafana_plugin_sdk::main(
-    services(data, resource, stream),
-    init_subscriber = true,
-    shutdown_handler = "0.0.0.0:10001"
-)]
-async fn plugin() -> MyPluginService {
-    MyPluginService::new()
-}
+fn main() {}
+
+// #[grafana_plugin_sdk::main(
+//     services(data, resource, stream),
+//     init_subscriber = true,
+//     shutdown_handler = "0.0.0.0:10001"
+// )]
+// async fn plugin() -> MyPluginService {
+//     MyPluginService::new()
+// }
