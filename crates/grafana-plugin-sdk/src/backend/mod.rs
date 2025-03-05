@@ -139,6 +139,8 @@ use thiserror::Error;
 use tokio::net::TcpListener;
 #[cfg(feature = "grpc")]
 use tokio_stream::wrappers::TcpListenerStream;
+#[cfg(feature = "grpc")]
+use tracing_subscriber::prelude::*;
 use tracing_subscriber::{
     fmt::{format::JsonFields, time::UtcTime},
     registry::LookupSpan,
@@ -164,6 +166,8 @@ mod resource;
 mod stream;
 mod tracing_fmt;
 
+#[doc(hidden)]
+pub use data::InnerQueryDataRequest;
 pub use data::{
     BoxDataResponseStream, DataQuery, DataQueryError, DataQueryStatus, DataResponse, DataService,
     QueryDataRequest,

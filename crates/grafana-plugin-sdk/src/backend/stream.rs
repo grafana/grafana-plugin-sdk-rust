@@ -2,11 +2,13 @@
 use std::{fmt, pin::Pin};
 
 use bytes::Bytes;
+#[cfg(feature = "grpc")]
+use futures_util::StreamExt;
 use futures_util::{Stream, TryStreamExt};
 use serde::{de::DeserializeOwned, Serialize};
 
 #[cfg(feature = "grpc")]
-use crate::pluginv2;
+use crate::{backend::ConvertFromError, pluginv2};
 use crate::{
     backend::{ConvertToError, InstanceSettings, PluginContext},
     data,

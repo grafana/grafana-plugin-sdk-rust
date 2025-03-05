@@ -73,5 +73,5 @@ reqwest = ["reqwest_lib"]
 # control. To regenerate code in the case of updated .proto definitions, build
 # with this feature enabled.
 gen-proto = ["dep:tonic-build", "dep:prost-build"]
-grpc = ["dep:tonic", "dep:tokio", "dep:tokio-stream", "dep:prost"]
+grpc = ["dep:tonic", "dep:tonic-health", "dep:tokio", "dep:tokio-stream", "dep:prost"]
 # wit = ["dep:wit-bindgen"]

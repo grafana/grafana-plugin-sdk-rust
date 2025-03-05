@@ -6,9 +6,17 @@ use futures_util::StreamExt;
 use http::{Request, Response, StatusCode};
 use serde::de::DeserializeOwned;
 
+#[cfg(feature = "grpc")]
+use http::{HeaderName, HeaderValue};
+#[cfg(feature = "grpc")]
+use itertools::Itertools;
+
 use crate::backend::PluginContext;
 #[cfg(feature = "grpc")]
-use crate::pluginv2;
+use crate::{
+    backend::{ConvertFromError, ConvertToError},
+    pluginv2,
+};
 
 use super::{GrafanaPlugin, InstanceSettings, PluginType};
 
