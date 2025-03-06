@@ -5,4 +5,4 @@ wit_bindgen::generate!({
     generate_all,
 });
 
-pub use exports::*;
+pub use exports::grafana::plugins::*;

@@ -2,6 +2,7 @@
 use std::{fmt, marker::PhantomData, pin::Pin};
 
 use bytes::Bytes;
+#[cfg(feature = "grpc")]
 use futures_util::StreamExt;
 use http::{Request, Response, StatusCode};
 use serde::de::DeserializeOwned;

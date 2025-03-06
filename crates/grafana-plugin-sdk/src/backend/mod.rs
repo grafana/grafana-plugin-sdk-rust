@@ -130,28 +130,29 @@ use std::{
 };
 
 use chrono::prelude::*;
-use futures_util::FutureExt;
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::Value;
 use serde_with::{serde_as, DisplayFromStr};
 use thiserror::Error;
-#[cfg(feature = "grpc")]
-use tokio::net::TcpListener;
-#[cfg(feature = "grpc")]
-use tokio_stream::wrappers::TcpListenerStream;
-#[cfg(feature = "grpc")]
-use tracing_subscriber::prelude::*;
 use tracing_subscriber::{
     fmt::{format::JsonFields, time::UtcTime},
     registry::LookupSpan,
 };
+#[cfg(feature = "grpc")]
+use {
+    crate::pluginv2::{
+        self, data_server::DataServer, diagnostics_server::DiagnosticsServer,
+        resource_server::ResourceServer, stream_server::StreamServer,
+    },
+    futures_util::FutureExt,
+    tokio::net::TcpListener,
+    tokio_stream::wrappers::TcpListenerStream,
+    tracing_subscriber::prelude::*,
+};
 
 use crate::live;
-#[cfg(feature = "grpc")]
-use crate::pluginv2::{
-    self, data_server::DataServer, diagnostics_server::DiagnosticsServer,
-    resource_server::ResourceServer, stream_server::StreamServer,
-};
+#[cfg(feature = "wit")]
+use crate::pluginv3;
 
 /// Re-export of `async_trait` proc macro, so plugin implementations don't have to import tonic manually.
 #[cfg(feature = "grpc")]
@@ -872,6 +873,15 @@ where
         datasource_instance_settings: Option<pluginv2::DataSourceInstanceSettings>,
         plugin_id: String,
     ) -> Result<Option<Self>, ConvertFromError>;
+
+    #[cfg(feature = "wit")]
+    #[doc(hidden)]
+    fn from_wit(// TODO: add these.
+        // app_instance_settings: Option<pluginv2::AppInstanceSettings>,
+        // datasource_instance_settings: Option<pluginv2::DataSourceInstanceSettings>,
+        // plugin_id: String,
+    ) -> Result<Option<Self>, ConvertFromError>;
+
     /// Get the JSON data for the app or data source instance.
     fn json_data(&self) -> &JsonData;
     /// Get the decrypted secure JSON data for the app or data source instance.
@@ -944,6 +954,20 @@ where
                 })
             })
             .transpose()
+    }
+
+    #[cfg(feature = "wit")]
+    fn from_wit(// TODO: add these.
+        // app_instance_settings: Option<pluginv2::AppInstanceSettings>,
+        // datasource_instance_settings: Option<pluginv2::DataSourceInstanceSettings>,
+        // plugin_id: String,
+    ) -> Result<Option<Self>, ConvertFromError> {
+        Ok(Some(Self {
+            json_data: serde_json::from_str("{}").unwrap(),
+            decrypted_secure_json_data: serde_json::from_str("{}").unwrap(),
+            updated: Utc::now(),
+            api_version: "1".to_string(),
+        }))
     }
 
     fn json_data(&self) -> &JsonData {
@@ -1080,6 +1104,29 @@ where
             .transpose()
     }
 
+    #[cfg(feature = "wit")]
+    fn from_wit(// TODO: add these.
+        // app_instance_settings: Option<pluginv2::AppInstanceSettings>,
+        // datasource_instance_settings: Option<pluginv2::DataSourceInstanceSettings>,
+        // plugin_id: String,
+    ) -> Result<Option<Self>, ConvertFromError> {
+        Ok(Some(Self {
+            json_data: serde_json::from_str("{}").unwrap(),
+            decrypted_secure_json_data: serde_json::from_str("{}").unwrap(),
+            updated: Utc::now(),
+            api_version: "1".to_string(),
+            id: 0,
+            uid: Default::default(),
+            type_: Default::default(),
+            name: Default::default(),
+            url: Default::default(),
+            user: Default::default(),
+            database: Default::default(),
+            basic_auth_enabled: Default::default(),
+            basic_auth_user: Default::default(),
+        }))
+    }
+
     fn json_data(&self) -> &JsonData {
         &self.json_data
     }
@@ -1153,6 +1200,37 @@ where
             _json_data: PhantomData,
             _secure_json_data: PhantomData,
             grafana_config: GrafanaConfig::new(other.grafana_config),
+        })
+    }
+}
+
+#[cfg(feature = "wit")]
+impl<IS, JsonData, SecureJsonData> TryFrom<pluginv3::grafana::plugins::types::PluginContext>
+    for PluginContext<IS, JsonData, SecureJsonData>
+where
+    JsonData: Debug + DeserializeOwned,
+    SecureJsonData: DeserializeOwned,
+    IS: InstanceSettings<JsonData, SecureJsonData>,
+{
+    type Error = ConvertFromError;
+    fn try_from(
+        other: pluginv3::grafana::plugins::types::PluginContext,
+    ) -> Result<Self, Self::Error> {
+        let instance_settings = IS::from_wit()?;
+        Ok(Self {
+            org_id: other.org_id,
+            plugin_id: String::new(),
+            // plugin_id: other.plugin_id,
+            user: Some(User {
+                login: String::new(),
+                name: String::new(),
+                email: String::new(),
+                role: Role::Admin,
+            }),
+            instance_settings,
+            _json_data: PhantomData,
+            _secure_json_data: PhantomData,
+            grafana_config: GrafanaConfig::new(HashMap::new()),
         })
     }
 }

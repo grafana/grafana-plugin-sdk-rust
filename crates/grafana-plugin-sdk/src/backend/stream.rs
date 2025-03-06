@@ -2,9 +2,9 @@
 use std::{fmt, pin::Pin};
 
 use bytes::Bytes;
+use futures_util::Stream;
 #[cfg(feature = "grpc")]
-use futures_util::StreamExt;
-use futures_util::{Stream, TryStreamExt};
+use futures_util::{StreamExt, TryStreamExt};
 use serde::{de::DeserializeOwned, Serialize};
 
 #[cfg(feature = "grpc")]

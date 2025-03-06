@@ -2,11 +2,16 @@
 use std::{collections::HashMap, fmt, pin::Pin, time::Duration};
 
 use futures_core::Stream;
+#[cfg(feature = "grpc")]
 use futures_util::StreamExt;
 use serde::de::DeserializeOwned;
 
+#[cfg(any(feature = "grpc", feature = "wit"))]
+use crate::backend::ConvertFromError;
 #[cfg(feature = "grpc")]
-use crate::{backend::ConvertFromError, pluginv2};
+use crate::pluginv2;
+#[cfg(feature = "wit")]
+use crate::pluginv3;
 use crate::{
     backend::{
         self, error_source::ErrorSource, GrafanaPlugin, InstanceSettings, PluginType, TimeRange,
@@ -65,6 +70,25 @@ where
                 .into_iter()
                 .map(DataQuery::try_from)
                 .collect::<Result<Vec<_>, _>>()?,
+        })
+    }
+}
+
+#[cfg(feature = "wit")]
+impl<Q, IS, JsonData, SecureJsonData> TryFrom<pluginv3::query_data::QueryDataRequest>
+    for InnerQueryDataRequest<Q, IS, JsonData, SecureJsonData>
+where
+    Q: DeserializeOwned,
+    JsonData: fmt::Debug + DeserializeOwned,
+    SecureJsonData: DeserializeOwned,
+    IS: InstanceSettings<JsonData, SecureJsonData>,
+{
+    type Error = ConvertFromError;
+    fn try_from(other: pluginv3::query_data::QueryDataRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+            plugin_context: other.plugin_context.try_into()?,
+            headers: Default::default(),
+            queries: vec![],
         })
     }
 }
