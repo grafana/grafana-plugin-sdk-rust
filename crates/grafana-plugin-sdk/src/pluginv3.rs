@@ -3,6 +3,7 @@ wit_bindgen::generate!({
     path: "vendor/wit",
     async: true,
     generate_all,
+    debug: true,
 });
 
 pub use exports::grafana::plugins::*;

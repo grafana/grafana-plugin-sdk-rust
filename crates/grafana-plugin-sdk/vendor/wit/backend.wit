@@ -5,9 +5,13 @@ use wasi:io/streams@0.2.0;
 interface query-data {
     use types.{query-data-request, query-data-response};
 
-    type error = string;
+    record error {
+        message: string,
+    }
 
-    query-data: func(request: query-data-request) -> result<query-data-response, error>;
+    resource data-server {
+        query-data: func(request: query-data-request) -> result<query-data-response, error>;
+    }
 }
 
 world backend {

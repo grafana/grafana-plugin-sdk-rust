@@ -7,11 +7,11 @@ use futures_util::StreamExt;
 use serde::de::DeserializeOwned;
 
 #[cfg(any(feature = "grpc", feature = "wit"))]
-use crate::backend::ConvertFromError;
+use crate::backend::{ConvertFromError, ConvertToError};
 #[cfg(feature = "grpc")]
 use crate::pluginv2;
 #[cfg(feature = "wit")]
-use crate::pluginv3;
+use crate::pluginv3::query_data;
 use crate::{
     backend::{
         self, error_source::ErrorSource, GrafanaPlugin, InstanceSettings, PluginType, TimeRange,
@@ -75,7 +75,25 @@ where
 }
 
 #[cfg(feature = "wit")]
-impl<Q, IS, JsonData, SecureJsonData> TryFrom<pluginv3::query_data::QueryDataRequest>
+impl From<ConvertFromError> for query_data::Error {
+    fn from(value: ConvertFromError) -> Self {
+        Self {
+            message: value.to_string(),
+        }
+    }
+}
+
+#[cfg(feature = "wit")]
+impl From<ConvertToError> for query_data::Error {
+    fn from(value: ConvertToError) -> Self {
+        Self {
+            message: value.to_string(),
+        }
+    }
+}
+
+#[cfg(feature = "wit")]
+impl<Q, IS, JsonData, SecureJsonData> TryFrom<query_data::QueryDataRequest>
     for InnerQueryDataRequest<Q, IS, JsonData, SecureJsonData>
 where
     Q: DeserializeOwned,
@@ -84,7 +102,7 @@ where
     IS: InstanceSettings<JsonData, SecureJsonData>,
 {
     type Error = ConvertFromError;
-    fn try_from(other: pluginv3::query_data::QueryDataRequest) -> Result<Self, Self::Error> {
+    fn try_from(other: query_data::QueryDataRequest) -> Result<Self, Self::Error> {
         Ok(Self {
             plugin_context: other.plugin_context.try_into()?,
             headers: Default::default(),
@@ -530,4 +548,31 @@ where
             responses,
         }))
     }
+}
+
+#[cfg(feature = "wit")]
+impl<T> query_data::GuestDataServer for T
+where
+    T: DataService + Send + Sync + 'static,
+{
+    async fn query_data(
+        &self,
+        request: query_data::QueryDataRequest,
+    ) -> Result<query_data::QueryDataResponse, query_data::Error> {
+        let req = request.try_into()?;
+        let responses: Vec<_> = DataService::query_data(self, req)
+            .await
+            .map(|x| x.map(|x| x.try_into()))
+            .collect()
+            .await?;
+        todo!()
+    }
+}
+
+#[cfg(feature = "wit")]
+impl<T> query_data::Guest for T
+where
+    T: DataService + Sync + Send + 'static,
+{
+    type DataServer = T;
 }
