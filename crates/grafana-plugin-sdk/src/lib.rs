@@ -60,7 +60,7 @@ pub mod pluginv2 {
     include!("pluginv2/pluginv2.rs");
 }
 
-// #[cfg(feature = "wit")]
+#[cfg(feature = "wit")]
 #[allow(
     missing_docs,
     clippy::all,

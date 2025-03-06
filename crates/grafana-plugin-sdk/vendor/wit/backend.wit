@@ -3,13 +3,14 @@ package grafana:plugins@0.1.0;
 use wasi:io/streams@0.2.0;
 
 interface query-data {
-    use types.{query-data-request, query-data-response};
+    use types.{plugin-context, query-data-request, query-data-response};
 
     record error {
         message: string,
     }
 
     resource data-server {
+        constructor(plugin-context: plugin-context);
         query-data: func(request: query-data-request) -> result<query-data-response, error>;
     }
 }

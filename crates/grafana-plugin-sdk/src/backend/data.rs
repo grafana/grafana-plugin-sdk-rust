@@ -2,7 +2,7 @@
 use std::{collections::HashMap, fmt, pin::Pin, time::Duration};
 
 use futures_core::Stream;
-#[cfg(feature = "grpc")]
+#[cfg(any(feature = "grpc", feature = "wit"))]
 use futures_util::StreamExt;
 use serde::de::DeserializeOwned;
 
@@ -11,7 +11,7 @@ use crate::backend::{ConvertFromError, ConvertToError};
 #[cfg(feature = "grpc")]
 use crate::pluginv2;
 #[cfg(feature = "wit")]
-use crate::pluginv3::query_data;
+use crate::pluginv3::{self, query_data};
 use crate::{
     backend::{
         self, error_source::ErrorSource, GrafanaPlugin, InstanceSettings, PluginType, TimeRange,
@@ -551,21 +551,87 @@ where
 }
 
 #[cfg(feature = "wit")]
-impl<T> query_data::GuestDataServer for T
+pub struct WitDataServer<T: DataService + Send + Sync + 'static> {
+    inner: T,
+}
+
+#[cfg(feature = "wit")]
+impl<T> query_data::GuestDataServer for WitDataServer<T>
 where
     T: DataService + Send + Sync + 'static,
 {
-    async fn query_data(
+    fn new(plugin_context: query_data::PluginContext) -> Self {
+        WitDataServer {
+            inner: T::new(plugin_context.try_into().unwrap()).unwrap(),
+        }
+    }
+
+    fn query_data(
         &self,
         request: query_data::QueryDataRequest,
     ) -> Result<query_data::QueryDataResponse, query_data::Error> {
         let req = request.try_into()?;
-        let responses: Vec<_> = DataService::query_data(self, req)
-            .await
-            .map(|x| x.map(|x| x.try_into()))
-            .collect()
-            .await?;
-        todo!()
+        // Only the current-thread runtime is supported on WASM.
+        // Ideally this function would be async, but that's not possible in
+        // wasip2 as far as I can tell.
+        tokio::runtime::Builder::new_current_thread()
+            .build()
+            .unwrap()
+            .block_on(async move {
+                let responses: Vec<_> = self
+                    .inner
+                    .query_data(req)
+                    .await
+                    .map(|resp| match resp {
+                        Ok(x) => {
+                            let ref_id = x.ref_id;
+                            x.frames.map_or_else(
+                                |_| {
+                                    (
+                                        ref_id.clone(),
+                                        pluginv3::grafana::plugins::types::DataResponse {
+                                            frames: vec![],
+                                            // status: DataQueryStatus::Internal.as_i32(),
+                                            // error: e.to_string(),
+                                            // json_meta: vec![],
+                                            // error_source: ErrorSource::Plugin.to_string(),
+                                        },
+                                    )
+                                },
+                                |frames| {
+                                    (
+                                        ref_id.clone(),
+                                        pluginv3::grafana::plugins::types::DataResponse {
+                                            frames,
+                                            // status: DataQueryStatus::OK.as_i32(),
+                                            // error: "".to_string(),
+                                            // json_meta: vec![],
+                                            // error_source: "".to_string(),
+                                        },
+                                    )
+                                },
+                            )
+                        }
+                        Err(e) => {
+                            // let status = e.status().as_i32();
+                            // let source = e.source().to_string();
+                            // let err_string = e.to_string();
+                            (
+                                e.ref_id(),
+                                pluginv3::grafana::plugins::types::DataResponse {
+                                    frames: vec![],
+                                    // status,
+                                    // error: err_string,
+                                    // json_meta: vec![],
+                                    // error_source: source,
+                                },
+                            )
+                        }
+                    })
+                    .collect()
+                    .await;
+                Ok(query_data::QueryDataResponse { responses })
+            })
     }
 }
 
@@ -574,5 +640,5 @@ impl<T> query_data::Guest for T
 where
     T: DataService + Sync + Send + 'static,
 {
-    type DataServer = T;
+    type DataServer = WitDataServer<T>;
 }

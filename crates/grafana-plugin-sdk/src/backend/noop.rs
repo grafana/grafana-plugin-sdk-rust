@@ -30,6 +30,16 @@ impl GrafanaPlugin for NoopService {
     type PluginType = AppPlugin<Self::JsonData, Self::SecureJsonData>;
     type JsonData = Value;
     type SecureJsonData = HashMap<String, String>;
+    #[cfg(feature = "wit")]
+    fn new(
+        _plugin_context: PluginContext<
+            <Self::PluginType as PluginType<Self::JsonData, Self::SecureJsonData>>::InstanceSettings,
+            Self::JsonData,
+            Self::SecureJsonData,
+        >,
+    ) -> Result<Self, Error> {
+        Ok(Self { _priv: () })
+    }
 }
 
 #[async_trait::async_trait]

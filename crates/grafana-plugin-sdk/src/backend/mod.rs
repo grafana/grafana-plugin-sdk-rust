@@ -179,6 +179,8 @@ pub use diagnostics::{
 };
 pub use error_source::ErrorSource;
 pub use grafana_config::{ConfigError, GrafanaConfig};
+#[cfg(feature = "wit")]
+pub use pluginv3::export;
 pub use resource::{
     BoxResourceFuture, BoxResourceStream, CallResourceRequest, ErrIntoHttpResponse,
     IntoHttpResponse, ResourceService,
@@ -1278,12 +1280,27 @@ where
 }
 impl<JsonData, SecureJsonData> sealed::Sealed for DataSourcePlugin<JsonData, SecureJsonData> {}
 
+#[cfg(feature = "wit")]
+/// Helper type alias for the plugin context type of a plugin.
+pub type PluginContextT<T> = PluginContext<
+    <<T as GrafanaPlugin>::PluginType as PluginType<
+        <T as GrafanaPlugin>::JsonData,
+        <T as GrafanaPlugin>::SecureJsonData,
+    >>::InstanceSettings,
+    <T as GrafanaPlugin>::JsonData,
+    <T as GrafanaPlugin>::SecureJsonData,
+>;
+
 /// Trait marking the types of a plugin's JSON data and secure JSON data.
-pub trait GrafanaPlugin {
+pub trait GrafanaPlugin: Sized {
     /// The type of the plugin
     type PluginType: PluginType<Self::JsonData, Self::SecureJsonData>;
     /// The type of the plugin's JSON data.
     type JsonData: DeserializeOwned + Debug + Send + Sync;
     /// The type of the plugin's secure JSON data.
     type SecureJsonData: DeserializeOwned + Send + Sync;
+
+    /// Create a new instance of the plugin.
+    #[cfg(feature = "wit")]
+    fn new(plugin_context: PluginContextT<Self>) -> Result<Self, Error>;
 }
