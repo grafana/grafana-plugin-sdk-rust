@@ -32,6 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `IntoField` / `IntoOptField` traits should not be affected.
 - Bump itertools dependency to 0.14.0
 - Bump thiserror dependency to 2.0.11
+- Bump tonic, tonic-build and tonic-health dependencies to 0.13.0
 - Bump tracing-serde dependency to 0.2.0
 
 ## [0.5.0] - 2024-09-17
