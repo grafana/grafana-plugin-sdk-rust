@@ -503,7 +503,7 @@ where
                 .with(filter)
                 .init();
         }
-        let (mut health_reporter, health_service) = tonic_health::server::health_reporter();
+        let (health_reporter, health_service) = tonic_health::server::health_reporter();
         let mut plugins = Vec::with_capacity(5);
         if self.diagnostics_service.is_some() {
             health_reporter.set_serving::<DiagnosticsServer<D>>().await;

@@ -4,7 +4,7 @@ version = "0.5.0"
 authors = ["Ben Sully <ben.sully@grafana.com>"]
 license = "MIT/Apache-2.0"
 edition = "2021"
-rust-version = "1.77"
+rust-version = "1.81"
 repository = "https://github.com/grafana/grafana-plugin-sdk-rust"
 description = "SDK for building Grafana backend plugins."
 
@@ -27,8 +27,8 @@ thiserror = "2.0.11"
 time = { version = "0.3.22", features = ["formatting", "macros"] }
 tokio = { version = "1.28.2", features = ["rt-multi-thread"] }
 tokio-stream = { version = "0.1.14", features = ["net"] }
-tonic = "0.12.2"
-tonic-health = "0.12.2"
+tonic = "0.13.0"
+tonic-health = "0.13.0"
 tracing = "0.1.37"
 tracing-core = "0.1.31"
 tracing-log = "0.2.0"
@@ -51,7 +51,7 @@ tokio-stream = "0.1.14"
 
 [build-dependencies]
 prost-build = { version = "0.13.2", optional = true }
-tonic-build = { version = "0.12.2", optional = true }
+tonic-build = { version = "0.13.0", optional = true }
 
 # docs.rs-specific configuration
 [package.metadata.docs.rs]
