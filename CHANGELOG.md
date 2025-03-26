@@ -30,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   APIs for working with arrow arrays differs between the two crates.
   Users who are just using the simple `Field::set_values` method or the various
   `IntoField` / `IntoOptField` traits should not be affected.
+- Update MSRV to 1.81
 - Bump itertools dependency to 0.14.0
 - Bump thiserror dependency to 2.0.11
 - Bump tonic, tonic-build and tonic-health dependencies to 0.13.0
