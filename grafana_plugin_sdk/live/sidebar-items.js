@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["MAX_CHANNEL_LENGTH"],"enum":["ChannelError","Scope"],"struct":["Channel","Namespace","Path"]};
