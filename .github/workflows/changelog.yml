@@ -2,8 +2,10 @@ name: Ensure CHANGELOG updated
 
 on:
   pull_request:
-    types: [ assigned, opened, synchronize, reopened, labeled, unlabeled ]
-    branches: [ main ]
+    types: [assigned, opened, synchronize, reopened, labeled, unlabeled]
+    branches: [main]
+
+permissions: {}
 
 jobs:
   changelog:
@@ -11,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Changelog check
-        uses: Zomzog/changelog-checker@v1.2.0
+        uses: Zomzog/changelog-checker@564f4aa7a062e7498bd253f616569f02fb024c06 # v1.2.0
         with:
           fileName: CHANGELOG.md
           noChangelogLabel: no-changelog
