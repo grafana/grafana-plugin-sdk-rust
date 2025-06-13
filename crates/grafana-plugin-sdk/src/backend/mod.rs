@@ -733,7 +733,11 @@ where
 {
     // Grafana sometimes sends an empty string instead of an empty map, probably
     // because of some zero value Golang stuff?
-    let jdoc = jdoc.is_empty().then(|| b"{}".as_slice()).unwrap_or(jdoc);
+    let jdoc = if jdoc.is_empty() {
+        b"{}".as_slice()
+    } else {
+        jdoc
+    };
     serde_json::from_slice(jdoc)
 }
 
