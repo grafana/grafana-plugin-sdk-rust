@@ -5,7 +5,8 @@ on:
     types: [assigned, opened, synchronize, reopened, labeled, unlabeled]
     branches: [main]
 
-permissions: {}
+permissions:
+  contents: read
 
 jobs:
   changelog:

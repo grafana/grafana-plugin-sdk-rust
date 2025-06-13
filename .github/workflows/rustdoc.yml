@@ -10,7 +10,8 @@ env:
   RUSTDOCFLAGS: "-D warnings -W unreachable-pub --cfg docsrs"
   RUSTUP_MAX_RETRIES: 10
 
-permissions: {}
+permissions:
+  contents: read
 
 jobs:
   rustdoc:
