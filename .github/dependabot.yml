@@ -4,8 +4,6 @@ updates:
     directory: "/"
     schedule:
       interval: daily
-    reviewers:
-      - sd2k
     assignees:
       - sd2k
     groups:
