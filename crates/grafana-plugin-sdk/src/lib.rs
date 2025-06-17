@@ -24,7 +24,7 @@ the [crate examples] or [sample app repo] to get started with writing a backend 
 The following feature flags enable additional functionality for this crate:
 
 - `reqwest` - adds an [`IntoHttpResponse`][crate::backend::IntoHttpResponse] implementation for
-   [`reqwest::Response`]
+  [`reqwest::Response`]
 
 [Backend plugins on grafana.com]: https://grafana.com/docs/grafana/latest/developers/plugins/backend/
 [Grafana Live]: https://grafana.com/docs/grafana/latest/live/
