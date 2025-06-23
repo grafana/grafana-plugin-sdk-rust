@@ -18,7 +18,7 @@ grafana-plugin-sdk-macros = { version = "0.5.0", path = "../grafana-plugin-sdk-m
 http = "1.0.0"
 itertools = "0.14.0"
 num-traits = "0.2.15"
-prost = "0.13.2"
+prost = "0.14.1"
 reqwest_lib = { package = "reqwest", version = "0.12.7", optional = true }
 serde = { version = "1.0.164", features = ["derive"] }
 serde_json = { version = "1.0.96", features = ["float_roundtrip", "raw_value"] }
@@ -50,7 +50,7 @@ tokio = { version = "1.28.2", features = ["rt-multi-thread"] }
 tokio-stream = "0.1.14"
 
 [build-dependencies]
-prost-build = { version = "0.13.2", optional = true }
+prost-build = { version = "0.14.1", optional = true }
 tonic-build = { version = "0.13.0", optional = true }
 
 # docs.rs-specific configuration
