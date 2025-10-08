@@ -29,6 +29,7 @@ tokio = { version = "1.28.2", features = ["rt-multi-thread"] }
 tokio-stream = { version = "0.1.14", features = ["net"] }
 tonic = "0.14.2"
 tonic-health = "0.14.2"
+tonic-prost = "0.14.2"
 tracing = "0.1.37"
 tracing-core = "0.1.31"
 tracing-log = "0.2.0"
@@ -50,8 +51,7 @@ tokio = { version = "1.28.2", features = ["rt-multi-thread"] }
 tokio-stream = "0.1.14"
 
 [build-dependencies]
-prost-build = { version = "0.14.1", optional = true }
-tonic-build = { version = "0.14.2", optional = true }
+tonic-prost-build = { version = "0.14.2", optional = true }
 
 # docs.rs-specific configuration
 [package.metadata.docs.rs]
@@ -66,4 +66,4 @@ reqwest = ["reqwest_lib"]
 # because it requires protoc. The generated code is instead checked in to source
 # control. To regenerate code in the case of updated .proto definitions, build
 # with this feature enabled.
-gen-proto = ["dep:tonic-build", "dep:prost-build"]
+gen-proto = ["dep:tonic-prost-build"]
