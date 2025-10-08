@@ -31,10 +31,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Users who are just using the simple `Field::set_values` method or the various
   `IntoField` / `IntoOptField` traits should not be affected.
 - Update MSRV to 1.81
+- Bump arrow dependency to 56.0
+- Bump darling dependency to 0.21.0
 - Bump itertools dependency to 0.14.0
 - Bump prometheus dependency to 0.14.0
 - Bump thiserror dependency to 2.0.11
-- Bump tonic, tonic-build and tonic-health dependencies to 0.13.0
+- Bump prost, tonic, tonic-build and tonic-health dependencies to 0.14.2; added tonic-prost dependency
 - Bump tracing-serde dependency to 0.2.0
 
 ## [0.5.0] - 2024-09-17
@@ -52,7 +54,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - the type of plugin (`PluginType::App` or `PluginType::Datasource`)
 
   The simplest way to do so is to use the `GrafanaPlugin` derive macro exporter from the library's prelude:
-  
+
   ```rust
   use std::collections::HashMap;
 
@@ -64,7 +66,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
       max_retries: usize,
       other_custom_setting: String,
   }
-  
+
   #[derive(Debug, GrafanaPlugin)]
   #[grafana_plugin(
       type = "datasource",

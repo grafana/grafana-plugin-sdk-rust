@@ -9,7 +9,7 @@ repository = "https://github.com/grafana/grafana-plugin-sdk-rust"
 description = "SDK for building Grafana backend plugins."
 
 [dependencies]
-arrow = { version = "55.0.0", default-features = false, features = ["ipc"] }
+arrow = { version = "56.2.0", default-features = false, features = ["ipc"] }
 cfg-if = "1.0.0"
 chrono = "0.4.26"
 futures-core = "0.3.28"
@@ -18,7 +18,7 @@ grafana-plugin-sdk-macros = { version = "0.5.0", path = "../grafana-plugin-sdk-m
 http = "1.0.0"
 itertools = "0.14.0"
 num-traits = "0.2.15"
-prost = "0.13.2"
+prost = "0.14.1"
 reqwest_lib = { package = "reqwest", version = "0.12.7", optional = true }
 serde = { version = "1.0.164", features = ["derive"] }
 serde_json = { version = "1.0.96", features = ["float_roundtrip", "raw_value"] }
@@ -27,8 +27,9 @@ thiserror = "2.0.11"
 time = { version = "0.3.22", features = ["formatting", "macros"] }
 tokio = { version = "1.28.2", features = ["rt-multi-thread"] }
 tokio-stream = { version = "0.1.14", features = ["net"] }
-tonic = "0.13.0"
-tonic-health = "0.13.0"
+tonic = "0.14.2"
+tonic-health = "0.14.2"
+tonic-prost = "0.14.2"
 tracing = "0.1.37"
 tracing-core = "0.1.31"
 tracing-log = "0.2.0"
@@ -50,8 +51,7 @@ tokio = { version = "1.28.2", features = ["rt-multi-thread"] }
 tokio-stream = "0.1.14"
 
 [build-dependencies]
-prost-build = { version = "0.13.2", optional = true }
-tonic-build = { version = "0.13.0", optional = true }
+tonic-prost-build = { version = "0.14.2", optional = true }
 
 # docs.rs-specific configuration
 [package.metadata.docs.rs]
@@ -66,4 +66,4 @@ reqwest = ["reqwest_lib"]
 # because it requires protoc. The generated code is instead checked in to source
 # control. To regenerate code in the case of updated .proto definitions, build
 # with this feature enabled.
-gen-proto = ["dep:tonic-build", "dep:prost-build"]
+gen-proto = ["dep:tonic-prost-build"]
