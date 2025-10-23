@@ -19,7 +19,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Changelog check
-        uses: Zomzog/changelog-checker@564f4aa7a062e7498bd253f616569f02fb024c06 # v1.2.0
+        uses: Zomzog/changelog-checker@09cfe9ad3618dcbfdba261adce0c41904cabb8c4 # v1.3.0
         with:
           fileName: CHANGELOG.md
           noChangelogLabel: no-changelog
