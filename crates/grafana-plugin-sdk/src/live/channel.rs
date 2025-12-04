@@ -93,7 +93,7 @@ impl fmt::Display for Scope {
             Self::Datasource => "ds",
             Self::Stream => "stream",
         };
-        write!(f, "{}", s)
+        write!(f, "{s}")
     }
 }
 
@@ -343,7 +343,7 @@ mod test {
     fn exceeds_max_length() {
         let s: String = "grafana/dashboard/"
             .chars()
-            .chain(std::iter::repeat('a').take(160))
+            .chain(std::iter::repeat_n('a', 160))
             .collect();
         assert!(s.parse::<Channel>().is_err())
     }

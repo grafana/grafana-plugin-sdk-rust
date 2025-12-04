@@ -148,10 +148,10 @@ where
                 "message" => self
                     .serializer
                     // hclog expects messages to be in "@message".
-                    .serialize_entry("@message", &format_args!("{:?}", value)),
+                    .serialize_entry("@message", &format_args!("{value:?}")),
                 name => self
                     .serializer
-                    .serialize_entry(name, &format_args!("{:?}", value)),
+                    .serialize_entry(name, &format_args!("{value:?}")),
             }
         }
     }
@@ -239,15 +239,13 @@ where
             // be valid JSON. This is almost certainly a bug, so
             // panic if we're in debug mode
             Err(e) if cfg!(debug_assertions) => panic!(
-                "span '{}' had malformed fields! this is a bug.\n  error: {}\n  fields: {:?}",
+                "span '{}' had malformed fields! this is a bug.\n  error: {e}\n  fields: {data:?}",
                 self.0.metadata().name(),
-                e,
-                data
             ),
             // If we *aren't* in debug mode, it's probably best not
             // crash the program, but let's at least make sure it's clear
             // that the fields are not supposed to be missing.
-            Err(e) => serializer.serialize_entry("field_error", &format!("{}", e))?,
+            Err(e) => serializer.serialize_entry("field_error", &format!("{e}"))?,
         };
         serializer.serialize_entry("name", self.0.metadata().name())?;
         serializer.end()

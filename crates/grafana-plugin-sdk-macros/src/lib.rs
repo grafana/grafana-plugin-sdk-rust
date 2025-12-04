@@ -168,8 +168,7 @@ impl Configuration {
                 })
                 .unwrap_or_else(|| "<address>".to_string());
             shutdown_handler.error(format!(
-                r#"`shutdown_handler` should be specified as `shutdown_handler = "{}""#,
-                address
+                r#"`shutdown_handler` should be specified as `shutdown_handler = "{address}""#
             ))
         })?;
         let s: syn::LitStr = value.parse().map_err(|e| {
