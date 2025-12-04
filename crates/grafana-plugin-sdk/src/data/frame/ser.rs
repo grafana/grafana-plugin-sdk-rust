@@ -97,9 +97,7 @@ impl<'a> Serialize for SerializableFrameData<'a> {
     {
         let n_fields = self.fields.len();
 
-        let entities: Vec<_> = std::iter::repeat(RefCell::new(None))
-            .take(n_fields)
-            .collect();
+        let entities: Vec<_> = std::iter::repeat_n(RefCell::new(None), n_fields).collect();
 
         let values = SerializableFrameDataValues {
             fields: self.fields,
@@ -147,9 +145,7 @@ impl<'a> Serialize for SerializableArray<'a> {
         let array = self.0;
         let len = array.len();
         match array.data_type() {
-            DataType::Null => {
-                serializer.collect_seq(std::iter::repeat::<Option<()>>(None).take(len))
-            }
+            DataType::Null => serializer.collect_seq(std::iter::repeat_n::<Option<()>>(None, len)),
             DataType::Boolean => serializer.collect_seq(
                 array
                     .as_any()
