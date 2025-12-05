@@ -18,11 +18,11 @@ syn = { version = "2.0.18", features = ["full"] }
 
 [dev-dependencies]
 grafana-plugin-sdk = { path = "../grafana-plugin-sdk" }
-http = "1.0.0"
-serde = { version = "1.0.164", features = ["derive"] }
-thiserror = "2.0.11"
-tokio = { version = "1.38.2", features = ["rt-multi-thread"] }
-trybuild = "1.0.80"
+http = "=1.0.0"
+serde = { version = "=1.0.164", features = ["derive"] }
+thiserror = "=2.0.11"
+tokio = { version = "=1.38.2", features = ["rt-multi-thread"] }
+trybuild = "=1.0.80"
 
 [package.metadata.docs.rs]
 all-features = true
