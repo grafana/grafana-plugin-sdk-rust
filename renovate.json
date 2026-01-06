@@ -2,7 +2,6 @@
   "extends": [
     "config:best-practices",
     ":disableDependencyDashboard",
-    ":preserveSemverRanges",
     "github>grafana/grafana-renovate-config//presets/base",
     "github>grafana/grafana-renovate-config//presets/automerge",
     "github>grafana/grafana-renovate-config//presets/labels",
@@ -10,7 +9,8 @@
     "github>grafana/grafana-renovate-config//presets/github-actions",
     "github>grafana/grafana-renovate-config//presets/plugin-ci-workflows",
     "github>grafana/grafana-renovate-config//presets/shared-workflows",
-    "github>grafana/grafana-renovate-config//presets/rate-limits"
+    "github>grafana/grafana-renovate-config//presets/rate-limits",
+    ":preserveSemverRanges"
   ],
   "prConcurrentLimit": 10,
   "minimumReleaseAge": "14 days",
