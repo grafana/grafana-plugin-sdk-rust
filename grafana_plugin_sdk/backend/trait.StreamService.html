@@ -1,0 +1,158 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Trait for plugins that wish to provide uni- or bi-directional streaming."><title>StreamService in grafana_plugin_sdk::backend - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-b7b9f40b.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="grafana_plugin_sdk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.95.0-nightly (f889772d6 2026-02-05)" data-channel="nightly" data-search-js="search-fb33671b.js" data-stringdex-js="stringdex-b897f86f.js" data-settings-js="settings-170eb4bf.js" ><script src="../../static.files/storage-f9617a14.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-12f88f4f.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-f7c3ffd8.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"></head><body class="rustdoc trait"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">StreamService</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../grafana_plugin_sdk/index.html">grafana_<wbr>plugin_<wbr>sdk</a><span class="version">0.5.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Stream<wbr>Service</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#example" title="Example">Example</a></li></ul><h3><a href="#required-associated-types">Required Associated Types</a></h3><ul class="block"><li><a href="#associatedtype.Error" title="Error">Error</a></li><li><a href="#associatedtype.JsonValue" title="JsonValue">JsonValue</a></li><li><a href="#associatedtype.Stream" title="Stream">Stream</a></li></ul><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.publish_stream" title="publish_stream">publish_stream</a></li><li><a href="#tymethod.run_stream" title="run_stream">run_stream</a></li><li><a href="#tymethod.subscribe_stream" title="subscribe_stream">subscribe_stream</a></li></ul><h3><a href="#implementors">Implementors</a></h3></section><div id="rustdoc-modnav"><h2><a href="index.html">In grafana_<wbr>plugin_<wbr>sdk::<wbr>backend</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">grafana_plugin_sdk</a>::<wbr><a href="index.html">backend</a></div><h1>Trait <span class="trait">Stream<wbr>Service</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/grafana_plugin_sdk/backend/stream.rs.html#556-614">Source</a> </span></div><pre class="rust item-decl"><code>pub trait StreamService: <a class="trait" href="trait.GrafanaPlugin.html" title="trait grafana_plugin_sdk::backend::GrafanaPlugin">GrafanaPlugin</a> {
+    type <a href="#associatedtype.JsonValue" class="associatedtype">JsonValue</a>: <a class="trait" href="https://docs.rs/serde_core/1.0.228/serde_core/ser/trait.Serialize.html" title="trait serde_core::ser::Serialize">Serialize</a>;
+    type <a href="#associatedtype.Error" class="associatedtype">Error</a>: <a class="trait" href="https://doc.rust-lang.org/nightly/core/error/trait.Error.html" title="trait core::error::Error">Error</a>;
+    type <a href="#associatedtype.Stream" class="associatedtype">Stream</a>: Stream&lt;Item = <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="struct.StreamPacket.html" title="struct grafana_plugin_sdk::backend::StreamPacket">StreamPacket</a>&lt;Self::<a class="associatedtype" href="trait.StreamService.html#associatedtype.JsonValue" title="type grafana_plugin_sdk::backend::StreamService::JsonValue">JsonValue</a>&gt;, Self::<a class="associatedtype" href="trait.StreamService.html#associatedtype.Error" title="type grafana_plugin_sdk::backend::StreamService::Error">Error</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a>;
+
+    // Required methods
+    fn <a href="#tymethod.subscribe_stream" class="fn">subscribe_stream</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 self,
+        request: <a class="type" href="type.SubscribeStreamRequest.html" title="type grafana_plugin_sdk::backend::SubscribeStreamRequest">SubscribeStreamRequest</a>&lt;Self&gt;,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/nightly/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/nightly/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="struct.SubscribeStreamResponse.html" title="struct grafana_plugin_sdk::backend::SubscribeStreamResponse">SubscribeStreamResponse</a>, Self::<a class="associatedtype" href="trait.StreamService.html#associatedtype.Error" title="type grafana_plugin_sdk::backend::StreamService::Error">Error</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.run_stream" class="fn">run_stream</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 self,
+        request: <a class="type" href="type.RunStreamRequest.html" title="type grafana_plugin_sdk::backend::RunStreamRequest">RunStreamRequest</a>&lt;Self&gt;,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/nightly/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/nightly/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self::<a class="associatedtype" href="trait.StreamService.html#associatedtype.Stream" title="type grafana_plugin_sdk::backend::StreamService::Stream">Stream</a>, Self::<a class="associatedtype" href="trait.StreamService.html#associatedtype.Error" title="type grafana_plugin_sdk::backend::StreamService::Error">Error</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.publish_stream" class="fn">publish_stream</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 self,
+        request: <a class="type" href="type.PublishStreamRequest.html" title="type grafana_plugin_sdk::backend::PublishStreamRequest">PublishStreamRequest</a>&lt;Self&gt;,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/nightly/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/nightly/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="struct.PublishStreamResponse.html" title="struct grafana_plugin_sdk::backend::PublishStreamResponse">PublishStreamResponse</a>, Self::<a class="associatedtype" href="trait.StreamService.html#associatedtype.Error" title="type grafana_plugin_sdk::backend::StreamService::Error">Error</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span>;
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Trait for plugins that wish to provide uni- or bi-directional streaming.</p>
+<h2 id="example"><a class="doc-anchor" href="#example">§</a>Example</h2>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>std::{sync::Arc, time::Duration};
+
+<span class="kw">use </span>grafana_plugin_sdk::{backend, data, prelude::<span class="kw-2">*</span>};
+<span class="kw">use </span>thiserror::Error;
+<span class="kw">use </span>tokio::sync::RwLock;
+<span class="kw">use </span>tokio_stream::StreamExt;
+<span class="kw">use </span>tracing::{debug, info};
+
+<span class="attr">#[derive(Clone, Debug, GrafanaPlugin)]
+#[grafana_plugin(plugin_type = <span class="string">"datasource"</span>)]
+</span><span class="kw">struct </span>MyPlugin;
+
+<span class="attr">#[derive(Debug, Error)]
+#[error(<span class="string">"Error streaming data"</span>)]
+</span><span class="kw">struct </span>StreamError;
+
+<span class="kw">impl </span>From&lt;data::Error&gt; <span class="kw">for </span>StreamError {
+    <span class="kw">fn </span>from(_other: data::Error) -&gt; StreamError {
+        StreamError
+    }
+}
+
+<span class="kw">impl </span>From&lt;backend::ConvertToError&gt; <span class="kw">for </span>StreamError {
+    <span class="kw">fn </span>from(_other: backend::ConvertToError) -&gt; StreamError {
+        StreamError
+    }
+}
+
+<span class="attr">#[backend::async_trait]
+</span><span class="kw">impl </span>backend::StreamService <span class="kw">for </span>MyPlugin {
+    <span class="doccomment">/// The type of JSON value we might return in our `initial_data`.
+    ///
+    /// If we're not returning JSON we can just use `()`.
+    </span><span class="kw">type </span>JsonValue = ();
+
+    <span class="doccomment">/// Handle a request to subscribe to a stream.
+    ///
+    /// Here we just check that the path matches some fixed value
+    /// and return `NotFound` if not.
+    </span><span class="kw">async fn </span>subscribe_stream(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        request: backend::SubscribeStreamRequest&lt;<span class="self">Self</span>&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;backend::SubscribeStreamResponse, <span class="self">Self</span>::Error&gt; {
+        <span class="kw">let </span>response = <span class="kw">if </span>request.path.as_str() == <span class="string">"stream" </span>{
+            backend::SubscribeStreamResponse::ok(<span class="prelude-val">None</span>)
+        } <span class="kw">else </span>{
+            backend::SubscribeStreamResponse::not_found()
+        };
+        <span class="macro">info!</span>(path = %request.path, <span class="string">"Subscribing to stream"</span>);
+        <span class="prelude-val">Ok</span>(response)
+    }
+
+    <span class="kw">type </span>Error = StreamError;
+    <span class="kw">type </span>Stream = backend::BoxRunStream&lt;<span class="self">Self</span>::Error&gt;;
+
+    <span class="doccomment">/// Begin streaming data for a request.
+    ///
+    /// This example just creates an in-memory `Frame` in each loop iteration,
+    /// sends an updated version of the frame once per second, and updates a loop variable
+    /// so that each frame is different.
+    </span><span class="kw">async fn </span>run_stream(<span class="kw-2">&amp;</span><span class="self">self</span>, _request: backend::RunStreamRequest&lt;<span class="self">Self</span>&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Stream, <span class="self">Self</span>::Error&gt; {
+        <span class="macro">info!</span>(<span class="string">"Running stream"</span>);
+        <span class="kw">let </span><span class="kw-2">mut </span>x = <span class="number">0u32</span>;
+        <span class="kw">let </span>n = <span class="number">3</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>frame = data::Frame::new(<span class="string">"foo"</span>).with_field((x..x + n).into_field(<span class="string">"x"</span>));
+        <span class="prelude-val">Ok</span>(Box::pin(
+            <span class="macro">async_stream::try_stream!</span> {
+                <span class="kw">loop </span>{
+                    frame.fields_mut()[<span class="number">0</span>].set_values(x..x + n);
+                    <span class="kw">let </span>packet = backend::StreamPacket::from_frame(frame.check()<span class="question-mark">?</span>)<span class="question-mark">?</span>;
+                    <span class="macro">debug!</span>(<span class="string">"Yielding frame from {} to {}"</span>, x, x + n);
+                    <span class="kw">yield </span>packet;
+                    x += n;
+                }
+            }
+            .throttle(Duration::from_secs(<span class="number">1</span>)),
+        ))
+    }
+
+    <span class="doccomment">/// Handle a request to publish data to a stream.
+    ///
+    /// Currently unimplemented in this example, but the functionality _should_ work.
+    </span><span class="kw">async fn </span>publish_stream(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        _request: backend::PublishStreamRequest&lt;<span class="self">Self</span>&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;backend::PublishStreamResponse, <span class="self">Self</span>::Error&gt; {
+        <span class="macro">info!</span>(<span class="string">"Publishing to stream"</span>);
+        <span class="macro">todo!</span>()
+    }
+}</code></pre></div></div></details><h2 id="required-associated-types" class="section-header">Required Associated Types<a href="#required-associated-types" class="anchor">§</a></h2><div class="methods"><details class="toggle" open><summary><section id="associatedtype.JsonValue" class="method"><a class="src rightside" href="../../src/grafana_plugin_sdk/backend/stream.rs.html#580">Source</a><h4 class="code-header">type <a href="#associatedtype.JsonValue" class="associatedtype">JsonValue</a>: <a class="trait" href="https://docs.rs/serde_core/1.0.228/serde_core/ser/trait.Serialize.html" title="trait serde_core::ser::Serialize">Serialize</a></h4></section></summary><div class="docblock"><p>The type of JSON values returned by this stream service.</p>
+<p>Each <a href="struct.StreamPacket.html" title="struct grafana_plugin_sdk::backend::StreamPacket"><code>StreamPacket</code></a> can return either a <a href="../data/struct.Frame.html" title="struct grafana_plugin_sdk::data::Frame"><code>data::Frame</code></a> or some arbitary JSON. This
+associated type allows the JSON value to be statically typed, if desired.</p>
+<p>If the implementation does not intend to return JSON variants, this
+can be set to <code>()</code>. If the structure of the returned JSON is not statically known, this
+should be set to <a href="https://docs.rs/serde_json/1.0.149/serde_json/value/enum.Value.html" title="enum serde_json::value::Value"><code>serde_json::Value</code></a>.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.Error" class="method"><a class="src rightside" href="../../src/grafana_plugin_sdk/backend/stream.rs.html#583">Source</a><h4 class="code-header">type <a href="#associatedtype.Error" class="associatedtype">Error</a>: <a class="trait" href="https://doc.rust-lang.org/nightly/core/error/trait.Error.html" title="trait core::error::Error">Error</a></h4></section></summary><div class="docblock"><p>The type of error that can occur while fetching a stream packet.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.Stream" class="method"><a class="src rightside" href="../../src/grafana_plugin_sdk/backend/stream.rs.html#589-590">Source</a><h4 class="code-header">type <a href="#associatedtype.Stream" class="associatedtype">Stream</a>: Stream&lt;Item = <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="struct.StreamPacket.html" title="struct grafana_plugin_sdk::backend::StreamPacket">StreamPacket</a>&lt;Self::<a class="associatedtype" href="trait.StreamService.html#associatedtype.JsonValue" title="type grafana_plugin_sdk::backend::StreamService::JsonValue">JsonValue</a>&gt;, Self::<a class="associatedtype" href="trait.StreamService.html#associatedtype.Error" title="type grafana_plugin_sdk::backend::StreamService::Error">Error</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a></h4></section></summary><div class="docblock"><p>The type of stream returned by <code>run_stream</code>.</p>
+<p>This will generally be impossible to name directly, so returning the
+<a href="type.BoxRunStream.html" title="type grafana_plugin_sdk::backend::BoxRunStream"><code>BoxRunStream</code></a> type alias will probably be more convenient.</p>
+</div></details></div><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.subscribe_stream" class="method"><a class="src rightside" href="../../src/grafana_plugin_sdk/backend/stream.rs.html#567-570">Source</a><h4 class="code-header">fn <a href="#tymethod.subscribe_stream" class="fn">subscribe_stream</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+    request: <a class="type" href="type.SubscribeStreamRequest.html" title="type grafana_plugin_sdk::backend::SubscribeStreamRequest">SubscribeStreamRequest</a>&lt;Self&gt;,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/nightly/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/nightly/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="struct.SubscribeStreamResponse.html" title="struct grafana_plugin_sdk::backend::SubscribeStreamResponse">SubscribeStreamResponse</a>, Self::<a class="associatedtype" href="trait.StreamService.html#associatedtype.Error" title="type grafana_plugin_sdk::backend::StreamService::Error">Error</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Handle requests to begin a subscription to a plugin or datasource managed channel path.</p>
+<p>This function is called for <em>every</em> subscriber to a stream.  Implementations should
+check the subscribe permissions of the incoming request, and can choose to return some
+initial data to prepopulate the stream.</p>
+<p><code>run_stream</code> will generally be called shortly after returning a response with
+<a href="enum.SubscribeStreamStatus.html#variant.Ok" title="variant grafana_plugin_sdk::backend::SubscribeStreamStatus::Ok"><code>SubscribeStreamStatus::Ok</code></a>; this is responsible for streaming any data after
+the <a href="struct.SubscribeStreamResponse.html#structfield.initial_data" title="field grafana_plugin_sdk::backend::SubscribeStreamResponse::initial_data"><code>initial_data</code></a>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.run_stream" class="method"><a class="src rightside" href="../../src/grafana_plugin_sdk/backend/stream.rs.html#602-605">Source</a><h4 class="code-header">fn <a href="#tymethod.run_stream" class="fn">run_stream</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+    request: <a class="type" href="type.RunStreamRequest.html" title="type grafana_plugin_sdk::backend::RunStreamRequest">RunStreamRequest</a>&lt;Self&gt;,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/nightly/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/nightly/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self::<a class="associatedtype" href="trait.StreamService.html#associatedtype.Stream" title="type grafana_plugin_sdk::backend::StreamService::Stream">Stream</a>, Self::<a class="associatedtype" href="trait.StreamService.html#associatedtype.Error" title="type grafana_plugin_sdk::backend::StreamService::Error">Error</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Begin sending stream packets to a client.</p>
+<p>This will only be called once per channel, shortly after the first successful subscription
+to that channel by the first client (after <code>subscribe_stream</code> returns a response with
+<a href="enum.SubscribeStreamStatus.html#variant.Ok" title="variant grafana_plugin_sdk::backend::SubscribeStreamStatus::Ok"><code>SubscribeStreamStatus::Ok</code></a> for a specific <a href="../live/struct.Channel.html" title="struct grafana_plugin_sdk::live::Channel"><code>Channel</code></a>).
+Grafana will then multiplex the returned stream to any future subscribers.</p>
+<p>When Grafana detects that there are no longer any subscribers to a channel, the stream
+will be terminated until the next active subscriber appears. Stream termination can
+may be slightly delayed, generally by a few seconds.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.publish_stream" class="method"><a class="src rightside" href="../../src/grafana_plugin_sdk/backend/stream.rs.html#610-613">Source</a><h4 class="code-header">fn <a href="#tymethod.publish_stream" class="fn">publish_stream</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+    request: <a class="type" href="type.PublishStreamRequest.html" title="type grafana_plugin_sdk::backend::PublishStreamRequest">PublishStreamRequest</a>&lt;Self&gt;,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/nightly/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/nightly/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="struct.PublishStreamResponse.html" title="struct grafana_plugin_sdk::backend::PublishStreamResponse">PublishStreamResponse</a>, Self::<a class="associatedtype" href="trait.StreamService.html#associatedtype.Error" title="type grafana_plugin_sdk::backend::StreamService::Error">Error</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Handle requests to publish to a plugin or datasource managed channel path (currently unimplemented).</p>
+<p>Implementations should check the publish permissions of the incoming request.</p>
+</div></details></div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../../trait.impl/grafana_plugin_sdk/backend/stream/trait.StreamService.js" async></script></section></div></main></body></html>

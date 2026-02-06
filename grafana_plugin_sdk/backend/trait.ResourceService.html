@@ -1,0 +1,115 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Trait for plugins that can handle arbitrary resource requests."><title>ResourceService in grafana_plugin_sdk::backend - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-b7b9f40b.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="grafana_plugin_sdk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.95.0-nightly (f889772d6 2026-02-05)" data-channel="nightly" data-search-js="search-fb33671b.js" data-stringdex-js="stringdex-b897f86f.js" data-settings-js="settings-170eb4bf.js" ><script src="../../static.files/storage-f9617a14.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-12f88f4f.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-f7c3ffd8.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"></head><body class="rustdoc trait"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">ResourceService</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../grafana_plugin_sdk/index.html">grafana_<wbr>plugin_<wbr>sdk</a><span class="version">0.5.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Resource<wbr>Service</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#examples" title="Examples">Examples</a><ul><li><a href="#stateful-service" title="Stateful service">Stateful service</a></li></ul></li></ul><h3><a href="#required-associated-types">Required Associated Types</a></h3><ul class="block"><li><a href="#associatedtype.Error" title="Error">Error</a></li><li><a href="#associatedtype.InitialResponse" title="InitialResponse">InitialResponse</a></li><li><a href="#associatedtype.Stream" title="Stream">Stream</a></li></ul><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.call_resource" title="call_resource">call_resource</a></li></ul><h3><a href="#implementors">Implementors</a></h3></section><div id="rustdoc-modnav"><h2><a href="index.html">In grafana_<wbr>plugin_<wbr>sdk::<wbr>backend</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">grafana_plugin_sdk</a>::<wbr><a href="index.html">backend</a></div><h1>Trait <span class="trait">Resource<wbr>Service</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/grafana_plugin_sdk/backend/resource.rs.html#242-267">Source</a> </span></div><pre class="rust item-decl"><code>pub trait ResourceService: <a class="trait" href="trait.GrafanaPlugin.html" title="trait grafana_plugin_sdk::backend::GrafanaPlugin">GrafanaPlugin</a> {
+    type <a href="#associatedtype.Error" class="associatedtype">Error</a>: <a class="trait" href="https://doc.rust-lang.org/nightly/core/error/trait.Error.html" title="trait core::error::Error">Error</a> + <a class="trait" href="trait.ErrIntoHttpResponse.html" title="trait grafana_plugin_sdk::backend::ErrIntoHttpResponse">ErrIntoHttpResponse</a> + <a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a>;
+    type <a href="#associatedtype.InitialResponse" class="associatedtype">InitialResponse</a>: <a class="trait" href="trait.IntoHttpResponse.html" title="trait grafana_plugin_sdk::backend::IntoHttpResponse">IntoHttpResponse</a> + <a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a>;
+    type <a href="#associatedtype.Stream" class="associatedtype">Stream</a>: Stream&lt;Item = <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Bytes, Self::<a class="associatedtype" href="trait.ResourceService.html#associatedtype.Error" title="type grafana_plugin_sdk::backend::ResourceService::Error">Error</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a>;
+
+    // Required method
+    fn <a href="#tymethod.call_resource" class="fn">call_resource</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 self,
+        request: <a class="type" href="type.CallResourceRequest.html" title="type grafana_plugin_sdk::backend::CallResourceRequest">CallResourceRequest</a>&lt;Self&gt;,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/nightly/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/nightly/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;(Self::<a class="associatedtype" href="trait.ResourceService.html#associatedtype.InitialResponse" title="type grafana_plugin_sdk::backend::ResourceService::InitialResponse">InitialResponse</a>, Self::<a class="associatedtype" href="trait.ResourceService.html#associatedtype.Stream" title="type grafana_plugin_sdk::backend::ResourceService::Stream">Stream</a>), Self::<a class="associatedtype" href="trait.ResourceService.html#associatedtype.Error" title="type grafana_plugin_sdk::backend::ResourceService::Error">Error</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span>;
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Trait for plugins that can handle arbitrary resource requests.</p>
+<p>Implementing this trait allows plugins to handle a wide variety of use cases beyond
+‘just’ responding to requests for data and returning dataframes.</p>
+<p>See <a href="https://grafana.com/docs/grafana/latest/developers/plugins/backend/#resources">https://grafana.com/docs/grafana/latest/developers/plugins/backend/#resources</a> for
+some examples of how this can be used.</p>
+<h2 id="examples"><a class="doc-anchor" href="#examples">§</a>Examples</h2><h3 id="stateful-service"><a class="doc-anchor" href="#stateful-service">§</a>Stateful service</h3>
+<p>The following shows an example implementation of <a href="trait.ResourceService.html" title="trait grafana_plugin_sdk::backend::ResourceService"><code>ResourceService</code></a> which handles
+two endpoints:</p>
+<ul>
+<li>/echo, which echos back the request’s URL, headers and body in three responses,</li>
+<li>/count, which increments the plugin’s internal count and returns it in a response.</li>
+</ul>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>std::sync::{atomic::{AtomicUsize, Ordering}, Arc};
+
+<span class="kw">use </span>async_stream::stream;
+<span class="kw">use </span>bytes::Bytes;
+<span class="kw">use </span>grafana_plugin_sdk::{backend, prelude::<span class="kw-2">*</span>};
+<span class="kw">use </span>http::Response;
+<span class="kw">use </span>thiserror::Error;
+
+<span class="attr">#[derive(Clone, Debug, GrafanaPlugin)]
+#[grafana_plugin(plugin_type = <span class="string">"app"</span>)]
+</span><span class="kw">struct </span>Plugin(Arc&lt;AtomicUsize&gt;);
+
+<span class="kw">impl </span>Plugin {
+    <span class="comment">// Increment the counter and return the stringified result in a `Response`.
+    </span><span class="kw">fn </span>inc_and_respond(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Response&lt;Bytes&gt; {
+        Response::new(
+            <span class="self">self</span>.<span class="number">0
+                </span>.fetch_add(<span class="number">1</span>, Ordering::SeqCst)
+                .to_string()
+                .into_bytes()
+                .into()
+        )
+    }
+}
+
+<span class="attr">#[derive(Debug, Error)]
+</span><span class="kw">enum </span>ResourceError {
+    <span class="attr">#[error(<span class="string">"HTTP error: {0}"</span>)]
+    </span>Http(<span class="attr">#[from] </span>http::Error),
+
+    <span class="attr">#[error(<span class="string">"Path not found"</span>)]
+    </span>NotFound,
+}
+
+<span class="kw">impl </span>backend::ErrIntoHttpResponse <span class="kw">for </span>ResourceError {}
+
+<span class="attr">#[backend::async_trait]
+</span><span class="kw">impl </span>backend::ResourceService <span class="kw">for </span>Plugin {
+    <span class="kw">type </span>Error = ResourceError;
+    <span class="kw">type </span>InitialResponse = Response&lt;Bytes&gt;;
+    <span class="kw">type </span>Stream = backend::BoxResourceStream&lt;<span class="self">Self</span>::Error&gt;;
+    <span class="kw">async fn </span>call_resource(<span class="kw-2">&amp;</span><span class="self">self</span>, r: backend::CallResourceRequest&lt;<span class="self">Self</span>&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(<span class="self">Self</span>::InitialResponse, <span class="self">Self</span>::Stream), <span class="self">Self</span>::Error&gt; {
+        <span class="kw">let </span>count = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>);
+        <span class="kw">let </span>response_and_stream = <span class="kw">match </span>r.request.uri().path() {
+            <span class="comment">// Just send back a single response.
+            </span><span class="string">"/echo" </span>=&gt; <span class="prelude-val">Ok</span>((
+                Response::new(r.request.into_body().into()),
+                Box::pin(futures::stream::empty()) <span class="kw">as </span><span class="self">Self</span>::Stream,
+            )),
+            <span class="comment">// Send an initial response with the current count, then stream the gradually
+            // incrementing count back to the client.
+            </span><span class="string">"/count" </span>=&gt; <span class="prelude-val">Ok</span>((
+                Response::new(
+                    count
+                        .fetch_add(<span class="number">1</span>, Ordering::SeqCst)
+                        .to_string()
+                        .into_bytes()
+                        .into(),
+                ),
+                Box::pin(<span class="macro">async_stream::try_stream!</span> {
+                    <span class="kw">loop </span>{
+                        <span class="kw">let </span>body = count
+                            .fetch_add(<span class="number">1</span>, Ordering::SeqCst)
+                            .to_string()
+                            .into_bytes()
+                            .into();
+                        <span class="kw">yield </span>body;
+                    }
+                }) <span class="kw">as </span><span class="self">Self</span>::Stream,
+            )),
+            <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(ResourceError::NotFound),
+        };
+        response_and_stream
+    }
+}</code></pre></div></div></details><h2 id="required-associated-types" class="section-header">Required Associated Types<a href="#required-associated-types" class="anchor">§</a></h2><div class="methods"><details class="toggle" open><summary><section id="associatedtype.Error" class="method"><a class="src rightside" href="../../src/grafana_plugin_sdk/backend/resource.rs.html#244">Source</a><h4 class="code-header">type <a href="#associatedtype.Error" class="associatedtype">Error</a>: <a class="trait" href="https://doc.rust-lang.org/nightly/core/error/trait.Error.html" title="trait core::error::Error">Error</a> + <a class="trait" href="trait.ErrIntoHttpResponse.html" title="trait grafana_plugin_sdk::backend::ErrIntoHttpResponse">ErrIntoHttpResponse</a> + <a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a></h4></section></summary><div class="docblock"><p>The error type that can be returned by individual responses.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.InitialResponse" class="method"><a class="src rightside" href="../../src/grafana_plugin_sdk/backend/resource.rs.html#249">Source</a><h4 class="code-header">type <a href="#associatedtype.InitialResponse" class="associatedtype">InitialResponse</a>: <a class="trait" href="trait.IntoHttpResponse.html" title="trait grafana_plugin_sdk::backend::IntoHttpResponse">IntoHttpResponse</a> + <a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a></h4></section></summary><div class="docblock"><p>The type returned as the initial response returned back to Grafana.</p>
+<p>This must be convertable into a <code>http::Response&lt;Bytes&gt;</code>.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.Stream" class="method"><a class="src rightside" href="../../src/grafana_plugin_sdk/backend/resource.rs.html#255">Source</a><h4 class="code-header">type <a href="#associatedtype.Stream" class="associatedtype">Stream</a>: Stream&lt;Item = <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Bytes, Self::<a class="associatedtype" href="trait.ResourceService.html#associatedtype.Error" title="type grafana_plugin_sdk::backend::ResourceService::Error">Error</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a></h4></section></summary><div class="docblock"><p>The type of stream of optional additional data returned by <code>run_stream</code>.</p>
+<p>This will generally be impossible to name directly, so returning the
+<a href="type.BoxResourceStream.html" title="type grafana_plugin_sdk::backend::BoxResourceStream"><code>BoxResourceStream</code></a> type alias will probably be more convenient.</p>
+</div></details></div><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.call_resource" class="method"><a class="src rightside" href="../../src/grafana_plugin_sdk/backend/resource.rs.html#263-266">Source</a><h4 class="code-header">fn <a href="#tymethod.call_resource" class="fn">call_resource</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+    request: <a class="type" href="type.CallResourceRequest.html" title="type grafana_plugin_sdk::backend::CallResourceRequest">CallResourceRequest</a>&lt;Self&gt;,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/nightly/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/nightly/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;(Self::<a class="associatedtype" href="trait.ResourceService.html#associatedtype.InitialResponse" title="type grafana_plugin_sdk::backend::ResourceService::InitialResponse">InitialResponse</a>, Self::<a class="associatedtype" href="trait.ResourceService.html#associatedtype.Stream" title="type grafana_plugin_sdk::backend::ResourceService::Stream">Stream</a>), Self::<a class="associatedtype" href="trait.ResourceService.html#associatedtype.Error" title="type grafana_plugin_sdk::backend::ResourceService::Error">Error</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Handle a resource request.</p>
+<p>It is completely up to the implementor how to handle the incoming request.</p>
+<p>A stream of responses can be returned. A simple way to return just a single response
+is to use [<code>futures_util::stream::once</code>].</p>
+</div></details></div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../../trait.impl/grafana_plugin_sdk/backend/resource/trait.ResourceService.js" async></script></section></div></main></body></html>

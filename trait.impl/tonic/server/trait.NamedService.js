@@ -1,0 +1,9 @@
+(function() {
+    const implementors = Object.fromEntries([["grafana_plugin_sdk",[["impl&lt;T&gt; NamedService for <a class=\"struct\" href=\"grafana_plugin_sdk/pluginv2/admission_control_server/struct.AdmissionControlServer.html\" title=\"struct grafana_plugin_sdk::pluginv2::admission_control_server::AdmissionControlServer\">AdmissionControlServer</a>&lt;T&gt;",0],["impl&lt;T&gt; NamedService for <a class=\"struct\" href=\"grafana_plugin_sdk/pluginv2/data_server/struct.DataServer.html\" title=\"struct grafana_plugin_sdk::pluginv2::data_server::DataServer\">DataServer</a>&lt;T&gt;",0],["impl&lt;T&gt; NamedService for <a class=\"struct\" href=\"grafana_plugin_sdk/pluginv2/diagnostics_server/struct.DiagnosticsServer.html\" title=\"struct grafana_plugin_sdk::pluginv2::diagnostics_server::DiagnosticsServer\">DiagnosticsServer</a>&lt;T&gt;",0],["impl&lt;T&gt; NamedService for <a class=\"struct\" href=\"grafana_plugin_sdk/pluginv2/resource_conversion_server/struct.ResourceConversionServer.html\" title=\"struct grafana_plugin_sdk::pluginv2::resource_conversion_server::ResourceConversionServer\">ResourceConversionServer</a>&lt;T&gt;",0],["impl&lt;T&gt; NamedService for <a class=\"struct\" href=\"grafana_plugin_sdk/pluginv2/resource_server/struct.ResourceServer.html\" title=\"struct grafana_plugin_sdk::pluginv2::resource_server::ResourceServer\">ResourceServer</a>&lt;T&gt;",0],["impl&lt;T&gt; NamedService for <a class=\"struct\" href=\"grafana_plugin_sdk/pluginv2/stream_server/struct.StreamServer.html\" title=\"struct grafana_plugin_sdk::pluginv2::stream_server::StreamServer\">StreamServer</a>&lt;T&gt;",0]]]]);
+    if (window.register_implementors) {
+        window.register_implementors(implementors);
+    } else {
+        window.pending_implementors = implementors;
+    }
+})()
+//{"start":59,"fragment_lengths":[1567]}

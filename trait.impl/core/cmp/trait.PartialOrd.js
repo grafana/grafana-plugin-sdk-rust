@@ -1,0 +1,9 @@
+(function() {
+    const implementors = Object.fromEntries([["grafana_plugin_sdk",[["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/nightly/core/cmp/trait.PartialOrd.html\" title=\"trait core::cmp::PartialOrd\">PartialOrd</a> for <a class=\"enum\" href=\"grafana_plugin_sdk/pluginv2/admission_request/enum.Operation.html\" title=\"enum grafana_plugin_sdk::pluginv2::admission_request::Operation\">Operation</a>",0],["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/nightly/core/cmp/trait.PartialOrd.html\" title=\"trait core::cmp::PartialOrd\">PartialOrd</a> for <a class=\"enum\" href=\"grafana_plugin_sdk/pluginv2/check_health_response/enum.HealthStatus.html\" title=\"enum grafana_plugin_sdk::pluginv2::check_health_response::HealthStatus\">HealthStatus</a>",0],["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/nightly/core/cmp/trait.PartialOrd.html\" title=\"trait core::cmp::PartialOrd\">PartialOrd</a> for <a class=\"enum\" href=\"grafana_plugin_sdk/pluginv2/publish_stream_response/enum.Status.html\" title=\"enum grafana_plugin_sdk::pluginv2::publish_stream_response::Status\">Status</a>",0],["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/nightly/core/cmp/trait.PartialOrd.html\" title=\"trait core::cmp::PartialOrd\">PartialOrd</a> for <a class=\"enum\" href=\"grafana_plugin_sdk/pluginv2/subscribe_stream_response/enum.Status.html\" title=\"enum grafana_plugin_sdk::pluginv2::subscribe_stream_response::Status\">Status</a>",0]]]]);
+    if (window.register_implementors) {
+        window.register_implementors(implementors);
+    } else {
+        window.pending_implementors = implementors;
+    }
+})()
+//{"start":59,"fragment_lengths":[1419]}

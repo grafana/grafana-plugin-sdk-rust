@@ -1,0 +1,112 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Used to respond for requests for data from datasources and app plugins."><title>DataService in grafana_plugin_sdk::backend - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-b7b9f40b.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="grafana_plugin_sdk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.95.0-nightly (f889772d6 2026-02-05)" data-channel="nightly" data-search-js="search-fb33671b.js" data-stringdex-js="stringdex-b897f86f.js" data-settings-js="settings-170eb4bf.js" ><script src="../../static.files/storage-f9617a14.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-12f88f4f.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-f7c3ffd8.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"></head><body class="rustdoc trait"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">DataService</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../grafana_plugin_sdk/index.html">grafana_<wbr>plugin_<wbr>sdk</a><span class="version">0.5.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Data<wbr>Service</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#example" title="Example">Example</a></li></ul><h3><a href="#required-associated-types">Required Associated Types</a></h3><ul class="block"><li><a href="#associatedtype.Query" title="Query">Query</a></li><li><a href="#associatedtype.QueryError" title="QueryError">QueryError</a></li><li><a href="#associatedtype.Stream" title="Stream">Stream</a></li></ul><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.query_data" title="query_data">query_data</a></li></ul><h3><a href="#implementors">Implementors</a></h3></section><div id="rustdoc-modnav"><h2><a href="index.html">In grafana_<wbr>plugin_<wbr>sdk::<wbr>backend</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">grafana_plugin_sdk</a>::<wbr><a href="index.html">backend</a></div><h1>Trait <span class="trait">Data<wbr>Service</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/grafana_plugin_sdk/backend/data.rs.html#394-415">Source</a> </span></div><pre class="rust item-decl"><code>pub trait DataService: <a class="trait" href="trait.GrafanaPlugin.html" title="trait grafana_plugin_sdk::backend::GrafanaPlugin">GrafanaPlugin</a> {
+    type <a href="#associatedtype.Query" class="associatedtype">Query</a>: <a class="trait" href="https://docs.rs/serde_core/1.0.228/serde_core/de/trait.DeserializeOwned.html" title="trait serde_core::de::DeserializeOwned">DeserializeOwned</a> + <a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a>;
+    type <a href="#associatedtype.QueryError" class="associatedtype">QueryError</a>: <a class="trait" href="trait.DataQueryError.html" title="trait grafana_plugin_sdk::backend::DataQueryError">DataQueryError</a>;
+    type <a href="#associatedtype.Stream" class="associatedtype">Stream</a>: Stream&lt;Item = <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="struct.DataResponse.html" title="struct grafana_plugin_sdk::backend::DataResponse">DataResponse</a>, Self::<a class="associatedtype" href="trait.DataService.html#associatedtype.QueryError" title="type grafana_plugin_sdk::backend::DataService::QueryError">QueryError</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a>;
+
+    // Required method
+    fn <a href="#tymethod.query_data" class="fn">query_data</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 self,
+        request: <a class="type" href="type.QueryDataRequest.html" title="type grafana_plugin_sdk::backend::QueryDataRequest">QueryDataRequest</a>&lt;Self::<a class="associatedtype" href="trait.DataService.html#associatedtype.Query" title="type grafana_plugin_sdk::backend::DataService::Query">Query</a>, Self&gt;,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/nightly/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/nightly/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = Self::<a class="associatedtype" href="trait.DataService.html#associatedtype.Stream" title="type grafana_plugin_sdk::backend::DataService::Stream">Stream</a>&gt; + <a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span>;
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Used to respond for requests for data from datasources and app plugins.</p>
+<p>Datasource plugins will usually want to implement this trait to perform the
+bulk of their processing.</p>
+<h2 id="example"><a class="doc-anchor" href="#example">§</a>Example</h2>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>futures_util::stream::FuturesOrdered;
+<span class="kw">use </span>grafana_plugin_sdk::{backend, data, prelude::<span class="kw-2">*</span>};
+<span class="kw">use </span>thiserror::Error;
+
+<span class="attr">#[derive(Clone, Debug, GrafanaPlugin)]
+#[grafana_plugin(plugin_type = <span class="string">"datasource"</span>)]
+</span><span class="kw">struct </span>MyPlugin;
+
+<span class="doccomment">/// An error that may occur during a query.
+///
+/// This must store the `ref_id` of the query so that Grafana can line it up.
+</span><span class="attr">#[derive(Debug, Error)]
+#[error(<span class="string">"Error querying backend for query {ref_id}: {source}"</span>)]
+</span><span class="kw">struct </span>QueryError {
+    source: data::Error,
+    ref_id: String,
+}
+
+<span class="kw">impl </span>backend::DataQueryError <span class="kw">for </span>QueryError {
+    <span class="kw">fn </span>ref_id(<span class="self">self</span>) -&gt; String {
+        <span class="self">self</span>.ref_id
+    }
+}
+
+<span class="attr">#[backend::async_trait]
+</span><span class="kw">impl </span>backend::DataService <span class="kw">for </span>MyPlugin {
+
+    <span class="doccomment">/// The type of JSON data sent from Grafana to our backend plugin.
+    ///
+    /// This will correspond to the `TQuery` type parameter of the frontend
+    /// datasource.
+    ///
+    /// We can use `serde_json::Value` if we want to accept any JSON.
+    </span><span class="kw">type </span>Query = serde_json::Value;
+
+    <span class="doccomment">/// The type of error that could be returned by an individual query.
+    </span><span class="kw">type </span>QueryError = QueryError;
+
+    <span class="doccomment">/// The type of iterator we're returning.
+    ///
+    /// In general the concrete type will be impossible to name in advance,
+    /// so the `backend::BoxDataResponseStream` type alias will be useful.
+    </span><span class="kw">type </span>Stream = backend::BoxDataResponseStream&lt;<span class="self">Self</span>::QueryError&gt;;
+
+    <span class="doccomment">/// Respond to a request for data from Grafana.
+    ///
+    /// This request will contain zero or more queries, as well as information
+    /// about the datasource instance on behalf of which this request is made,
+    /// such as address, credentials, etc.
+    ///
+    /// Our plugin must respond to each query and return an iterator of `DataResponse`s,
+    /// which themselves can contain zero or more `Frame`s.
+    </span><span class="kw">async fn </span>query_data(<span class="kw-2">&amp;</span><span class="self">self</span>, request: backend::QueryDataRequest&lt;<span class="self">Self</span>::Query, <span class="self">Self</span>&gt;) -&gt; <span class="self">Self</span>::Stream {
+        Box::pin(
+            request
+                .queries
+                .into_iter()
+                .map(|x| <span class="kw">async </span>{
+                    <span class="comment">// Here we create a single response Frame for each query.
+                    // Frames can be created from iterators of fields using [`IntoFrame`].
+                    </span><span class="prelude-val">Ok</span>(backend::DataResponse::new(
+                        x.ref_id.clone(),
+                        <span class="comment">// Return zero or more frames.
+                        // A real implementation would fetch this data from a database
+                        // or something.
+                        </span><span class="macro">vec!</span>[[
+                            [<span class="number">1_u32</span>, <span class="number">2</span>, <span class="number">3</span>].into_field(<span class="string">"x"</span>),
+                            [<span class="string">"a"</span>, <span class="string">"b"</span>, <span class="string">"c"</span>].into_field(<span class="string">"y"</span>),
+                        ]
+                        .into_frame(<span class="string">"foo"</span>)
+                        .check()
+                        .map_err(|source| QueryError {
+                            ref_id: x.ref_id,
+                            source,
+                        })<span class="question-mark">?</span>],
+                    ))
+                })
+                .collect::&lt;FuturesOrdered&lt;<span class="kw">_</span>&gt;&gt;(),
+        )
+    }
+}</code></pre></div></div></details><h2 id="required-associated-types" class="section-header">Required Associated Types<a href="#required-associated-types" class="anchor">§</a></h2><div class="methods"><details class="toggle" open><summary><section id="associatedtype.Query" class="method"><a class="src rightside" href="../../src/grafana_plugin_sdk/backend/data.rs.html#396">Source</a><h4 class="code-header">type <a href="#associatedtype.Query" class="associatedtype">Query</a>: <a class="trait" href="https://docs.rs/serde_core/1.0.228/serde_core/de/trait.DeserializeOwned.html" title="trait serde_core::de::DeserializeOwned">DeserializeOwned</a> + <a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a></h4></section></summary><div class="docblock"><p>The type of the JSON query sent from Grafana to the plugin.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.QueryError" class="method"><a class="src rightside" href="../../src/grafana_plugin_sdk/backend/data.rs.html#402">Source</a><h4 class="code-header">type <a href="#associatedtype.QueryError" class="associatedtype">QueryError</a>: <a class="trait" href="trait.DataQueryError.html" title="trait grafana_plugin_sdk::backend::DataQueryError">DataQueryError</a></h4></section></summary><div class="docblock"><p>The error type that can be returned by individual queries.</p>
+<p>This must implement <a href="trait.DataQueryError.html" title="trait grafana_plugin_sdk::backend::DataQueryError"><code>DataQueryError</code></a>, which allows the SDK to
+align queries up with any failed requests.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.Stream" class="method"><a class="src rightside" href="../../src/grafana_plugin_sdk/backend/data.rs.html#408">Source</a><h4 class="code-header">type <a href="#associatedtype.Stream" class="associatedtype">Stream</a>: Stream&lt;Item = <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="struct.DataResponse.html" title="struct grafana_plugin_sdk::backend::DataResponse">DataResponse</a>, Self::<a class="associatedtype" href="trait.DataService.html#associatedtype.QueryError" title="type grafana_plugin_sdk::backend::DataService::QueryError">QueryError</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a></h4></section></summary><div class="docblock"><p>The type of stream returned by the <code>query_data</code> method.</p>
+<p>This will generally be impossible to name directly, so returning the
+<a href="type.BoxDataResponseStream.html" title="type grafana_plugin_sdk::backend::BoxDataResponseStream"><code>BoxDataResponseStream</code></a> type alias will probably be more convenient.</p>
+</div></details></div><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.query_data" class="method"><a class="src rightside" href="../../src/grafana_plugin_sdk/backend/data.rs.html#414">Source</a><h4 class="code-header">fn <a href="#tymethod.query_data" class="fn">query_data</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+    request: <a class="type" href="type.QueryDataRequest.html" title="type grafana_plugin_sdk::backend::QueryDataRequest">QueryDataRequest</a>&lt;Self::<a class="associatedtype" href="trait.DataService.html#associatedtype.Query" title="type grafana_plugin_sdk::backend::DataService::Query">Query</a>, Self&gt;,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/nightly/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/nightly/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = Self::<a class="associatedtype" href="trait.DataService.html#associatedtype.Stream" title="type grafana_plugin_sdk::backend::DataService::Stream">Stream</a>&gt; + <a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Query data for an input request.</p>
+<p>The request will contain zero or more queries, as well as information about the
+origin of the queries (such as the datasource instance) in the <code>plugin_context</code> field.</p>
+</div></details></div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../../trait.impl/grafana_plugin_sdk/backend/data/trait.DataService.js" async></script></section></div></main></body></html>

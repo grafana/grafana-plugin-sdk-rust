@@ -1,0 +1,108 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Generates a `main` function that starts a `Plugin` with the returned service struct."><title>main in grafana_plugin_sdk_macros - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-b7b9f40b.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="grafana_plugin_sdk_macros" data-themes="" data-resource-suffix="" data-rustdoc-version="1.95.0-nightly (f889772d6 2026-02-05)" data-channel="nightly" data-search-js="search-fb33671b.js" data-stringdex-js="stringdex-b897f86f.js" data-settings-js="settings-170eb4bf.js" ><script src="../static.files/storage-f9617a14.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-12f88f4f.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-f7c3ffd8.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"></head><body class="rustdoc attr"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">main</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../grafana_plugin_sdk_macros/index.html">grafana_<wbr>plugin_<wbr>sdk_<wbr>macros</a><span class="version">0.5.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">main</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#attributes" title="Attributes">Attributes</a><ul><li><a href="#services" title="`services`"><code>services</code></a></li><li><a href="#init_subscriber" title="`init_subscriber`"><code>init_subscriber</code></a></li><li><a href="#shutdown_handler" title="`shutdown_handler`"><code>shutdown_handler</code></a></li></ul></li><li><a href="#macro-expansion" title="Macro expansion">Macro expansion</a></li></ul></section><div id="rustdoc-modnav"><h2 class="in-crate"><a href="index.html">In crate grafana_<wbr>plugin_<wbr>sdk_<wbr>macros</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="index.html">grafana_plugin_sdk_macros</a></div><h1>Attribute Macro <span class="attr">main</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/grafana_plugin_sdk_macros/lib.rs.html#639-684">Source</a> </span></div><pre class="rust item-decl"><code>#[main]</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Generates a <code>main</code> function that starts a <a href="../grafana_plugin_sdk/backend/struct.Plugin.html"><code>Plugin</code></a> with the returned service struct.</p>
+<p>When applied to a function that returns a struct implementing one or more of the various
+<code>Service</code> traits, <code>#[main]</code> will create an async runtime and a <a href="../grafana_plugin_sdk/backend/struct.Plugin.html"><code>Plugin</code></a>,
+then attach the desired services</p>
+<p>The returned struct <em>must</em> be <code>Clone</code> so that it can be used to handle multiple
+services.</p>
+<h2 id="attributes"><a class="doc-anchor" href="#attributes">§</a>Attributes</h2><h3 id="services"><a class="doc-anchor" href="#services">§</a><code>services</code></h3>
+<p>The <code>services</code> attribute takes a list of services that the plugin should expose.
+At least one service must be specified. Possible options are:</p>
+<ul>
+<li><code>data</code> (registers a <a href="../grafana_plugin_sdk/backend/trait.DataService.html"><code>DataService</code></a> using <a href="../grafana_plugin_sdk/backend/struct.Plugin.html#method.data_service"><code>Plugin::data_service</code></a>)</li>
+<li><code>diagnostics</code> (registers a <a href="../grafana_plugin_sdk/backend/trait.DiagnosticsService.html"><code>DiagnosticsService</code></a> using <a href="../grafana_plugin_sdk/backend/struct.Plugin.html#method.diagnostics_service"><code>Plugin::data_service</code></a>)</li>
+<li><code>resource</code> (registers a <a href="../grafana_plugin_sdk/backend/trait.ResourceService.html"><code>ResourceService</code></a> using <a href="../grafana_plugin_sdk/backend/struct.Plugin.html#method.resource_service"><code>Plugin::data_service</code></a>)</li>
+<li><code>stream</code> (registers a <a href="../grafana_plugin_sdk/backend/trait.StreamService.html"><code>StreamService</code></a> using <a href="../grafana_plugin_sdk/backend/struct.Plugin.html#method.stream_service"><code>Plugin::data_service</code></a>)</li>
+</ul>
+<h4 id="example"><a class="doc-anchor" href="#example">§</a>Example:</h4>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[grafana_plugin_sdk::main(
+    services(data, diagnostics, resource, stream),
+)]
+</span><span class="kw">async fn </span>plugin() -&gt; Plugin {
+    Plugin
+}</code></pre></div><h3 id="init_subscriber"><a class="doc-anchor" href="#init_subscriber">§</a><code>init_subscriber</code></h3>
+<p>The <code>init_subscriber</code> attribute indicates whether a tracing subscriber should be
+initialized automatically using
+<a href="../grafana_plugin_sdk/backend/struct.Plugin.html#method.init_subscriber"><code>Plugin::init_subscriber</code></a>.
+Unless this is being done in the annotated plugin function, this should
+generally be set to <code>true</code>.</p>
+<p>This must be a boolean.</p>
+<h4 id="example-1"><a class="doc-anchor" href="#example-1">§</a>Example</h4>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[grafana_plugin_sdk::main(
+    services(resource),
+    init_subscriber = <span class="bool-val">true</span>,
+)]
+</span><span class="kw">async fn </span>plugin() -&gt; Plugin {
+    Plugin
+}</code></pre></div><h3 id="shutdown_handler"><a class="doc-anchor" href="#shutdown_handler">§</a><code>shutdown_handler</code></h3>
+<p>The <code>shutdown_handler</code> attribute indicates that a shutdown handler should be exposed using
+<a href="../grafana_plugin_sdk/backend/struct.Plugin.html#method.shutdown_handler"><code>Plugin::shutdown_handler</code></a></p>
+<p>This must be a string which can be parsed as a <a href="https://doc.rust-lang.org/nightly/core/net/socket_addr/enum.SocketAddr.html" title="enum core::net::socket_addr::SocketAddr"><code>SocketAddr</code></a> using <code>SocketAddr::parse</code>.</p>
+<h4 id="example-2"><a class="doc-anchor" href="#example-2">§</a>Example</h4>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[grafana_plugin_sdk::main(
+    services(resource),
+    shutdown_handler = <span class="string">"127.0.0.1:10001"</span>,
+)]
+</span><span class="kw">async fn </span>plugin() -&gt; Plugin {
+    Plugin
+}</code></pre></div><h2 id="macro-expansion"><a class="doc-anchor" href="#macro-expansion">§</a>Macro expansion</h2>
+<p>The following example shows what the <code>#[main]</code> macro expands to:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>std::sync::Arc;
+
+<span class="kw">use </span>grafana_plugin_sdk::{backend, prelude::<span class="kw-2">*</span>};
+<span class="kw">use </span>thiserror::Error;
+
+<span class="kw">struct </span>Plugin;
+
+<span class="attr">#[derive(Debug, Error)]
+</span><span class="kw">enum </span>ResourceError {
+    <span class="attr">#[error(<span class="string">"HTTP error: {0}"</span>)]
+    </span>Http(<span class="attr">#[from] </span>http::Error),
+
+    <span class="attr">#[error(<span class="string">"Path not found"</span>)]
+    </span>NotFound,
+}
+
+<span class="kw">impl </span>backend::ErrIntoHttpResponse <span class="kw">for </span>ResourceError {}
+
+<span class="attr">#[backend::async_trait]
+</span><span class="kw">impl </span>backend::ResourceService <span class="kw">for </span>Plugin {
+    <span class="kw">type </span>Error = ResourceError;
+    <span class="kw">type </span>InitialResponse = Vec&lt;u8&gt;;
+    <span class="kw">type </span>Stream = backend::BoxResourceStream&lt;<span class="self">Self</span>::Error&gt;;
+    <span class="kw">async fn </span>call_resource(<span class="kw-2">&amp;</span><span class="self">self</span>, r: backend::CallResourceRequest&lt;<span class="self">Self</span>&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(<span class="self">Self</span>::InitialResponse, <span class="self">Self</span>::Stream), <span class="self">Self</span>::Error&gt; {
+        <span class="macro">todo!</span>()
+    }
+}
+
+<span class="attr">#[grafana_plugin_sdk::main(
+    services(resource),
+    init_subscriber = <span class="bool-val">true</span>,
+    shutdown_handler = <span class="string">"127.0.0.1:10001"</span>,
+)]
+</span><span class="kw">async fn </span>plugin() -&gt; Plugin {
+    Plugin
+}</code></pre></div>
+<p>expands to:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code>
+<span class="kw">fn </span>main() -&gt; <span class="prelude-ty">Result</span>&lt;(), Box&lt;<span class="kw">dyn </span>std::error::Error&gt;&gt; {
+    <span class="kw">let </span>fut = <span class="kw">async </span>{
+        <span class="kw">let </span>listener = ::grafana_plugin_sdk::backend::initialize().<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="kw">let </span>service = Plugin;
+        ::grafana_plugin_sdk::backend::Plugin::new()
+            .resource_service(service.clone())
+            .init_subscriber(<span class="bool-val">true</span>)
+            .shutdown_handler(<span class="string">"127.0.0.1:10001"</span>.parse().expect(<span class="string">"could not parse shutdown handler as SocketAddr"</span>))
+            .start(listener)
+            .<span class="kw">await</span><span class="question-mark">?</span>;
+        Ok::&lt;<span class="kw">_</span>, Box&lt;<span class="kw">dyn </span>std::error::Error&gt;&gt;(())
+    };
+    tokio::runtime::Builder::new_multi_thread()
+        .thread_name(<span class="string">"grafana-plugin-worker-thread"</span>)
+        .enable_all()
+        .build()
+        .expect(<span class="string">"create tokio runtime"</span>)
+        .block_on(fut)<span class="question-mark">?</span>;
+    <span class="prelude-val">Ok</span>(())
+}</code></pre></div></div></details></section></div></main></body></html>
