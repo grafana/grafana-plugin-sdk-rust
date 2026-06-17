@@ -16,7 +16,7 @@ futures-core = "0.3.28"
 futures-util = "0.3.28"
 grafana-plugin-sdk-macros = { version = "0.5.0", path = "../grafana-plugin-sdk-macros" }
 http = "1.0.0"
-itertools = "0.14.0"
+itertools = "0.15.0"
 num-traits = "0.2.15"
 prost = "0.14.1"
 reqwest_lib = { package = "reqwest", version = "0.13.0", optional = true }
