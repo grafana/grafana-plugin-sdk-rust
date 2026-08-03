@@ -11,10 +11,10 @@ description = "Convenience macros for the Grafana backend plugin SDK."
 proc-macro = true
 
 [dependencies]
-darling = "0.23.0"
+darling = "0.24.0"
 proc-macro2 = "1.0.60"
 quote = "1.0.28"
-syn = { version = "2.0.18", features = ["full"] }
+syn = { version = "3.0.3", features = ["full"] }
 
 [dev-dependencies]
 grafana-plugin-sdk = { path = "../grafana-plugin-sdk" }
