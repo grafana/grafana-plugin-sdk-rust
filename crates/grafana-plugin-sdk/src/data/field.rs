@@ -48,7 +48,8 @@ pub struct Field {
 
 impl Field {
     pub(crate) fn to_arrow_field(&self) -> Result<ArrowField, serde_json::Error> {
-        let metadata = match (self.labels.is_empty(), self.config.as_ref()) {
+        let metadata: HashMap<String, String> = match (self.labels.is_empty(), self.config.as_ref())
+        {
             (true, None) => Default::default(),
             (false, None) => [("labels".to_string(), serde_json::to_string(&self.labels)?)]
                 .into_iter()

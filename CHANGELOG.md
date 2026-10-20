@@ -31,7 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Users who are just using the simple `Field::set_values` method or the various
   `IntoField` / `IntoOptField` traits should not be affected.
 - Update MSRV to 1.81
-- Bump arrow dependency to 56.0
+- Bump arrow dependency to 60.0
 - Bump darling dependency to 0.21.0
 - Bump itertools dependency to 0.14.0
 - Bump prometheus dependency to 0.14.0
