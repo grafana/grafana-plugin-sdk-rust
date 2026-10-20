@@ -39,6 +39,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bump prost, tonic, tonic-build and tonic-health dependencies to 0.14.2; added tonic-prost dependency
 - Bump tracing-serde dependency to 0.2.0
 
+### Fixed
+
+- Field labels are no longer dropped from the Arrow schema metadata when the field
+  also has a config, and empty labels are no longer serialized when only a config is set.
+
 ## [0.5.0] - 2024-09-17
 
 ### Added
