@@ -2,9 +2,18 @@ error[E0277]: the trait bound `MyPlugin: DataService` is not satisfied
   --> tests/ui-fail/non_impl_service.rs:10:5
    |
 10 |     #[grafana_plugin_sdk::main(services(data))]
-   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `DataService` is not implemented for `MyPlugin`
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ unsatisfied trait bound
    |
-   = help: the trait `DataService` is implemented for `backend::noop::NoopService`
+help: the trait `DataService` is not implemented for `MyPlugin`
+  --> tests/ui-fail/non_impl_service.rs:8:5
+   |
+ 8 |     struct MyPlugin;
+   |     ^^^^^^^^^^^^^^^
+help: the trait `DataService` is implemented for `backend::noop::NoopService`
+  --> $WORKSPACE/crates/grafana-plugin-sdk/src/backend/noop.rs
+   |
+   | impl DataService for NoopService {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 note: required by a bound in `grafana_plugin_sdk::backend::Plugin::<D, Q, R, S>::data_service`
   --> $WORKSPACE/crates/grafana-plugin-sdk/src/backend/mod.rs
    |
@@ -15,12 +24,12 @@ note: required by a bound in `grafana_plugin_sdk::backend::Plugin::<D, Q, R, S>:
    |            ^^^^^^^^^^^ required by this bound in `Plugin::<D, Q, R, S>::data_service`
    = note: this error originates in the attribute macro `grafana_plugin_sdk::main` (in Nightly builds, run with -Z macro-backtrace for more info)
 
-error[E0599]: the method `start` exists for struct `Plugin<NoopService, MyPlugin, NoopService, NoopService>`, but its trait bounds were not satisfied
+error[E0599]: the method `start` exists for struct `grafana_plugin_sdk::backend::Plugin<backend::noop::NoopService, MyPlugin, backend::noop::NoopService, backend::noop::NoopService>`, but its trait bounds were not satisfied
   --> tests/ui-fail/non_impl_service.rs:10:5
    |
-8  |     struct MyPlugin;
+ 8 |     struct MyPlugin;
    |     --------------- doesn't satisfy `MyPlugin: DataService`
-9  |
+ 9 |
 10 |     #[grafana_plugin_sdk::main(services(data))]
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ method cannot be called due to unsatisfied trait bounds
    |

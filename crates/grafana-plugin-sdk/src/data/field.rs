@@ -728,22 +728,17 @@ pub struct Threshold {
 }
 
 /// How thresholds should be evaluated.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub enum ThresholdsMode {
     /// Pick thresholds based on the absolute value.
     ///
     /// This is the default value.
+    #[default]
     Absolute,
     /// Thresholds should be treated as relative to the min/max.
     Percentage,
-}
-
-impl Default for ThresholdsMode {
-    fn default() -> Self {
-        Self::Absolute
-    }
 }
 
 /// Links to use when clicking on a result.
