@@ -48,21 +48,13 @@ pub struct Field {
 
 impl Field {
     pub(crate) fn to_arrow_field(&self) -> Result<ArrowField, serde_json::Error> {
-        let metadata = match (self.labels.is_empty(), self.config.as_ref()) {
-            (true, None) => Default::default(),
-            (false, None) => [("labels".to_string(), serde_json::to_string(&self.labels)?)]
-                .into_iter()
-                .collect(),
-            (false, Some(c)) => [("config".to_string(), serde_json::to_string(&c)?)]
-                .into_iter()
-                .collect(),
-            (true, Some(c)) => [
-                ("labels".to_string(), serde_json::to_string(&self.labels)?),
-                ("config".to_string(), serde_json::to_string(&c)?),
-            ]
-            .into_iter()
-            .collect(),
-        };
+        let mut metadata = HashMap::new();
+        if !self.labels.is_empty() {
+            metadata.insert("labels".to_string(), serde_json::to_string(&self.labels)?);
+        }
+        if let Some(c) = &self.config {
+            metadata.insert("config".to_string(), serde_json::to_string(c)?);
+        }
         Ok(ArrowField::new(
             self.name.clone(),
             self.type_info.frame.into(),
@@ -877,6 +869,37 @@ mod tests {
         Date,
         Utc.with_ymd_and_hms(1970, 1, 1, 0, 0, 0).single().unwrap()
     );
+
+    #[test]
+    fn to_arrow_field_metadata() {
+        let labels: BTreeMap<_, _> = [("a".to_string(), "b".to_string())].into();
+        let keys = |field: Field| {
+            let mut keys: Vec<_> = field
+                .to_arrow_field()
+                .unwrap()
+                .metadata()
+                .keys()
+                .cloned()
+                .collect();
+            keys.sort();
+            keys
+        };
+        let field = || vec![1u32].into_field("x");
+        assert!(keys(field()).is_empty());
+        assert_eq!(keys(field().with_labels(labels.clone())), ["labels"]);
+        assert_eq!(
+            keys(field().with_config(FieldConfig::default())),
+            ["config"]
+        );
+        assert_eq!(
+            keys(
+                field()
+                    .with_labels(labels)
+                    .with_config(FieldConfig::default())
+            ),
+            ["config", "labels"]
+        );
+    }
 
     #[test]
     fn set_values_from_iter_primitive() {
